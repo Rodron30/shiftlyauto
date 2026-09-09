@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Shiftly Auto — Settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <main>
+    <h1>Shiftly Auto</h1>
+    <p class="subtitle">Approved Inventory Sites</p>
+    <p class="hint">
+      VIN detection only runs on sites you add here. Add your dealership's
+      own inventory website(s) — never a site you don't control or have
+      permission to integrate with.
+    </p>
+
+    <form id="add-form">
+      <input
+        id="domain-input"
+        type="text"
+        placeholder="inventory.yourdealership.com"
+        autocomplete="off"
+      />
+      <button type="submit">Add &amp; Allow</button>
+    </form>
+
+    <p id="error" class="error" hidden></p>
+
+    <ul id="domain-list"></ul>
+
+    <p id="empty-state" class="hint">No approved sites yet.</p>
+  </main>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

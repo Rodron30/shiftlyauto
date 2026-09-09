@@ -1,0 +1,171 @@
+﻿import { NextResponse } from "next/server";
+
+import {
+  createSupabaseServerClient,
+  getCurrentUserProfile,
+} from "@/lib/supabaseServer";
+
+function getCurrentMonth() {
+  const now = new Date();
+
+  return `${now.getUTCFullYear()}-${String(
+    now.getUTCMonth() + 1
+  ).padStart(2, "0")}-01`;
+}
+
+export async function GET() {
+  try {
+    const profile = await getCurrentUserProfile();
+
+    if (!profile?.id || !profile?.dealership_id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Sign in to a dealership first.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const usageMonth = getCurrentMonth();
+
+    const { data: usage, error: usageError } = await supabase
+      .from("saas_usage")
+      .select(
+        "id, dealership_id, usage_month, active_users, vehicle_count, reports_generated, ai_requests, integration_count, api_requests"
+      )
+      .eq("dealership_id", profile.dealership_id)
+      .eq("usage_month", usageMonth)
+      .maybeSingle();
+
+    if (usageError) {
+      console.error("SaaS usage lookup error:", usageError);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: usageError.message || "Failed to load SaaS usage.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const { count: activeUserCount, error: activeUserCountError } =
+      await supabase
+        .from("users")
+        .select("id", { count: "exact", head: true })
+        .eq("dealership_id", profile.dealership_id);
+
+    if (activeUserCountError) {
+      console.error(
+        "SaaS active user count lookup error:",
+        activeUserCountError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            activeUserCountError.message ||
+            "Failed to load active user count.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const {
+      count: integrationCount,
+      error: integrationCountError,
+    } = await supabase
+      .from("integrations")
+      .select("id", { count: "exact", head: true })
+      .eq("dealership_id", profile.dealership_id)
+      .neq("status", "DISABLED");
+
+    if (integrationCountError) {
+      console.error(
+        "SaaS integration count lookup error:",
+        integrationCountError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            integrationCountError.message ||
+            "Failed to load integration count.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const resolvedUsage = usage
+      ? {
+          ...usage,
+          active_users: activeUserCount ?? 0,
+          integration_count: integrationCount ?? 0,
+        }
+      : {
+          dealership_id: profile.dealership_id,
+          usage_month: usageMonth,
+          active_users: activeUserCount ?? 0,
+          vehicle_count: 0,
+          reports_generated: 0,
+          ai_requests: 0,
+          integration_count: integrationCount ?? 0,
+          api_requests: 0,
+        };
+
+    const { data: subscription, error: subscriptionError } = await supabase
+      .from("saas_subscriptions")
+      .select(`
+        status,
+        plan:saas_plans (
+          id,
+          code,
+          name,
+          max_users,
+          max_vehicles,
+          max_reports_per_month,
+          max_ai_requests_per_month,
+          max_integrations
+        )
+      `)
+      .eq("dealership_id", profile.dealership_id)
+      .maybeSingle();
+
+    if (subscriptionError) {
+      console.error(
+        "SaaS usage subscription lookup error:",
+        subscriptionError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            subscriptionError.message ||
+            "Failed to load SaaS plan limits.",
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      usage: resolvedUsage,
+      subscription: subscription ?? null,
+    });
+  } catch (error) {
+    console.error("SaaS usage API error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to load SaaS usage.",
+      },
+      { status: 500 }
+    );
+  }
+}

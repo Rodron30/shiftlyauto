@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shiftly Auto</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+
+<body>
+  <main>
+    <header>
+      <span class="logo">🚗</span>
+
+      <div>
+        <p class="title">Vehicle Intelligence</p>
+        <p id="session-line" class="subtitle">
+          Checking session...
+        </p>
+      </div>
+    </header>
+
+    <section id="vin-section" class="card">
+      <p id="vin-status" class="status">
+        Scanning this page...
+      </p>
+
+      <div id="vin-list"></div>
+    </section>
+
+    <p id="not-approved" class="hint" hidden>
+      This site isn't in your approved list yet.
+      <a href="#" id="open-options-link">
+        Add it in Settings
+      </a>.
+    </p>
+
+    <footer>
+      <a href="#" id="open-app-link">
+        Open Dashboard
+      </a>
+
+      <a href="#" id="open-options-link-2">
+        Settings
+      </a>
+    </footer>
+  </main>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

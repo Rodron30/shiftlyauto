@@ -1,0 +1,34 @@
+# Environment variables
+.env
+.env.*
+!.env.local.example
+
+# Next.js
+web/.next/
+web/out/
+
+# Node
+web/node_modules/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Local files
+*.local
+
+# Archives
+*.zip
+
+# Backup files
+*.backup
+*.backup-*
