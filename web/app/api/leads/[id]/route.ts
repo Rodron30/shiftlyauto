@@ -59,6 +59,8 @@ export async function PATCH(
         { status: 401 }
       );
     }
+
+    // Customers can edit only their own leads
     const saasAccess = await requireSaasAccess();
 
     if (!saasAccess.ok) {
@@ -104,6 +106,7 @@ export async function PATCH(
         id,
         customer_id,
         customer_name,
+        created_by,
         status,
         follow_up_date,
         notes
@@ -132,6 +135,16 @@ export async function PATCH(
           error: "Lead not found.",
         },
         { status: 404 }
+      );
+    }
+
+    if (profile.role === "customer" && existingLead.created_by !== profile.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Customers can only edit their own leads.",
+        },
+        { status: 403 }
       );
     }
 
@@ -360,6 +373,18 @@ export async function DELETE(
         { status: 401 }
       );
     }
+
+    // Customers cannot delete leads
+    if (profile.role === "customer") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Customers do not have permission to delete leads.",
+        },
+        { status: 403 }
+      );
+    }
+
     const saasAccess = await requireSaasAccess();
 
     if (!saasAccess.ok) {

@@ -80,6 +80,7 @@ export async function POST(request: Request) {
       );
     }
 
+
     const saasAccess = await requireSaasAccess();
 
     if (!saasAccess.ok) {

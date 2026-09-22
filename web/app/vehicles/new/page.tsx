@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AppHeader } from "@/components/AppHeader";
+import { useToast } from "@/components/ui/Toast";
 
 type VehicleForm = {
   vin: string;
@@ -14,10 +14,16 @@ type VehicleForm = {
   body: string;
   engine: string;
   drivetrain: string;
+  transmission: string;
   fuel: string;
   price: string;
+  currency: string;
   mileage: string;
+  mileageUnit: string;
+  primary_image: string;
+  images: string[];
   description: string;
+  location: string;
   status: string;
 };
 
@@ -43,86 +49,39 @@ function formatNumberInput(value: string) {
           .replace(/\./g, "")
           .slice(0, 2);
 
-  if (!integerPart) {
-    integerPart = "0";
-  }
-
-  integerPart = integerPart.replace(/^0+(?=\d)/, "");
-
-  const formattedInteger = Number(integerPart).toLocaleString(
-    "en-US"
-  );
-
-  if (firstDotIndex !== -1) {
-    return `${formattedInteger}.${decimalPart}`;
-  }
-
-  return formattedInteger;
-}
-
-function numericValue(value: string) {
-  const cleaned = value.replace(/,/g, "").trim();
-
-  if (!cleaned) {
-    return null;
-  }
-
-  const number = Number(cleaned);
-
-  return Number.isFinite(number) ? number : null;
-}
-
-type FieldProps = {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  placeholder?: string;
-  required?: boolean;
-  maxLength?: number;
-  min?: string;
-  max?: string;
-  step?: string;
-};
-
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  placeholder,
-  required = false,
-  maxLength,
-  min,
-  max,
-  step,
-}: FieldProps) {
-  return (
-    <div>
-      <label className="text-sm font-medium text-gray-700">
-        {label}
-        {required && (
-          <span className="ml-1 text-red-500">*</span>
-        )}
-      </label>
-
-      <input
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        required={required}
-        maxLength={maxLength}
-        min={min}
-        step={step}
-        className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-      />
-    </div>
-  );
+  return integerPart + (decimalPart ? `.${decimalPart}` : "");
 }
 
 export default function NewVehiclePage() {
   const router = useRouter();
+  const [accessDenied, setAccessDenied] = useState(false);
+  const { showToast } = useToast();
+
+  // Check user role and redirect if customer
+  useEffect(() => {
+    async function checkAccess() {
+      try {
+        const response = await fetch("/api/auth/session");
+        const result = await response.json();
+        
+        if (result.profile?.role === "customer") {
+          setAccessDenied(true);
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to check user role:", err);
+      }
+    }
+    
+    checkAccess();
+  }, []);
+
+  // Redirect customers to appropriate page
+  useEffect(() => {
+    if (accessDenied) {
+      router.push("/leads");
+    }
+  }, [accessDenied, router]);
 
   const [form, setForm] = useState<VehicleForm>(() => {
     const defaultForm: VehicleForm = {
@@ -134,337 +93,382 @@ export default function NewVehiclePage() {
       body: "",
       engine: "",
       drivetrain: "",
+      transmission: "",
       fuel: "",
       price: "",
+      currency: "CAD",
       mileage: "",
+      primary_image: "",
+      images: [],
+      mileageUnit: "KM",
       description: "",
+      location: "",
       status: "AVAILABLE",
     };
 
-    if (typeof window === "undefined") {
-      return defaultForm;
+    // Initialize from URL parameters if provided
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("vin")) defaultForm.vin = params.get("vin") || "";
+      if (params.get("year")) defaultForm.year = params.get("year") || "";
+      if (params.get("make")) defaultForm.make = params.get("make") || "";
+      if (params.get("model")) defaultForm.model = params.get("model") || "";
+      if (params.get("trim")) defaultForm.trim = params.get("trim") || "";
+      if (params.get("body")) defaultForm.body = params.get("body") || "";
+      if (params.get("engine")) defaultForm.engine = params.get("engine") || "";
+      if (params.get("drivetrain")) defaultForm.drivetrain = params.get("drivetrain") || "";
+      if (params.get("transmission")) defaultForm.transmission = params.get("transmission") || "";
+      if (params.get("fuel")) defaultForm.fuel = params.get("fuel") || "";
+      if (params.get("price")) defaultForm.price = params.get("price") || "";
+      if (params.get("mileage")) defaultForm.mileage = params.get("mileage") || "";
+      if (params.get("description")) defaultForm.description = params.get("description") || "";
+      if (params.get("location")) defaultForm.location = params.get("location") || "";
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const vinFromUrl = params.get("vin");
-
-    if (!vinFromUrl) {
-      return defaultForm;
-    }
-
-    const normalizedVin = vinFromUrl.trim().toUpperCase();
-
-    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(normalizedVin)) {
-      return defaultForm;
-    }
-
-    return {
-      ...defaultForm,
-      vin: normalizedVin,
-    };
+    return defaultForm;
   });
 
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  function updateField(
-    field: keyof VehicleForm,
-    value: string
-  ) {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+  if (accessDenied) {
+    return (
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+          <h1 className="text-lg font-semibold text-amber-900 mb-2">Access Denied</h1>
+          <p className="text-amber-700 mb-4">
+            Customers do not have access to create vehicles. Redirecting to Leads...
+          </p>
+        </div>
+      </div>
+    );
   }
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    setLoading(true);
+    setError("");
 
     try {
-      setSaving(true);
-      setError("");
-
-      const price = numericValue(form.price);
-      const mileage = numericValue(form.mileage);
-
-      if (form.price.trim() && price === null) {
-        throw new Error("Please enter a valid price.");
-      }
-
-      if (form.mileage.trim() && mileage === null) {
-        throw new Error("Please enter a valid mileage.");
-      }
-
       const response = await fetch("/api/vehicles", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...form,
-          price,
-          mileage,
+          vin: form.vin || null,
+          year: form.year ? Number(form.year) : null,
+          make: form.make || null,
+          model: form.model || null,
+          trim: form.trim || null,
+          body: form.body || null,
+          engine: form.engine || null,
+          drivetrain: form.drivetrain || null,
+          transmission: form.transmission || null,
+          fuel: form.fuel || null,
+          price: form.price ? Number(form.price.replace(/,/g, "")) : null,
+          currency: form.currency,
+          mileage: form.mileage ? Number(form.mileage.replace(/,/g, "")) : null,
+          mileage_unit: form.mileageUnit,
+          primary_image: form.primary_image || null,
+          images: form.images || [],
+          description: form.description || null,
+          location: form.location || null,
+          status: form.status || "AVAILABLE",
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(
-          result.error || "Failed to create vehicle."
-        );
+        throw new Error(result.error || "Failed to create vehicle.");
       }
 
-      router.push("/vehicles");
-      router.refresh();
+      showToast("success", "Vehicle created successfully!");
+
+      const vin = form.vin || result.vehicle?.id;
+      if (vin) {
+        router.push(`/vehicles/${encodeURIComponent(vin)}`);
+      } else {
+        router.push("/vehicles");
+      }
     } catch (err) {
       console.error("Create vehicle error:", err);
-
       setError(
         err instanceof Error
           ? err.message
           : "Failed to create vehicle."
       );
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <main className="min-h-screen bg-gray-100">
-      <AppHeader />
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Add Vehicle</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Add a new vehicle to your inventory.
+        </p>
+      </div>
 
-      <div className="mx-auto max-w-5xl px-6 py-10">
-        <div className="mb-6">
-          <Link
-            href="/vehicles"
-            className="text-sm font-semibold text-gray-600 transition hover:text-gray-900"
-          >
-            Back to Vehicles
-          </Link>
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
 
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              VIN
+            </label>
+            <input
+              type="text"
+              value={form.vin}
+              onChange={(e) => setForm({ ...form, vin: e.target.value.toUpperCase() })}
+              placeholder="Vehicle Identification Number"
+              maxLength={17}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
 
-          <p className="mt-6 text-sm font-medium text-gray-500">
-            Vehicle Intelligence
-          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Year
+            </label>
+            <input
+              type="number"
+              value={form.year}
+              onChange={(e) => setForm({ ...form, year: e.target.value })}
+              placeholder="2024"
+              min="1900"
+              max="2099"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
 
-          <h1 className="mt-1 text-3xl font-bold text-gray-900">
-            Add Vehicle
-          </h1>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Make
+            </label>
+            <input
+              type="text"
+              value={form.make}
+              onChange={(e) => setForm({ ...form, make: e.target.value })}
+              placeholder="Toyota"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
 
-          <p className="mt-2 text-gray-600">
-            Add a vehicle to your dealership inventory.
-          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Model
+            </label>
+            <input
+              type="text"
+              value={form.model}
+              onChange={(e) => setForm({ ...form, model: e.target.value })}
+              placeholder="Camry"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Trim
+            </label>
+            <input
+              type="text"
+              value={form.trim}
+              onChange={(e) => setForm({ ...form, trim: e.target.value })}
+              placeholder="LE"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Body Style
+            </label>
+            <input
+              type="text"
+              value={form.body}
+              onChange={(e) => setForm({ ...form, body: e.target.value })}
+              placeholder="Sedan"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Price
+            </label>
+            <input
+              type="text"
+              value={form.price}
+              onChange={(e) => setForm({ ...form, price: formatNumberInput(e.target.value) })}
+              placeholder="25,000"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Currency
+            </label>
+            <select
+              value={form.currency}
+              onChange={(e) => setForm({ ...form, currency: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="CAD">CAD</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Mileage
+            </label>
+            <input
+              type="text"
+              value={form.mileage}
+              onChange={(e) => setForm({ ...form, mileage: formatNumberInput(e.target.value) })}
+              placeholder="50,000"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Mileage Unit
+            </label>
+            <select
+              value={form.mileageUnit}
+              onChange={(e) => setForm({ ...form, mileageUnit: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="KM">KM</option>
+              <option value="MI">MI</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Fuel Type
+            </label>
+            <input
+              type="text"
+              value={form.fuel}
+              onChange={(e) => setForm({ ...form, fuel: e.target.value })}
+              placeholder="Gasoline"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Transmission
+            </label>
+            <input
+              type="text"
+              value={form.transmission}
+              onChange={(e) => setForm({ ...form, transmission: e.target.value })}
+              placeholder="Automatic"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Drivetrain
+            </label>
+            <input
+              type="text"
+              value={form.drivetrain}
+              onChange={(e) => setForm({ ...form, drivetrain: e.target.value })}
+              placeholder="FWD"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Engine
+            </label>
+            <input
+              type="text"
+              value={form.engine}
+              onChange={(e) => setForm({ ...form, engine: e.target.value })}
+              placeholder="2.5L"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <select
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="AVAILABLE">Available</option>
+              <option value="DRAFT">Draft</option>
+              <option value="SOLD">Sold</option>
+            </select>
+          </div>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-        >
-          {error && (
-            <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
-              <p className="text-sm font-medium text-red-700">
-                {error}
-              </p>
-            </div>
-          )}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Description
+          </label>
+          <textarea
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Vehicle description..."
+            rows={4}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
 
-          <section>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Vehicle Information
-            </h2>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Location
+          </label>
+          <input
+            type="text"
+            value={form.location}
+            onChange={(e) => setForm({ ...form, location: e.target.value })}
+            placeholder="Toronto, ON"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <Field
-                label="VIN"
-                value={form.vin}
-                onChange={(value) =>
-                  updateField("vin", value.toUpperCase())
-                }
-                placeholder="17-character VIN"
-                required
-                maxLength={17}
-              />
+        <div className="flex items-center gap-4">
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
+          >
+            {loading ? "Creating..." : "Create Vehicle"}
+          </button>
 
-              <Field
-                label="Year"
-                type="number"
-                value={form.year}
-                onChange={(value) =>
-                  updateField("year", value)
-                }
-                placeholder="2023"
-                required
-                min="1900"
-                max="2100"
-              />
-
-              <Field
-                label="Make"
-                value={form.make}
-                onChange={(value) =>
-                  updateField("make", value)
-                }
-                placeholder="Honda"
-                required
-              />
-
-              <Field
-                label="Model"
-                value={form.model}
-                onChange={(value) =>
-                  updateField("model", value)
-                }
-                placeholder="Civic"
-                required
-              />
-
-              <Field
-                label="Trim"
-                value={form.trim}
-                onChange={(value) =>
-                  updateField("trim", value)
-                }
-                placeholder="Sport"
-              />
-
-              <Field
-                label="Body"
-                value={form.body}
-                onChange={(value) =>
-                  updateField("body", value)
-                }
-                placeholder="Sedan"
-              />
-
-              <Field
-                label="Engine"
-                value={form.engine}
-                onChange={(value) =>
-                  updateField("engine", value)
-                }
-                placeholder="2.0L I4"
-              />
-
-              <Field
-                label="Drivetrain"
-                value={form.drivetrain}
-                onChange={(value) =>
-                  updateField("drivetrain", value)
-                }
-                placeholder="FWD"
-              />
-
-              <Field
-                label="Fuel"
-                value={form.fuel}
-                onChange={(value) =>
-                  updateField("fuel", value)
-                }
-                placeholder="Gasoline"
-              />
-            </div>
-          </section>
-
-          <section className="mt-8 border-t border-gray-200 pt-8">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Inventory Details
-            </h2>
-
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <Field
-                label="Price"
-                value={form.price}
-                onChange={(value) =>
-                  updateField(
-                    "price",
-                    formatNumberInput(value)
-                  )
-                }
-                placeholder="1,250,000"
-              />
-
-              <Field
-                label="Mileage (km)"
-                value={form.mileage}
-                onChange={(value) =>
-                  updateField(
-                    "mileage",
-                    formatNumberInput(value)
-                  )
-                }
-                placeholder="25,000"
-              />
-
-              <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Status
-                </label>
-
-                <select
-                  value={form.status}
-                  onChange={(event) =>
-                    updateField(
-                      "status",
-                      event.target.value
-                    )
-                  }
-                  className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                >
-                  <option value="AVAILABLE">
-                    Available
-                  </option>
-                  <option value="DRAFT">
-                    Draft
-                  </option>
-                  <option value="SOLD">
-                    Sold
-                  </option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Description
-                </label>
-
-                <textarea
-                  value={form.description}
-                  onChange={(event) =>
-                    updateField(
-                      "description",
-                      event.target.value
-                    )
-                  }
-                  rows={5}
-                  placeholder="Describe the vehicle, condition, features, and other listing details..."
-                  className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                />
-              </div>
-            </div>
-          </section>
-
-          <div className="mt-8 flex flex-col-reverse gap-3 border-t border-gray-200 pt-6 sm:flex-row sm:justify-end">
-            <Link
-              href="/vehicles"
-              className="rounded-lg border border-gray-300 px-5 py-2.5 text-center text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-            >
-              Cancel
-            </Link>
-
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? "Saving..." : "Save Vehicle"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </main>
+          <Link
+            href="/vehicles"
+            className="rounded-lg border border-gray-300 px-6 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          >
+            Cancel
+          </Link>
+        </div>
+      </form>
+    </div>
   );
 }
-

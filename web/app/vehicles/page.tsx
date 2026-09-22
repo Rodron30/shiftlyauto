@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
+import { useRouter } from "next/navigation";
+import VehicleImagePlaceholder from "@/components/VehicleImagePlaceholder";
 
 type Vehicle = {
   id: string;
@@ -17,7 +18,9 @@ type Vehicle = {
   drivetrain: string | null;
   fuel: string | null;
   price: number | null;
+  currency: string | null;
   mileage: number | null;
+  mileage_unit: string | null;
   description: string | null;
   status: string | null;
   primary_image: string | null;
@@ -33,13 +36,12 @@ type VehiclesResponse = {
 type StatusFilter = "ALL" | "AVAILABLE" | "DRAFT" | "SOLD";
 type SortOption = "NEWEST" | "PRICE_HIGH" | "PRICE_LOW" | "MILEAGE_LOW" | "MILEAGE_HIGH";
 
-export default function VehiclesPage() {
+// Inner component with all inventory-specific hooks
+function VehiclesContent() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   const [search, setSearch] = useState("");
-
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState("");
   const [importSummary, setImportSummary] = useState<{
@@ -47,7 +49,6 @@ export default function VehiclesPage() {
     skipped: number;
     errors: number;
   } | null>(null);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [sortBy, setSortBy] = useState<SortOption>("NEWEST");
@@ -81,9 +82,7 @@ export default function VehiclesPage() {
     }
   }, []);
 
-  const handleImportFile = async (
-    file: File
-  ) => {
+  const handleImportFile = async (file: File) => {
     setImportError("");
     setImportSummary(null);
 
@@ -126,14 +125,6 @@ export default function VehiclesPage() {
     }
   };
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadVehicles();
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [loadVehicles]);
-
   const statusCounts = useMemo(() => {
     return {
       total: vehicles.length,
@@ -162,10 +153,10 @@ export default function VehiclesPage() {
       .sort((a, b) => b.count - a.count);
 
     const priceBuckets = [
-      { label: "Under ₱500K", min: 0, max: 500000 },
-      { label: "₱500K – ₱1M", min: 500000, max: 1000000 },
-      { label: "₱1M – ₱2M", min: 1000000, max: 2000000 },
-      { label: "₱2M and up", min: 2000000, max: Infinity },
+      { label: "Under $50K", min: 0, max: 50000 },
+      { label: "$50K – $100K", min: 50000, max: 100000 },
+      { label: "$100K – $200K", min: 100000, max: 200000 },
+      { label: "$200K and up", min: 200000, max: Infinity },
     ].map((bucket) => ({
       ...bucket,
       count: vehicles.filter(
@@ -237,24 +228,46 @@ export default function VehiclesPage() {
     });
   }, [vehicles, search, statusFilter, sortBy]);
 
-  const formatPrice = (price: number | null) => {
+  const formatPrice = (price: number | null, currency: string | null = null) => {
     if (price === null || price === undefined) {
       return null;
     }
 
-    return new Intl.NumberFormat("en-US", {
+    const currencyCode = currency || "USD";
+    
+    const localeMap: Record<string, string> = {
+      USD: "en-US",
+      PHP: "en-PH",
+      EUR: "de-DE",
+      GBP: "en-GB",
+      CAD: "en-CA",
+      AUD: "en-AU",
+      JPY: "ja-JP",
+      CNY: "zh-CN",
+      SGD: "en-SG",
+      HKD: "en-HK",
+      MYR: "en-MY",
+      THB: "th-TH",
+      IDR: "id-ID",
+      VND: "vi-VN",
+    };
+
+    const locale = localeMap[currencyCode] || "en-US";
+
+    return new Intl.NumberFormat(locale, {
       style: "currency",
-      currency: "USD",
+      currency: currencyCode,
       maximumFractionDigits: 0,
     }).format(price);
   };
 
-  const formatMileage = (mileage: number | null) => {
+  const formatMileage = (mileage: number | null, mileageUnit: string | null = null) => {
     if (mileage === null || mileage === undefined) {
       return null;
     }
 
-    return `${new Intl.NumberFormat("en-US").format(mileage)} km`;
+    const unit = mileageUnit || "km";
+    return `${new Intl.NumberFormat("en-US").format(mileage)} ${unit}`;
   };
 
   const getStatusClasses = (status: string) => {
@@ -269,81 +282,83 @@ export default function VehiclesPage() {
     return "bg-green-100 text-green-700";
   };
 
+  // Load vehicles on mount
+  useEffect(() => {
+    loadVehicles();
+  }, [loadVehicles]);
+
   return (
-    <main className="min-h-screen bg-gray-100">
-      <AppHeader />
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-medium text-neutral-500">
+            Vehicle Intelligence
+          </p>
 
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        {/* Header */}
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-500">
-              Vehicle Intelligence
-            </p>
+          <h1 className="mt-1 text-xl font-semibold text-neutral-900">
+            Inventory
+          </h1>
 
-            <h1 className="mt-1 text-3xl font-bold text-gray-900">
-              Inventory
-            </h1>
-
-            <p className="mt-2 max-w-2xl text-gray-600">
-              Manage your dealership vehicles and quickly open Vehicle
-              Intelligence for any VIN.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <a
-              href="/vehicle-import-template.csv"
-              download
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
-            >
-              Download Template
-            </a>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  handleImportFile(file);
-                }
-                e.target.value = "";
-              }}
-            />
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importLoading}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {importLoading ? "Importing..." : "Import CSV"}
-            </button>
-
-            <button
-              type="button"
-              onClick={loadVehicles}
-              disabled={loading}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Refresh
-            </button>
-
-            <Link
-              href="/vehicles/new"
-              className="inline-flex items-center justify-center rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-700"
-            >
-              + Add Vehicle
-            </Link>
-          </div>
+          <p className="mt-1 text-xs text-neutral-600">
+            Manage your dealership vehicles and quickly open Vehicle
+            Intelligence for any VIN.
+          </p>
         </div>
+
+        <div className="flex flex-wrap gap-2">
+          <a
+            href="/vehicle-import-template.csv"
+            download
+            className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-sm transition hover:bg-neutral-50"
+          >
+            Download Template
+          </a>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                handleImportFile(file);
+              }
+              e.target.value = "";
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importLoading}
+            className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-sm transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {importLoading ? "Importing..." : "Import CSV"}
+          </button>
+
+          <button
+            type="button"
+            onClick={loadVehicles}
+            disabled={loading}
+            className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-sm transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Refresh
+          </button>
+
+          <Link
+            href="/vehicles/new"
+            className="inline-flex items-center justify-center rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-neutral-800"
+          >
+            + Add Vehicle
+          </Link>
+        </div>
+      </div>
 
         {(importSummary || importError) && (
           <div
-            className={`mt-4 rounded-lg border p-4 text-sm ${
+            className={`mt-3 rounded-md border p-3 text-xs ${
               importError
                 ? "border-red-200 bg-red-50 text-red-700"
                 : "border-green-200 bg-green-50 text-green-700"
@@ -357,20 +372,20 @@ export default function VehiclesPage() {
 
         {/* Inventory Summary */}
         {!loading && !error && (
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <button
               type="button"
               onClick={() => setStatusFilter("ALL")}
-              className={`rounded-xl border bg-white p-5 text-left shadow-sm transition hover:shadow-md ${
+              className={`rounded-lg border bg-white p-3 text-left shadow-sm transition hover:shadow-md ${
                 statusFilter === "ALL"
-                  ? "border-gray-900 ring-1 ring-gray-900"
-                  : "border-gray-200"
+                  ? "border-neutral-900 ring-1 ring-neutral-900"
+                  : "border-neutral-200"
               }`}
             >
-              <p className="text-sm font-medium text-gray-500">
+              <p className="text-xs font-medium text-neutral-500">
                 Total Inventory
               </p>
-              <p className="mt-2 text-3xl font-bold text-gray-900">
+              <p className="mt-1 text-xl font-bold text-neutral-900">
                 {statusCounts.total}
               </p>
             </button>
@@ -378,16 +393,16 @@ export default function VehiclesPage() {
             <button
               type="button"
               onClick={() => setStatusFilter("AVAILABLE")}
-              className={`rounded-xl border bg-white p-5 text-left shadow-sm transition hover:shadow-md ${
+              className={`rounded-lg border bg-white p-3 text-left shadow-sm transition hover:shadow-md ${
                 statusFilter === "AVAILABLE"
                   ? "border-green-600 ring-1 ring-green-600"
-                  : "border-gray-200"
+                  : "border-neutral-200"
               }`}
             >
-              <p className="text-sm font-medium text-gray-500">
+              <p className="text-xs font-medium text-neutral-500">
                 Available
               </p>
-              <p className="mt-2 text-3xl font-bold text-green-700">
+              <p className="mt-1 text-xl font-bold text-green-700">
                 {statusCounts.available}
               </p>
             </button>
@@ -395,16 +410,16 @@ export default function VehiclesPage() {
             <button
               type="button"
               onClick={() => setStatusFilter("DRAFT")}
-              className={`rounded-xl border bg-white p-5 text-left shadow-sm transition hover:shadow-md ${
+              className={`rounded-lg border bg-white p-3 text-left shadow-sm transition hover:shadow-md ${
                 statusFilter === "DRAFT"
-                  ? "border-gray-500 ring-1 ring-gray-500"
-                  : "border-gray-200"
+                  ? "border-neutral-500 ring-1 ring-neutral-500"
+                  : "border-neutral-200"
               }`}
             >
-              <p className="text-sm font-medium text-gray-500">
+              <p className="text-xs font-medium text-neutral-500">
                 Draft
               </p>
-              <p className="mt-2 text-3xl font-bold text-gray-700">
+              <p className="mt-1 text-xl font-bold text-neutral-700">
                 {statusCounts.draft}
               </p>
             </button>
@@ -412,16 +427,16 @@ export default function VehiclesPage() {
             <button
               type="button"
               onClick={() => setStatusFilter("SOLD")}
-              className={`rounded-xl border bg-white p-5 text-left shadow-sm transition hover:shadow-md ${
+              className={`rounded-lg border bg-white p-3 text-left shadow-sm transition hover:shadow-md ${
                 statusFilter === "SOLD"
                   ? "border-red-600 ring-1 ring-red-600"
-                  : "border-gray-200"
+                  : "border-neutral-200"
               }`}
             >
-              <p className="text-sm font-medium text-gray-500">
+              <p className="text-xs font-medium text-neutral-500">
                 Sold
               </p>
-              <p className="mt-2 text-3xl font-bold text-red-700">
+              <p className="mt-1 text-xl font-bold text-red-700">
                 {statusCounts.sold}
               </p>
             </button>
@@ -430,22 +445,22 @@ export default function VehiclesPage() {
 
         {/* Breakdown */}
         {!loading && !error && vehicles.length > 0 && (
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-gray-900">
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+              <p className="text-xs font-semibold text-neutral-900">
                 By Make
               </p>
 
-              <div className="mt-3 space-y-2">
+              <div className="mt-2 space-y-1.5">
                 {breakdown.makeBreakdown.map((item) => (
                   <div
                     key={item.make}
-                    className="flex items-center justify-between text-sm"
+                    className="flex items-center justify-between text-xs"
                   >
-                    <span className="text-gray-600">
+                    <span className="text-neutral-600">
                       {item.make}
                     </span>
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-neutral-900">
                       {item.count}
                     </span>
                   </div>
@@ -453,32 +468,32 @@ export default function VehiclesPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-gray-900">
+            <div className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+              <p className="text-xs font-semibold text-neutral-900">
                 By Price Range
               </p>
 
-              <div className="mt-3 space-y-2">
+              <div className="mt-2 space-y-1.5">
                 {breakdown.priceBuckets.map((bucket) => (
                   <div
                     key={bucket.label}
-                    className="flex items-center justify-between text-sm"
+                    className="flex items-center justify-between text-xs"
                   >
-                    <span className="text-gray-600">
+                    <span className="text-neutral-600">
                       {bucket.label}
                     </span>
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-neutral-900">
                       {bucket.count}
                     </span>
                   </div>
                 ))}
 
                 {breakdown.noPrice > 0 && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-neutral-600">
                       No price set
                     </span>
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-neutral-900">
                       {breakdown.noPrice}
                     </span>
                   </div>
@@ -490,12 +505,12 @@ export default function VehiclesPage() {
 
         {/* Search / Filters */}
         {!loading && !error && vehicles.length > 0 && (
-          <div className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="grid gap-4 lg:grid-cols-[1fr_220px_220px]">
+          <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+            <div className="grid gap-3 lg:grid-cols-[1fr_200px_200px]">
               <div>
                 <label
                   htmlFor="inventory-search"
-                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500"
+                  className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-neutral-500"
                 >
                   Search Inventory
                 </label>
@@ -506,14 +521,14 @@ export default function VehiclesPage() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="VIN, make, model, trim, or year"
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                  className="w-full rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="status-filter"
-                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500"
+                  className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-neutral-500"
                 >
                   Status
                 </label>
@@ -524,7 +539,7 @@ export default function VehiclesPage() {
                   onChange={(event) =>
                     setStatusFilter(event.target.value as StatusFilter)
                   }
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                  className="w-full rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-900 outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 >
                   <option value="ALL">All statuses</option>
                   <option value="AVAILABLE">Available</option>
@@ -536,7 +551,7 @@ export default function VehiclesPage() {
               <div>
                 <label
                   htmlFor="sort-by"
-                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500"
+                  className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-neutral-500"
                 >
                   Sort By
                 </label>
@@ -547,7 +562,7 @@ export default function VehiclesPage() {
                   onChange={(event) =>
                     setSortBy(event.target.value as SortOption)
                   }
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                  className="w-full rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-900 outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 >
                   <option value="NEWEST">Newest</option>
                   <option value="PRICE_HIGH">Price: High to Low</option>
@@ -558,255 +573,174 @@ export default function VehiclesPage() {
               </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-gray-500">
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
               <span>
                 Showing{" "}
-                <strong className="text-gray-900">
-                  {filteredVehicles.length}
-                </strong>{" "}
+                {filteredVehicles.length}{" "}
                 of{" "}
-                <strong className="text-gray-900">
-                  {vehicles.length}
-                </strong>{" "}
+                {vehicles.length}{" "}
                 vehicles
               </span>
-
-              {(search || statusFilter !== "ALL") && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearch("");
-                    setStatusFilter("ALL");
-                  }}
-                  className="font-semibold text-gray-900 hover:underline"
-                >
-                  Clear filters
-                </button>
-              )}
             </div>
           </div>
         )}
 
-        {/* Loading */}
-        {loading && (
-          <div className="mt-8 rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-            <p className="text-sm font-medium text-gray-700">
-              Loading inventory...
-            </p>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Fetching the latest vehicle records.
-            </p>
+        {/* Vehicle List */}
+        {loading ? (
+          <div className="mt-6 text-center">
+            <p className="text-sm text-neutral-500">Loading vehicles...</p>
           </div>
-        )}
-
-        {/* Error */}
-        {!loading && error && (
-          <div className="mt-8 rounded-xl border border-red-200 bg-white p-6 shadow-sm">
-            <h2 className="font-semibold text-gray-900">
-              Unable to load inventory
-            </h2>
-
-            <p className="mt-2 text-sm text-red-600">
-              {error}
-            </p>
-
-            <button
-              type="button"
-              onClick={loadVehicles}
-              className="mt-5 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-700"
-            >
-              Try Again
-            </button>
+        ) : error ? (
+          <div className="mt-6 text-center">
+            <p className="text-sm text-red-600">{error}</p>
           </div>
-        )}
-
-        {/* Empty Inventory */}
-        {!loading && !error && vehicles.length === 0 && (
-          <div className="mt-8 rounded-xl border border-gray-200 bg-white p-10 text-center shadow-sm">
-            <h2 className="font-semibold text-gray-900">
-              No vehicles in inventory
-            </h2>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Add your first vehicle to start building your dealership
-              inventory.
-            </p>
-
-            <Link
-              href="/vehicles/new"
-              className="mt-5 inline-flex rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-700"
-            >
-              + Add Your First Vehicle
-            </Link>
+        ) : vehicles.length === 0 ? (
+          <div className="mt-6 text-center">
+            <p className="text-sm text-neutral-500">No vehicles found.</p>
           </div>
-        )}
-
-        {/* No Search Results */}
-        {!loading &&
-          !error &&
-          vehicles.length > 0 &&
-          filteredVehicles.length === 0 && (
-            <div className="mt-8 rounded-xl border border-gray-200 bg-white p-10 text-center shadow-sm">
-              <h2 className="font-semibold text-gray-900">
-                No matching vehicles
-              </h2>
-
-              <p className="mt-2 text-sm text-gray-500">
-                Try changing your search or inventory filters.
-              </p>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("");
-                  setStatusFilter("ALL");
-                }}
-                className="mt-5 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-700"
-              >
-                Clear Filters
-              </button>
-            </div>
-          )}
-
-        {/* Inventory Cards */}
-        {!loading &&
-          !error &&
-          filteredVehicles.length > 0 && (
-            <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {filteredVehicles.map((vehicle) => {
-                const vehicleName = [
-                  vehicle.year,
-                  vehicle.make,
-                  vehicle.model,
-                  vehicle.trim,
-                ]
-                  .filter(Boolean)
-                  .join(" ");
-
-                const details = [
-                  vehicle.body,
-                  vehicle.engine,
-                  vehicle.drivetrain,
-                ]
-                  .filter(Boolean)
-                  .join(" · ");
-
-                const formattedPrice = formatPrice(vehicle.price);
-                const formattedMileage = formatMileage(vehicle.mileage);
-
-                const status = (
-                  vehicle.status || "AVAILABLE"
-                ).toUpperCase();
-
-                return (
-                  <div
+        ) : (
+          <div className="mt-6 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-neutral-200">
+                  <th className="text-left py-2 pr-4 font-semibold text-neutral-900">
+                    VIN
+                  </th>
+                  <th className="text-left py-2 pr-4 font-semibold text-neutral-900">
+                    Year
+                  </th>
+                  <th className="text-left py-2 pr-4 font-semibold text-neutral-900">
+                    Make
+                  </th>
+                  <th className="text-left py-2 pr-4 font-semibold text-neutral-900">
+                    Model
+                  </th>
+                  <th className="text-left py-2 pr-4 font-semibold text-neutral-900">
+                    Price
+                  </th>
+                  <th className="text-left py-2 pr-4 font-semibold text-neutral-900">
+                    Mileage
+                  </th>
+                  <th className="text-left py-2 pr-4 font-semibold text-neutral-900">
+                    Status
+                  </th>
+                  <th className="text-right py-2 font-semibold text-neutral-900">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredVehicles.map((vehicle) => (
+                  <tr
                     key={vehicle.id}
-                    className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    className="border-b border-neutral-100 hover:bg-neutral-50 transition-colors"
                   >
-                    {/* Image */}
-                    {vehicle.primary_image ? (
-                      <div className="aspect-[16/9] overflow-hidden bg-gray-100">
-                        <img
-                          src={vehicle.primary_image}
-                          alt={vehicleName || "Vehicle"}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex aspect-[16/9] items-center justify-center bg-gray-100">
-                        <span className="text-sm text-gray-400">
-                          No vehicle image
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="p-5">
-                      {/* Vehicle Name + Status */}
-                      <div className="flex items-start justify-between gap-3">
-                        <h2 className="font-semibold leading-6 text-gray-900">
-                          {vehicleName}
-                        </h2>
-
-                        <span
-                          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClasses(
-                            status
-                          )}`}
-                        >
-                          {status}
-                        </span>
-                      </div>
-
-                      {/* VIN */}
-                      <p className="mt-2 break-all font-mono text-xs text-gray-500">
-                        VIN: {vehicle.vin}
-                      </p>
-
-                      {/* Details */}
-                      {details && (
-                        <p className="mt-3 text-sm text-gray-500">
-                          {details}
-                        </p>
-                      )}
-
-                      {/* Price / Mileage */}
-                      {(formattedPrice || formattedMileage) && (
-                        <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3">
-                          {formattedPrice && (
-                            <div>
-                              <p className="text-xs text-gray-500">
-                                Price
-                              </p>
-
-                              <p className="mt-1 font-semibold text-gray-900">
-                                {formattedPrice}
-                              </p>
-                            </div>
-                          )}
-
-                          {formattedMileage && (
-                            <div>
-                              <p className="text-xs text-gray-500">
-                                Mileage
-                              </p>
-
-                              <p className="mt-1 font-semibold text-gray-900">
-                                {formattedMileage}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Description */}
-                      {vehicle.description && (
-                        <p className="mt-4 line-clamp-2 text-sm text-gray-600">
-                          {vehicle.description}
-                        </p>
-                      )}
-
-                      {/* Actions */}
-                      <div className="mt-5 flex items-center justify-between gap-3">
-                        <Link
-                          href={`/vehicles/${encodeURIComponent(
-                            vehicle.vin
-                          )}`}
-                          className="inline-flex items-center text-sm font-semibold text-gray-900 transition hover:underline"
-                        >
-                          Vehicle Intelligence →
-                        </Link>
-
-                        <span className="text-xs text-gray-400">
-                          VIN lookup
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-      </div>
-    </main>
+                    <td className="py-2 pr-4 font-medium text-neutral-900">
+                      <Link
+                        href={`/vehicles/${encodeURIComponent(vehicle.vin)}`}
+                        className="hover:underline"
+                      >
+                        {vehicle.vin || vehicle.id}
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-4 text-neutral-600">
+                      {vehicle.year || "-"}
+                    </td>
+                    <td className="py-2 pr-4 text-neutral-600">
+                      {vehicle.make || "-"}
+                    </td>
+                    <td className="py-2 pr-4 text-neutral-600">
+                      {vehicle.model || "-"}
+                    </td>
+                    <td className="py-2 pr-4 text-neutral-600">
+                      {formatPrice(vehicle.price, vehicle.currency)}
+                    </td>
+                    <td className="py-2 pr-4 text-neutral-600">
+                      {formatMileage(vehicle.mileage, vehicle.mileage_unit)}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getStatusClasses(
+                          vehicle.status || "AVAILABLE"
+                        )}`}
+                      >
+                        {vehicle.status || "AVAILABLE"}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 text-right">
+                      <Link
+                        href={`/vehicles/${encodeURIComponent(vehicle.vin)}/edit`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        Edit
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+    </div>
   );
+}
+
+// Outer component with auth logic only
+export default function VehiclesPage() {
+  const router = useRouter();
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [roleChecked, setRoleChecked] = useState(false);
+
+  // Check user role on mount
+  useEffect(() => {
+    async function checkAccess() {
+      try {
+        const response = await fetch("/api/auth/session");
+        const result = await response.json();
+        
+        if (result.profile?.role === "customer") {
+          setAccessDenied(true);
+        }
+      } catch (err) {
+        console.error("Failed to check user role:", err);
+      } finally {
+        setRoleChecked(true);
+      }
+    }
+    
+    checkAccess();
+  }, []);
+
+  // Redirect customers to appropriate page
+  useEffect(() => {
+    if (accessDenied) {
+      router.push("/leads");
+    }
+  }, [accessDenied, router]);
+
+  // Show loading while checking role
+  if (!roleChecked) {
+    return (
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+        <p className="text-sm text-neutral-500">Loading...</p>
+      </div>
+    );
+  }
+
+  // Show access denied for customers
+  if (accessDenied) {
+    return (
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+          <h1 className="text-lg font-semibold text-amber-900 mb-2">Access Denied</h1>
+          <p className="text-amber-700 mb-4">
+            Customers do not have access to vehicle inventory management. Redirecting to Leads...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show inventory content for authorized users
+  return <VehiclesContent />;
 }

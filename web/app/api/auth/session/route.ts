@@ -45,6 +45,13 @@ export async function GET() {
     return NextResponse.json({
       loggedIn: true,
       dealershipName,
+      profile: {
+        id: profile.id,
+        dealership_id: profile.dealership_id,
+        name: profile.name,
+        email: profile.email,
+        role: profile.role,
+      },
     });
   } catch (error) {
     console.error("Auth session API error:", error);

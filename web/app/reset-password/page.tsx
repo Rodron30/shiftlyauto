@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
+import { PasswordField } from "@/components/PasswordField";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -17,6 +18,14 @@ export default function ResetPasswordPage() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Clear form state on mount to prevent autofill from previous session
+  useEffect(() => {
+    setPassword("");
+    setConfirmPassword("");
+    setError("");
+    setSuccess("");
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -77,11 +86,6 @@ export default function ResetPasswordPage() {
     } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!mounted) return;
-
-        console.log(
-          "Password recovery auth event:",
-          event
-        );
 
         if (
           (event === "PASSWORD_RECOVERY" ||
@@ -230,58 +234,42 @@ export default function ResetPasswordPage() {
           </div>
         ) : (
           <form
+            key="reset-password-form"
             onSubmit={handleUpdatePassword}
             className="mt-8 space-y-5"
           >
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
-              >
-                New Password
-              </label>
+            <PasswordField
+              label="New Password"
+              id="password"
+              name="password"
+              value={password}
+              onChange={setPassword}
+              required
+              autoComplete="new-password"
+              minLength={8}
+              placeholder="Minimum 8 characters"
+            />
 
-              <input
-                id="password"
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) =>
-                  setPassword(e.target.value)
-                }
-                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 outline-none focus:border-black"
-              />
-
-              <p className="mt-1 text-xs text-gray-400">
-                Minimum 8 characters.
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Confirm Password
-              </label>
-
-              <input
-                id="confirmPassword"
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(e) =>
-                  setConfirmPassword(e.target.value)
-                }
-                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 outline-none focus:border-black"
-              />
-            </div>
+            <PasswordField
+              label="Confirm Password"
+              id="confirmPassword"
+              name="confirmPassword"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              required
+              autoComplete="new-password"
+              minLength={8}
+              placeholder="Minimum 8 characters"
+              error={confirmPassword && password !== confirmPassword ? "Passwords do not match." : undefined}
+            />
 
             {error && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </p>
+            )}
+
+            {error && !confirmPassword && password === confirmPassword && (
               <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {error}
               </p>

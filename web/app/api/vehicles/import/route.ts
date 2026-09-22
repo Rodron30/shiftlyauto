@@ -24,9 +24,13 @@ const EXPECTED_COLUMNS = [
   "drivetrain",
   "fuel",
   "price",
+  "currency",
   "mileage",
   "status",
   "description",
+  "exterior_color",
+  "interior_color",
+  "has_clean_title",
 ];
 
 type RowResult = {
@@ -106,6 +110,17 @@ export async function POST(request: Request) {
           error: "You must be signed in to import vehicles.",
         },
         { status: 401 }
+      );
+    }
+
+    // Customers cannot import vehicles
+    if (profile.role === "customer") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Customers do not have permission to import vehicles.",
+        },
+        { status: 403 }
       );
     }
 
@@ -286,6 +301,34 @@ export async function POST(request: Request) {
       const price =
         priceRaw === "" ? null : Number(priceRaw);
 
+      const currency = (get("currency").toUpperCase() || "USD").trim();
+      const allowedCurrencies = [
+        "USD",
+        "PHP",
+        "EUR",
+        "GBP",
+        "CAD",
+        "AUD",
+        "JPY",
+        "CNY",
+        "SGD",
+        "HKD",
+        "MYR",
+        "THB",
+        "IDR",
+        "VND",
+      ];
+
+      if (currency && !allowedCurrencies.includes(currency)) {
+        results.push({
+          row: rowNumber,
+          vin,
+          status: "error",
+          reason: `Invalid currency "${currency}". Use one of: ${allowedCurrencies.join(", ")}.`,
+        });
+        return;
+      }
+
       if (
         price !== null &&
         (!Number.isFinite(price) || price < 0)
@@ -333,6 +376,15 @@ export async function POST(request: Request) {
 
       seenInBatch.add(vin);
 
+      // Parse clean title boolean
+      const hasCleanTitleRaw = get("has_clean_title").toLowerCase();
+      let hasCleanTitle: boolean | null = null;
+      if (hasCleanTitleRaw === "true" || hasCleanTitleRaw === "yes" || hasCleanTitleRaw === "1") {
+        hasCleanTitle = true;
+      } else if (hasCleanTitleRaw === "false" || hasCleanTitleRaw === "no" || hasCleanTitleRaw === "0") {
+        hasCleanTitle = false;
+      }
+
       toInsert.push({
         dealership_id: profile.dealership_id,
         vin,
@@ -345,12 +397,31 @@ export async function POST(request: Request) {
         drivetrain: get("drivetrain") || null,
         fuel: get("fuel") || null,
         price,
+        currency: currency || "USD",
         mileage,
         description: get("description") || null,
         status,
         primary_image: null,
+        exterior_color: get("exterior_color") || null,
+        interior_color: get("interior_color") || null,
+        has_clean_title: hasCleanTitle,
         created_by: profile.id,
       });
+
+      // Log imported vehicle data for pipeline trace
+      console.log("========== VEHICLE IMPORT DATA ==========");
+      console.log("IMPORT: VIN =", vin);
+      console.log("IMPORT: make =", make);
+      console.log("IMPORT: model =", model);
+      console.log("IMPORT: year =", year);
+      console.log("IMPORT: body =", get("body"));
+      console.log("IMPORT: exterior_color =", get("exterior_color"));
+      console.log("IMPORT: interior_color =", get("interior_color"));
+      console.log("IMPORT: has_clean_title =", hasCleanTitle);
+      console.log("IMPORT: mileage =", mileage);
+      console.log("IMPORT: fuel =", get("fuel"));
+      console.log("IMPORT: transmission =", get("transmission"));
+      console.log("==========================================");
 
       results.push({
         row: rowNumber,

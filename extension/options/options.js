@@ -151,16 +151,6 @@ async function setAllowedOrigins(
   await chrome.storage.sync.set({
     [STORAGE_KEY]: valid,
   });
-
-  console.log(
-    "SHIFTLY SAVED ALLOWED ORIGINS:",
-    valid
-  );
-
-  await chrome.runtime.sendMessage({
-    type:
-      "SHIFTLY_SYNC_CONTENT_SCRIPTS",
-  });
 }
 
 /* -------------------------------------------------------
@@ -287,22 +277,12 @@ form.addEventListener(
     }
 
     try {
-      console.log(
-        "SHIFTLY REQUESTING PERMISSION:",
-        permissionPattern
-      );
-
       const granted =
         await chrome.permissions.request({
           origins: [
             permissionPattern,
           ],
         });
-
-      console.log(
-        "SHIFTLY PERMISSION GRANTED:",
-        granted
-      );
 
       if (!granted) {
         showError(

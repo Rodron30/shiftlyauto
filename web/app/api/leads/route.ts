@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import {
   createSupabaseServerClient,
@@ -19,6 +19,7 @@ const LEAD_SELECT = `
   follow_up_date,
   notes,
   created_at,
+  created_by,
   updated_at,
   customer:customers(
     id,
@@ -32,7 +33,8 @@ const LEAD_SELECT = `
     year,
     make,
     model,
-    trim
+    trim,
+    currency
   )
 `;
 
@@ -70,10 +72,16 @@ export async function GET() {
       );
     }
 
+    // Convert budget from string to number if PostgreSQL returns it as string
+    const processedLeads = (data ?? []).map(lead => ({
+      ...lead,
+      budget: typeof lead.budget === 'string' ? Number(lead.budget) : lead.budget
+    }));
+
     return NextResponse.json(
       {
         success: true,
-        leads: data ?? [],
+        leads: processedLeads,
       },
       { status: 200 }
     );
@@ -103,6 +111,8 @@ export async function POST(request: Request) {
         { status: 401 }
       );
     }
+
+
     const saasAccess = await requireSaasAccess();
 
     if (!saasAccess.ok) {
@@ -139,6 +149,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+
 
     const customerName = String(
       body.customerName ?? ""
@@ -188,6 +200,8 @@ export async function POST(request: Request) {
         );
       }
     }
+
+
 
     const supabase = await createSupabaseServerClient();
 

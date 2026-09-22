@@ -1,7 +1,6 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
 
 type Appraisal = {
   id: string;
@@ -65,7 +64,7 @@ function formatCurrency(value: number | null) {
     return "N/A";
   }
 
-  return `PHP ${Number(value).toLocaleString("en-US", {
+  return `$${Number(value).toLocaleString("en-US", {
     maximumFractionDigits: 0,
   })}`;
 }
@@ -226,116 +225,113 @@ export default function TradeAppraisalsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-100">
-      <AppHeader />
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium text-neutral-500">
+            Vehicle Intelligence
+          </p>
 
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-gray-500">
-              Vehicle Intelligence
-            </p>
+          <h1 className="mt-1 text-xl font-semibold text-neutral-900">
+            Trade-In Appraisals
+          </h1>
 
-            <h1 className="mt-1 text-3xl font-bold text-gray-900">
-              Trade-In Appraisals
-            </h1>
-
-            <p className="mt-2 max-w-2xl text-gray-600">
-              Estimate a customer trade-in using market value,
-              vehicle history, condition, and valuation estimates.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowForm((v) => !v)}
-            className="inline-flex items-center justify-center rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-700"
-          >
-            {showForm ? "Cancel" : "+ New Appraisal"}
-          </button>
+          <p className="mt-2 max-w-2xl text-xs text-neutral-600">
+            Estimate a customer trade-in using market value,
+            vehicle history, condition, and valuation estimates.
+          </p>
         </div>
 
-        {showForm && (
-          <form
-            onSubmit={handleSubmit}
-            className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-          >
-            <p className="text-xs text-gray-500">
-              Internal appraisal estimate. Final trade value should be
-              reviewed by dealership management.
-            </p>
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="inline-flex items-center justify-center rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-neutral-800"
+        >
+          {showForm ? "Cancel" : "+ New Appraisal"}
+        </button>
+      </div>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-500">
-                  VIN (optional)
-                </label>
-                <input
-                  type="text"
-                  value={vin}
-                  onChange={(e) =>
-                    setVin(
-                      e.target.value
-                        .toUpperCase()
-                        .replace(/\s+/g, "")
-                    )
-                  }
-                  maxLength={17}
-                  placeholder="17-character VIN"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
-                />
-              </div>
+      {showForm && (
+        <form
+          onSubmit={handleSubmit}
+          className="mt-4 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm"
+        >
+          <p className="text-[10px] text-neutral-500">
+            Internal appraisal estimate. Final trade value should be
+            reviewed by dealership management.
+          </p>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-500">
-                  Year
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={year}
-                  onChange={(e) =>
-                    setYear(e.target.value.replace(/\D/g, ""))
-                  }
-                  placeholder="2020"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-500">
-                  Mileage (km)
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={mileage}
-                  onChange={(e) =>
-                    setMileage(formatNumberInput(e.target.value))
-                  }
-                  placeholder="60,000"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
-                />
-              </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div>
+              <label className="block text-[10px] font-medium text-neutral-500">
+                VIN (optional)
+              </label>
+              <input
+                type="text"
+                value={vin}
+                onChange={(e) =>
+                  setVin(
+                    e.target.value
+                      .toUpperCase()
+                      .replace(/\s+/g, "")
+                  )
+                }
+                maxLength={17}
+                placeholder="17-character VIN"
+                className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+              />
             </div>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-500">
-                  Make*
-                </label>
-                <input
-                  type="text"
+            <div>
+              <label className="block text-[10px] font-medium text-neutral-500">
+                Year
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={year}
+                onChange={(e) =>
+                  setYear(e.target.value.replace(/\D/g, ""))
+                }
+                placeholder="2020"
+                className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-medium text-neutral-500">
+                Mileage (km)
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={mileage}
+                onChange={(e) =>
+                  setMileage(formatNumberInput(e.target.value))
+                }
+                placeholder="60,000"
+                className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div>
+              <label className="block text-[10px] font-medium text-neutral-500">
+                Make*
+              </label>
+              <input
+                type="text"
                   required
                   value={make}
                   onChange={(e) => setMake(e.target.value)}
                   placeholder="Toyota"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-[10px] font-medium text-neutral-500">
                   Model*
                 </label>
                 <input
@@ -344,12 +340,12 @@ export default function TradeAppraisalsPage() {
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   placeholder="Fortuner"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-[10px] font-medium text-neutral-500">
                   Trim
                 </label>
                 <input
@@ -357,14 +353,14 @@ export default function TradeAppraisalsPage() {
                   value={trim}
                   onChange={(e) => setTrim(e.target.value)}
                   placeholder="LTD"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-[10px] font-medium text-neutral-500">
                   Condition
                 </label>
                 <select
@@ -374,7 +370,7 @@ export default function TradeAppraisalsPage() {
                       e.target.value as Condition
                     )
                   }
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 >
                   <option value="EXCELLENT">Excellent</option>
                   <option value="GOOD">Good</option>
@@ -384,7 +380,7 @@ export default function TradeAppraisalsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-[10px] font-medium text-neutral-500">
                   Market Value (optional)
                 </label>
                 <input
@@ -397,15 +393,15 @@ export default function TradeAppraisalsPage() {
                     )
                   }
                   placeholder="Leave blank for automatic estimate"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-[10px] text-neutral-400">
                   Blank = estimate from comparable dealer inventory.
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-[10px] font-medium text-neutral-500">
                   Deduction %
                 </label>
                 <input
@@ -418,16 +414,16 @@ export default function TradeAppraisalsPage() {
                       e.target.value.replace(/[^\d.]/g, "")
                     );
                   }}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-[10px] text-neutral-400">
                   Defaults by condition; edit if needed.
                 </p>
               </div>
             </div>
 
-            <div className="mt-4">
-              <label className="block text-xs font-medium text-gray-500">
+            <div className="mt-3">
+              <label className="block text-[10px] font-medium text-neutral-500">
                 Notes
               </label>
               <textarea
@@ -435,23 +431,23 @@ export default function TradeAppraisalsPage() {
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
                 placeholder="Minor scratches, tire condition, interior notes..."
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
               />
             </div>
 
             {previewAppraisedValue !== null && (
-              <div className="mt-4 rounded-lg bg-gray-50 p-4">
-                <p className="text-xs font-medium text-gray-500">
+              <div className="mt-3 rounded-md bg-neutral-50 p-3">
+                <p className="text-[10px] font-medium text-neutral-500">
                   Estimated Trade Value
                 </p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">
+                <p className="mt-1 text-lg font-bold text-neutral-900">
                   {formatCurrency(previewAppraisedValue)}
                 </p>
               </div>
             )}
 
             {formError && (
-              <p className="mt-4 text-sm text-red-600">
+              <p className="mt-3 text-xs text-red-600">
                 {formError}
               </p>
             )}
@@ -459,47 +455,47 @@ export default function TradeAppraisalsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="mt-4 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+              className="mt-3 rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
             >
               {saving ? "Saving..." : "Save Appraisal"}
             </button>
           </form>
         )}
 
-        <div className="mt-8">
+        <div className="mt-6">
           {loading && (
-            <p className="text-sm text-gray-500">
+            <p className="text-xs text-neutral-500">
               Loading trade appraisals...
             </p>
           )}
 
           {!loading && error && (
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-xs text-red-600">{error}</p>
           )}
 
           {!loading && !error && appraisals.length === 0 && (
-            <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
+            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center text-xs text-neutral-500 shadow-sm">
               No trade appraisals yet. Click &quot;+ New Appraisal&quot;
               to create one.
             </div>
           )}
 
           {!loading && !error && appraisals.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {appraisals.map((a) => (
                 <div
                   key={a.id}
-                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+                  className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-gray-900">
+                      <p className="text-xs font-semibold text-neutral-900">
                         {a.year ? `${a.year} ` : ""}
                         {a.make} {a.model}
                         {a.trim ? ` ${a.trim}` : ""}
                       </p>
 
-                      <p className="mt-1 text-xs text-gray-500">
+                      <p className="mt-1 text-[10px] text-neutral-500">
                         {a.vin && <>VIN: {a.vin} - </>}
                         {a.mileage !== null && (
                           <>
@@ -513,30 +509,30 @@ export default function TradeAppraisalsPage() {
                     </div>
 
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                         conditionBadgeClasses[a.condition] ||
-                        "bg-gray-100 text-gray-700"
+                        "bg-neutral-100 text-neutral-700"
                       }`}
                     >
                       {a.condition}
                     </span>
                   </div>
 
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                     <div>
-                      <p className="text-xs font-medium text-gray-500">
+                      <p className="text-[10px] font-medium text-neutral-500">
                         Market Value
                       </p>
-                      <p className="mt-1 font-semibold text-gray-900">
+                      <p className="mt-1 text-xs font-semibold text-neutral-900">
                         {formatCurrency(a.market_value)}
                       </p>
                     </div>
 
                     <div>
-                      <p className="text-xs font-medium text-gray-500">
+                      <p className="text-[10px] font-medium text-neutral-500">
                         History Score
                       </p>
-                      <p className="mt-1 font-semibold text-gray-900">
+                      <p className="mt-1 text-xs font-semibold text-neutral-900">
                         {a.history_score !== null
                           ? `${a.history_score} / 100`
                           : "N/A"}
@@ -544,35 +540,35 @@ export default function TradeAppraisalsPage() {
                     </div>
 
                     <div>
-                      <p className="text-xs font-medium text-gray-500">
+                      <p className="text-[10px] font-medium text-neutral-500">
                         Wholesale Estimate
                       </p>
-                      <p className="mt-1 font-semibold text-gray-900">
+                      <p className="mt-1 text-xs font-semibold text-neutral-900">
                         {formatCurrency(a.wholesale_estimate)}
                       </p>
                     </div>
 
                     <div>
-                      <p className="text-xs font-medium text-gray-500">
+                      <p className="text-[10px] font-medium text-neutral-500">
                         Retail Estimate
                       </p>
-                      <p className="mt-1 font-semibold text-gray-900">
+                      <p className="mt-1 text-xs font-semibold text-neutral-900">
                         {formatCurrency(a.retail_estimate)}
                       </p>
                     </div>
 
                     <div>
-                      <p className="text-xs font-medium text-gray-500">
+                      <p className="text-[10px] font-medium text-neutral-500">
                         Trade Value
                       </p>
-                      <p className="mt-1 text-lg font-bold text-gray-900">
+                      <p className="mt-1 text-sm font-bold text-neutral-900">
                         {formatCurrency(a.appraised_value)}
                       </p>
                     </div>
                   </div>
 
                   {a.notes && (
-                    <p className="mt-3 text-sm text-gray-600">
+                    <p className="mt-2 text-xs text-neutral-600">
                       {a.notes}
                     </p>
                   )}
@@ -581,8 +577,8 @@ export default function TradeAppraisalsPage() {
             </div>
           )}
         </div>
-      </div>
-    </main>
+    </div>
   );
 }
+
 

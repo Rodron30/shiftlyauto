@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
 
 type Customer = {
   id: string;
@@ -10,6 +9,7 @@ type Customer = {
   email: string | null;
   notes: string | null;
   created_at: string;
+  created_by: string | null;
   updated_at: string;
 };
 
@@ -26,6 +26,8 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [editingCustomer, setEditingCustomer] =
@@ -71,6 +73,20 @@ export default function CustomersPage() {
 
   useEffect(() => {
     loadCustomers("");
+  }, []);
+
+  useEffect(() => {
+    async function checkRole() {
+      try {
+        const response = await fetch("/api/auth/session");
+        const data = await response.json();
+        setUserRole(data.profile?.role || null);
+          setUserId(data.profile?.id || null);
+      } catch (err) {
+        console.error("Failed to check user role:", err);
+      }
+    }
+    checkRole();
   }, []);
 
   function resetForm() {
@@ -197,111 +213,110 @@ export default function CustomersPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <AppHeader />
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-neutral-900">
+            Customers
+          </h1>
+          <p className="mt-1 text-xs text-neutral-600">
+            Manage customer records and CRM relationships.
+          </p>
+        </div>
 
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Customers
-            </h1>
-            <p className="mt-1 text-sm text-gray-600">
-              Manage customer records and CRM relationships.
-            </p>
-          </div>
-
-          <button
+        {true && (
+            <button
             type="button"
             onClick={openCreate}
-            className="rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
+            className="rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white hover:bg-neutral-800"
           >
             + Add Customer
           </button>
-        </div>
-
-        {error && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
         )}
+      </div>
 
-        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  loadCustomers(search);
-                }
-              }}
-              placeholder="Search name, phone, or email..."
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-gray-500 focus:ring-1 focus:ring-gray-500"
-            />
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </div>
+      )}
+
+      <div className="mb-4 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="text"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                loadCustomers(search);
+              }
+            }}
+            placeholder="Search name, phone, or email..."
+            className="flex-1 rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+          />
+
+          <button
+            type="button"
+            onClick={() => loadCustomers(search)}
+            className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+          >
+            Search
+          </button>
+        </div>
+      </div>
+
+      {showForm && userRole !== null && (
+        <div className="mb-6 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-neutral-900">
+                {editingCustomer
+                  ? "Edit Customer"
+                  : "New Customer"}
+              </h2>
+              <p className="mt-1 text-xs text-neutral-600">
+                Customer name and at least one contact method are
+                required.
+              </p>
+            </div>
 
             <button
               type="button"
-              onClick={() => loadCustomers(search)}
-              className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              onClick={() => {
+                setShowForm(false);
+                resetForm();
+              }}
+              className="text-xs text-neutral-600 hover:text-neutral-900"
             >
-              Search
+              Cancel
             </button>
           </div>
-        </div>
 
-        {showForm && (
-          <div className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {editingCustomer
-                    ? "Edit Customer"
-                    : "New Customer"}
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Customer name and at least one contact method are
-                  required.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  resetForm();
-                }}
-                className="text-sm text-gray-500 hover:text-gray-900"
-              >
-                Cancel
-              </button>
+          <form
+            onSubmit={saveCustomer}
+            className="grid gap-3 md:grid-cols-2"
+          >
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-700">
+                Customer Name
+              </label>
+              <input
+                required
+                value={form.name}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    name: event.target.value,
+                  })
+                }
+                className="w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+                placeholder="Juan Dela Cruz"
+              />
             </div>
 
-            <form
-              onSubmit={saveCustomer}
-              className="grid gap-5 md:grid-cols-2"
-            >
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  Customer Name
-                </label>
-                <input
-                  required
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      name: event.target.value,
-                    })
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
-                  placeholder="Juan Dela Cruz"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-neutral-700">
                   Phone
                 </label>
                 <input
@@ -312,13 +327,13 @@ export default function CustomersPage() {
                       phone: event.target.value,
                     })
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
+                  className="w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                   placeholder="09XXXXXXXXX"
                 />
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-neutral-700">
                   Email
                 </label>
                 <input
@@ -330,13 +345,13 @@ export default function CustomersPage() {
                       email: event.target.value,
                     })
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
+                  className="w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                   placeholder="customer@example.com"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-neutral-700">
                   Notes
                 </label>
                 <textarea
@@ -347,20 +362,20 @@ export default function CustomersPage() {
                       notes: event.target.value,
                     })
                   }
-                  rows={4}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
+                  rows={3}
+                  className="w-full rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                   placeholder="Customer preferences, requirements, etc."
                 />
               </div>
 
-              <div className="md:col-span-2 flex justify-end gap-3">
+              <div className="md:col-span-2 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     setShowForm(false);
                     resetForm();
                   }}
-                  className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
                 >
                   Cancel
                 </button>
@@ -368,7 +383,7 @@ export default function CustomersPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                  className="rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white disabled:bg-neutral-300"
                 >
                   {saving
                     ? "Saving..."
@@ -381,96 +396,95 @@ export default function CustomersPage() {
           </div>
         )}
 
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
           {loading ? (
-            <div className="p-8 text-center text-sm text-gray-500">
+            <div className="p-6 text-center text-xs text-neutral-500">
               Loading customers...
             </div>
           ) : customers.length === 0 ? (
-            <div className="p-12 text-center">
-              <h2 className="text-lg font-semibold text-gray-900">
+            <div className="p-8 text-center">
+              <h2 className="text-xs font-semibold text-neutral-900">
                 No customers found
               </h2>
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-2 text-xs text-neutral-600">
                 Add your first customer to start building your CRM.
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-neutral-200">
+                <thead className="bg-neutral-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                       Customer
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                       Phone
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                       Email
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                       Added
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                       Actions
                     </th>
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-neutral-200">
                   {customers.map((customer) => (
                     <tr
                       key={customer.id}
-                      className="hover:bg-gray-50"
+                      className="hover:bg-neutral-50"
                     >
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">
+                      <td className="px-4 py-3">
+                        <div className="text-xs font-medium text-neutral-900">
                           {customer.name}
                         </div>
 
                         {customer.notes && (
-                          <div className="mt-1 max-w-md truncate text-xs text-gray-500">
+                          <div className="mt-0.5 max-w-md truncate text-[10px] text-neutral-500">
                             {customer.notes}
                           </div>
                         )}
                       </td>
 
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-4 py-3 text-xs text-neutral-700">
                         {customer.phone || "-"}
                       </td>
 
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-4 py-3 text-xs text-neutral-700">
                         {customer.email || "-"}
                       </td>
 
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-xs text-neutral-500">
                         {formatDate(customer.created_at)}
                       </td>
 
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openEdit(customer)
-                            }
-                            className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              deleteCustomer(customer)
-                            }
-                            className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
+                        <td className="px-4 py-3 text-right">
+                          {(userRole !== "customer" || customer.created_by === userId) && (
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openEdit(customer)}
+                                className="rounded-md border border-neutral-300 px-2 py-1 text-[10px] font-semibold text-neutral-700 hover:bg-neutral-50"
+                              >
+                                Edit
+                              </button>
+                              {userRole !== "customer" && (
+                                <button
+                                  type="button"
+                                  onClick={() => deleteCustomer(customer)}
+                                  className="rounded-md border border-red-300 px-2 py-1 text-[10px] font-semibold text-red-700 hover:bg-red-50"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
                     </tr>
                   ))}
                 </tbody>
@@ -478,7 +492,7 @@ export default function CustomersPage() {
             </div>
           )}
         </div>
-      </div>
-    </main>
+    </div>
   );
 }
+

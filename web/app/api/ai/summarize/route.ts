@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { callPerplexity } from "@/lib/perplexity";
 
@@ -24,7 +24,6 @@ type VehicleInput = {
   model: string | null;
   trim: string | null;
 };
-
 type HistoryEventInput = {
   event_date: string | null;
   description: string | null;
@@ -35,13 +34,18 @@ type HistoryEventInput = {
 
 type SummarizeRequestBody = {
   vehicle: VehicleInput;
+  mileageUnit?: string | null;
   history: {
     theft: HistoryEventInput[];
     odometer: HistoryEventInput[];
+    accident: HistoryEventInput[];
+    claim: HistoryEventInput[];
   };
   vehicleId?: string | null;
   odometerAnomaly?: boolean;
 };
+
+
 
 type AiSummary = {
   quick_summary: string;
@@ -65,8 +69,11 @@ You are the AI Analysis layer of a dealership vehicle-history tool.
 You will receive ONLY structured JSON containing:
 
 1. vehicle information
-2. theft-related history
-3. odometer history
+2. mileageUnit
+3. theft-related history
+4. odometer history
+5. accident history
+6. insurance claim history
 
 Your job is to explain ONLY those supplied facts.
 
@@ -84,24 +91,21 @@ STRICT SOURCE-GROUNDING RULES:
 4. NEVER add a number that does not come from the supplied JSON.
 
 5. ODOMETER UNIT:
-   Every odometer value in this application is measured in KILOMETERS (km).
-   NEVER call an odometer value miles.
-   NEVER convert kilometers to miles.
-   NEVER use "miles", "mi", or "mileage" when describing an odometer value.
-   Always use "km" or "kilometers".
+   Use the supplied mileageUnit to describe odometer values.
+   If mileageUnit is "MI", describe odometer values as miles or mi.
+   If mileageUnit is "KM", describe odometer values as kilometers or km.
+   NEVER convert miles to kilometers or kilometers to miles.
+   NEVER use a unit different from the supplied mileageUnit.
 
-6. Do not infer or invent locations.
-   If location is null or absent, do not mention a location.
+6. HISTORY CATEGORIES:
+   Theft, odometer, accident, and insurance claim records may be described
+   when they are explicitly present in the supplied JSON.
+   Describe them only as supplied records.
 
-7. Do not infer or invent theft outcomes.
-   A theft-related record must remain a theft-related record.
-   Do not say stolen, recovered, cleared, resolved, or confirmed unless
-   those exact facts are supplied.
-
-8. Do not infer damage, accidents, collisions, rollovers, repairs,
+7. Do not infer damage, collisions, rollovers, repairs,
    registration events, ownership history, title status, or insurance status.
 
-9. Do not infer fraud, odometer rollback, tampering, or misconduct.
+8. Do not infer fraud, odometer rollback, tampering, or misconduct.
    If the supplied data shows a decreasing odometer sequence, say only that
    it may warrant further review.
 
@@ -193,8 +197,9 @@ function buildSourceFacts(
   body: SummarizeRequestBody
 ) {
   const theft = body.history.theft ?? [];
-  const odometer =
-    body.history.odometer ?? [];
+  const odometer = body.history.odometer ?? [];
+  const accident = body.history.accident ?? [];
+  const claim = body.history.claim ?? [];
 
   const dates = new Set<string>();
   const locations = new Set<string>();
@@ -205,6 +210,8 @@ function buildSourceFacts(
   for (const event of [
     ...theft,
     ...odometer,
+    ...accident,
+    ...claim,
   ]) {
     if (event.event_date) {
       dates.add(
@@ -249,6 +256,13 @@ function buildSourceFacts(
     odometerValues: [
       ...odometerValues,
     ],
+    mileageUnit: body.mileageUnit ?? null,
+    historyCounts: {
+      theft: theft.length,
+      odometer: odometer.length,
+      accident: accident.length,
+      claim: claim.length,
+    },
   };
 }
 
@@ -262,125 +276,160 @@ function buildSourceFacts(
 function buildFallbackSummary(
   body: SummarizeRequestBody
 ): AiSummary {
-  const theft =
-    body.history.theft ?? [];
+  const theft = body.history.theft ?? [];
+  const odometer = body.history.odometer ?? [];
+  const accident = body.history.accident ?? [];
+  const claim = body.history.claim ?? [];
 
-  const odometer =
-    body.history.odometer ?? [];
+  const hasTheft = theft.length > 0;
+  const hasOdometer = odometer.length > 0;
+  const hasAccident = accident.length > 0;
+  const hasClaim = claim.length > 0;
 
-  const hasTheft =
-    theft.length > 0;
+  const unit =
+    String(body.mileageUnit ?? "KM").toUpperCase() === "MI"
+      ? "MI"
+      : "KM";
 
-  const hasOdometer =
-    odometer.length > 0;
+  const unitLabel = unit === "MI" ? "miles" : "kilometers";
 
   const sortedOdometer =
     [...odometer]
       .filter(
         (event) =>
-          typeof event.odometer ===
-            "number" &&
-          Number.isFinite(
-            event.odometer
-          )
+          typeof event.odometer === "number" &&
+          Number.isFinite(event.odometer)
       )
       .sort((a, b) => {
-        const aDate =
-          a.event_date || "";
+        const aDate = a.event_date || "";
+        const bDate = b.event_date || "";
 
-        const bDate =
-          b.event_date || "";
-
-        return aDate.localeCompare(
-          bDate
-        );
+        return aDate.localeCompare(bDate);
       });
 
-  const first =
-    sortedOdometer[0]?.odometer;
-
+  const first = sortedOdometer[0]?.odometer;
   const last =
-    sortedOdometer[
-      sortedOdometer.length - 1
-    ]?.odometer;
+    sortedOdometer[sortedOdometer.length - 1]?.odometer;
 
-  const quickSummary = hasTheft
-    ? hasOdometer
-      ? `The available history includes ${theft.length} theft-related record${
-          theft.length === 1
-            ? ""
-            : "s"
-        } and ${
-          odometer.length
-        } odometer record${
-          odometer.length === 1
-            ? ""
-            : "s"
-        }.`
-      : `The available history includes ${theft.length} theft-related record${
-          theft.length === 1
-            ? ""
-            : "s"
-        }. No odometer records are available.`
-    : hasOdometer
-      ? `No theft-related record was found in the available data. ${
-          odometer.length
-        } odometer record${
-          odometer.length === 1
-            ? ""
-            : "s"
-        } are available.`
-      : "No theft-related or odometer records were found in the available data.";
+  const historyParts: string[] = [];
+
+  if (hasTheft) {
+    historyParts.push(
+      `${theft.length} theft-related record${
+        theft.length === 1 ? "" : "s"
+      }`
+    );
+  }
+
+  if (hasOdometer) {
+    historyParts.push(
+      `${odometer.length} odometer record${
+        odometer.length === 1 ? "" : "s"
+      }`
+    );
+  }
+
+  if (hasAccident) {
+    historyParts.push(
+      `${accident.length} accident record${
+        accident.length === 1 ? "" : "s"
+      }`
+    );
+  }
+
+  if (hasClaim) {
+    historyParts.push(
+      `${claim.length} insurance claim record${
+        claim.length === 1 ? "" : "s"
+      }`
+    );
+  }
+
+  const quickSummary =
+    historyParts.length > 0
+      ? `The available history includes ${historyParts.join(" and ")}.`
+      : "No theft-related, odometer, accident, or insurance claim records were found in the available data.";
+
+  const odometerRange =
+    first != null && last != null
+      ? `, ranging from ${first.toLocaleString("en-US")} ${unit} to ${last.toLocaleString("en-US")} ${unit}`
+      : "";
+
+  const salespersonParts: string[] = [];
+
+  if (hasTheft) {
+    salespersonParts.push(
+      `The available data contains ${theft.length} theft-related record${
+        theft.length === 1 ? "" : "s"
+      }.`
+    );
+  }
+
+  if (hasOdometer) {
+    salespersonParts.push(
+      `The available odometer history contains ${odometer.length} reading${
+        odometer.length === 1 ? "" : "s"
+      }${odometerRange}.`
+    );
+  }
+
+  if (hasAccident) {
+    salespersonParts.push(
+      `The available data contains ${accident.length} accident record${
+        accident.length === 1 ? "" : "s"
+      }.`
+    );
+  }
+
+  if (hasClaim) {
+    salespersonParts.push(
+      `The available data contains ${claim.length} insurance claim record${
+        claim.length === 1 ? "" : "s"
+      }.`
+    );
+  }
 
   const salespersonExplanation =
-    hasTheft
-      ? `The available data contains ${theft.length} theft-related record${
-          theft.length === 1
-            ? ""
-            : "s"
-        }. The available odometer history contains ${
-          odometer.length
-        } reading${
-          odometer.length === 1
-            ? ""
-            : "s"
-        }${
-          first != null &&
-          last != null
-            ? `, ranging from ${first.toLocaleString(
-                "en-US"
-              )} km to ${last.toLocaleString(
-                "en-US"
-              )} km`
-            : ""
-        }.`
-      : `No theft-related record was found in the available data. The available odometer history contains ${
-          odometer.length
-        } reading${
-          odometer.length === 1
-            ? ""
-            : "s"
-        }${
-          first != null &&
-          last != null
-            ? `, ranging from ${first.toLocaleString(
-                "en-US"
-              )} km to ${last.toLocaleString(
-                "en-US"
-              )} km`
-            : ""
-        }.`;
+    salespersonParts.length > 0
+      ? salespersonParts.join(" ")
+      : "No theft-related, odometer, accident, or insurance claim records were found in the available data.";
+
+  const customerSummaryParts: string[] = [];
+
+  if (hasTheft) {
+    customerSummaryParts.push(
+      `The available vehicle-history data includes a theft-related record${
+        theft.length === 1 ? "" : "s"
+      }.`
+    );
+  }
+
+  if (hasOdometer) {
+    customerSummaryParts.push(
+      `Odometer records are available and shown in ${unitLabel}.`
+    );
+  }
+
+  if (hasAccident) {
+    customerSummaryParts.push(
+      `The available data includes ${accident.length} accident record${
+        accident.length === 1 ? "" : "s"
+      }.`
+    );
+  }
+
+  if (hasClaim) {
+    customerSummaryParts.push(
+      `The available data includes ${claim.length} insurance claim record${
+        claim.length === 1 ? "" : "s"
+      }.`
+    );
+  }
 
   const customerSummary =
-    hasTheft
-      ? `The available vehicle-history data includes a theft-related record. ${
-          hasOdometer
-            ? "The available odometer records are shown in kilometers."
-            : "No odometer records are available in the supplied data."
-        }`
-      : hasOdometer
-        ? "No theft-related record was found in the available data. Odometer records are available and are shown in kilometers."
-        : "No theft-related or odometer records were found in the available data.";
+    customerSummaryParts.length > 0
+      ? customerSummaryParts.join(" ")
+      : "No theft-related, odometer, accident, or insurance claim records were found in the available data.";
 
   const warnings: string[] = [];
 
@@ -390,42 +439,48 @@ function buildFallbackSummary(
     );
   }
 
-  if (
-    body.odometerAnomaly
-  ) {
+  if (hasAccident) {
+    warnings.push(
+      "An accident record is present in the available data."
+    );
+  }
+
+  if (hasClaim) {
+    warnings.push(
+      "An insurance claim record is present in the available data."
+    );
+  }
+
+  if (body.odometerAnomaly) {
     warnings.push(
       "The available odometer records show an inconsistency that may warrant further review."
     );
   }
 
-  if (
-    hasOdometer
-  ) {
+  if (hasOdometer) {
     warnings.push(
       "The odometer information is based only on the records provided."
     );
   }
 
   return {
-    quick_summary:
-      quickSummary,
-
-    salesperson_explanation:
-      salespersonExplanation,
-
-    customer_summary:
-      customerSummary,
-
+    quick_summary: quickSummary,
+    salesperson_explanation: salespersonExplanation,
+    customer_summary: customerSummary,
     warnings,
-
     facts: [
       hasTheft
         ? "Theft-related record found in the available data."
         : "No theft-related record was found in the available data.",
-
       hasOdometer
-        ? "Odometer records are available and measured in kilometers."
+        ? `Odometer records are available and measured in ${unitLabel}.`
         : "No odometer records are available.",
+      hasAccident
+        ? "Accident record found in the available data."
+        : "No accident record was found in the available data.",
+      hasClaim
+        ? "Insurance claim record found in the available data."
+        : "No insurance claim record was found in the available data.",
     ],
   };
 }
@@ -772,13 +827,46 @@ function factCheck(
   // Check AI narrative fields
   // ----------------------------------------------------------
 
+  // Forbidden topics
+  // Allow terms that are explicitly supported by supplied history/unit data.
+  const hasAccidentHistory =
+    (body.history.accident ?? []).length > 0;
+
+  const hasClaimHistory =
+    (body.history.claim ?? []).length > 0;
+
+  const mileageUnit =
+    String(body.mileageUnit ?? "KM").toUpperCase();
+
+  const effectiveForbiddenPatterns =
+    FORBIDDEN_PATTERNS.filter((item) => {
+      if (item.label === "accident") {
+        return !hasAccidentHistory;
+      }
+
+      if (item.label === "insurance") {
+        return !hasClaimHistory;
+      }
+
+      if (
+        item.label === "miles unit" ||
+        item.label === "mi unit"
+      ) {
+        return mileageUnit !== "MI";
+      }
+
+      return true;
+    });
+
   for (const field of textFields) {
     const text =
       cleaned[field];
 
     // Forbidden topics
+    // Allow terms that are explicitly supported by supplied history/unit data.
+
     const forbidden =
-      FORBIDDEN_PATTERNS.find(
+      effectiveForbiddenPatterns.find(
         (item) =>
           item.pattern.test(
             text
@@ -829,7 +917,7 @@ function factCheck(
     cleaned.warnings.filter(
       (warning) => {
         const forbidden =
-          FORBIDDEN_PATTERNS.some(
+          effectiveForbiddenPatterns.some(
             (item) =>
               item.pattern.test(
                 warning
@@ -874,7 +962,7 @@ function factCheck(
     cleaned.facts.filter(
       (fact) => {
         const forbidden =
-          FORBIDDEN_PATTERNS.some(
+          effectiveForbiddenPatterns.some(
             (item) =>
               item.pattern.test(
                 fact
@@ -999,6 +1087,7 @@ export async function POST(
 
   const structuredInput = {
     vehicle: body.vehicle,
+    mileageUnit: body.mileageUnit ?? null,
 
     history: {
       theft:
@@ -1007,6 +1096,14 @@ export async function POST(
 
       odometer:
         body.history.odometer ??
+        [],
+
+      accident:
+        body.history.accident ??
+        [],
+
+      claim:
+        body.history.claim ??
         [],
     },
   };
@@ -1282,12 +1379,8 @@ export async function POST(
   // ----------------------------------------------------------
 
   /**
-   * Never allow a final response to contain
-   * "miles" or "mi".
-   *
-   * Normally this will already have been caught
-   * by factCheck(), but this final guard makes
-   * the contract explicit.
+   * Final odometer-unit enforcement must follow the vehicle's
+   * supplied mileageUnit. Never convert between units.
    */
   const finalText = [
     aiOutput.quick_summary,
@@ -1297,11 +1390,15 @@ export async function POST(
     ...aiOutput.facts,
   ].join(" ");
 
-  if (
-    /\bmiles?\b|\bmi\b/i.test(
-      finalText
-    )
-  ) {
+  const finalMileageUnit =
+    String(body.mileageUnit ?? "KM").toUpperCase();
+
+  const invalidFinalUnit =
+    finalMileageUnit === "MI"
+      ? false
+      : /\bmiles?\b|\bmi\b/i.test(finalText);
+
+  if (invalidFinalUnit) {
     console.warn(
       "Final AI output contained an invalid odometer unit. Using deterministic fallback."
     );

@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { AppHeader } from "@/components/AppHeader";
+import VehicleImagePlaceholder from "@/components/VehicleImagePlaceholder";
 
 function formatNumberInput(value: string) {
   const cleaned = value.replace(/,/g, "").replace(/[^\d.]/g, "");
@@ -47,7 +47,7 @@ function formatNumberInput(value: string) {
 type Vehicle = {
   id: string;
   dealership_id: string;
-  vin: string;
+  vin: string | null;
   year: number;
   make: string;
   model: string;
@@ -55,7 +55,17 @@ type Vehicle = {
   body: string | null;
   engine: string | null;
   drivetrain: string | null;
+  transmission: string | null;
   fuel: string | null;
+  price: number | null;
+  currency: string | null;
+  mileage: number | null;
+  mileage_unit: string | null;
+  status: string | null;
+  primary_image: string | null;
+  images: string[];
+  description: string | null;
+  location: string | null;
 };
 
 type Customer = {
@@ -164,7 +174,7 @@ type PricingResponse = {
 type HistoryEvent = {
   id: string;
   event_date: string | null;
-  event_type?: "THEFT" | "ODOMETER" | "OTHER";
+  event_type?: "THEFT" | "ODOMETER" | "ACCIDENT" | "CLAIM" | "OTHER";
   description: string | null;
   location: string | null;
   odometer: number | null;
@@ -177,6 +187,8 @@ type HistoryResponse = {
   status?: "VEHICLE_NOT_SAVED" | "CHECKED";
   theft?: HistoryEvent[];
   odometer?: HistoryEvent[];
+  accident?: HistoryEvent[];
+  claim?: HistoryEvent[];
   odometerAnomaly?: boolean;
   error?: string;
 };
@@ -200,6 +212,7 @@ export default function VehicleDetailsPage() {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const [matching, setMatching] =
     useState<MatchingResponse | null>(null);
@@ -254,7 +267,7 @@ export default function VehicleDetailsPage() {
   const [showAddEvent, setShowAddEvent] =
     useState(false);
   const [newEventType, setNewEventType] =
-    useState<"THEFT" | "ODOMETER">("THEFT");
+    useState<"THEFT" | "ODOMETER" | "ACCIDENT" | "CLAIM">("THEFT");
   const [newEventDate, setNewEventDate] =
     useState("");
   const [newEventDescription, setNewEventDescription] =
@@ -267,6 +280,11 @@ export default function VehicleDetailsPage() {
     useState("");
 
   const [archiveLoading, setArchiveLoading] =
+    useState(false);
+
+  const [imageError, setImageError] = useState(false);
+
+  const [marketplaceLoading, setMarketplaceLoading] =
     useState(false);
 
   const [showAddComparable, setShowAddComparable] =
@@ -487,6 +505,7 @@ export default function VehicleDetailsPage() {
       try {
         setLoading(true);
         setError("");
+        setImageError(false);
 
         const normalizedVin = decodeURIComponent(vin)
           .trim()
@@ -543,6 +562,62 @@ export default function VehicleDetailsPage() {
     void loadVehicleData();
   }, [vin]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ignore keyboard navigation when typing in input elements
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Only handle gallery navigation when vehicle has multiple images
+      const galleryImages =
+        Array.isArray(vehicle?.images) && vehicle.images.length > 0
+          ? vehicle.images
+          : vehicle?.primary_image
+            ? [vehicle.primary_image]
+            : [];
+
+      if (galleryImages.length <= 1) {
+        return;
+      }
+
+      switch (event.key) {
+        case "ArrowLeft":
+          event.preventDefault();
+          setActiveImageIndex((current) =>
+            current === 0 ? galleryImages.length - 1 : current - 1
+          );
+          break;
+        case "ArrowRight":
+          event.preventDefault();
+          setActiveImageIndex((current) =>
+            current === galleryImages.length - 1 ? 0 : current + 1
+          );
+          break;
+        case "Home":
+          event.preventDefault();
+          setActiveImageIndex(0);
+          break;
+        case "End":
+          event.preventDefault();
+          setActiveImageIndex(galleryImages.length - 1);
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [vehicle]);
+
   const handleGenerateAiSummary = async () => {
     if (!vehicle || !history) return;
 
@@ -564,9 +639,12 @@ export default function VehicleDetailsPage() {
               model: vehicle.model,
               trim: vehicle.trim,
             },
+            mileageUnit: vehicle.mileage_unit ?? null,
             history: {
               theft: history.theft ?? [],
               odometer: history.odometer ?? [],
+              accident: history.accident ?? [],
+              claim: history.claim ?? [],
             },
             vehicleId: vehicle.id,
             odometerAnomaly:
@@ -971,11 +1049,89 @@ export default function VehicleDetailsPage() {
     }
   };
 
+  const handlePostToMarketplace = async () => {
+    if (!vin || !vehicle || marketplaceLoading) {
+      return;
+    }
+
+    try {
+      setMarketplaceLoading(true);
+
+      // Generate Marketplace listing data
+      const normalizedVin =
+        decodeURIComponent(vin)
+          .trim()
+          .toUpperCase();
+
+      const response = await fetch(
+        `/api/vehicles/${encodeURIComponent(normalizedVin)}/marketplace-listing`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to generate Marketplace listing");
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || "Failed to generate listing");
+      }
+
+      // Send listing data to Chrome extension using externally_connectable
+      const extensionId = 
+        localStorage.getItem("shiftly_extension_id") ||
+        (window as any).shiftlyExtensionId ||
+        null;
+      
+      if (!extensionId) {
+        alert("No extension ID found. Please ensure the Shiftly Auto extension is installed and refresh the page. This happens when the extension content script hasn't loaded yet.");
+        return;
+      }
+      
+      // Check for Chrome extension API availability across different browsers
+      const hasChromeRuntime = typeof (window as any).chrome !== 'undefined' && 
+                               (window as any).chrome !== null && 
+                               typeof (window as any).chrome.runtime !== 'undefined';
+      
+      if (!hasChromeRuntime) {
+        alert("Chrome extension API not available. Please ensure you're using a Chromium-based browser (Chrome, Edge, Opera) with the Shiftly Auto extension installed.");
+        return;
+      }
+
+      (window as any).chrome.runtime.sendMessage(extensionId, {
+        type: "SHIFTLY_POST_TO_MARKETPLACE",
+        listing: data.listing
+      }, (response: any) => {
+        if (window.chrome && window.chrome.runtime && window.chrome.runtime.lastError) {
+          alert(`Extension communication error: ${window.chrome.runtime.lastError.message}`);
+        } else if (response && !response.success) {
+          alert(`Marketplace posting error: ${response.error}`);
+        } else {
+          alert("Marketplace listing sent to extension successfully! Facebook Marketplace should open shortly.");
+        }
+      });
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Failed to prepare Marketplace listing"
+      );
+    } finally {
+      setMarketplaceLoading(false);
+    }
+  };
+
   const theftEvents =
     history?.theft ?? [];
 
   const odometerEvents =
     history?.odometer ?? [];
+
+  const accidentEvents =
+    history?.accident ?? [];
+
+  const claimEvents =
+    history?.claim ?? [];
 
   const hasTheft =
     theftEvents.length > 0;
@@ -983,43 +1139,46 @@ export default function VehicleDetailsPage() {
   const hasOdometer =
     odometerEvents.length > 0;
 
+  const hasAccident =
+    accidentEvents.length > 0;
+
+  const hasClaim =
+    claimEvents.length > 0;
+
   return (
-    <main className="min-h-screen bg-gray-100">
-      <AppHeader />
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      <Link
+        href="/vehicles"
+        className="text-xs font-semibold text-neutral-600 hover:text-neutral-900"
+      >
+        &lt; Back to Vehicles
+      </Link>
 
-      <div className="mx-auto max-w-5xl px-6 py-10">
-        <Link
-          href="/vehicles"
-          className="text-sm font-semibold text-gray-600 hover:text-gray-900"
-        >
-          ← Back to Vehicles
-        </Link>
+      {loading && (
+        <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-6 text-center shadow-sm">
+          <p className="text-xs font-medium text-neutral-700">
+            Loading vehicle...
+          </p>
 
-        {loading && (
-          <div className="mt-6 rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-            <p className="text-sm font-medium text-gray-700">
-              Loading vehicle...
-            </p>
+          <p className="mt-1 text-xs text-neutral-500">
+            Fetching vehicle information.
+          </p>
+        </div>
+      )}
 
-            <p className="mt-1 text-sm text-gray-500">
-              Fetching vehicle information.
-            </p>
-          </div>
-        )}
+      {!loading && error && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-white p-4 shadow-sm">
+          <h1 className="text-sm font-semibold text-neutral-900">
+            Unable to load vehicle
+          </h1>
 
-        {!loading && error && (
-          <div className="mt-6 rounded-xl border border-red-200 bg-white p-6 shadow-sm">
-            <h1 className="text-xl font-semibold text-gray-900">
-              Unable to load vehicle
-            </h1>
-
-            <p className="mt-2 text-sm text-red-600">
-              {error}
-            </p>
+          <p className="mt-1 text-xs text-red-600">
+            {error}
+          </p>
 
             <Link
               href="/vehicles"
-              className="mt-5 inline-flex rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700"
+              className="mt-3 inline-flex rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700"
             >
               Back to Vehicles
             </Link>
@@ -1030,129 +1189,290 @@ export default function VehicleDetailsPage() {
           !error &&
           vehicle && (
             <>
-              <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">
-                      Vehicle Intelligence
-                    </p>
-
-                    <h1 className="mt-1 text-3xl font-bold text-gray-900">
+              <div className="mt-4 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex-1">
+                    <h1 className="text-lg font-bold text-gray-900">
                       {vehicle.year}{" "}
                       {vehicle.make}{" "}
                       {vehicle.model}
                     </h1>
 
                     {vehicle.trim && (
-                      <p className="mt-1 text-lg text-gray-500">
+                      <p className="text-xs text-gray-500">
                         {vehicle.trim}
                       </p>
                     )}
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    <Link
-                      href={`/vehicles/${encodeURIComponent(
-                        vehicle.vin
-                      )}/edit`}
-                      className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                    >
-                      Edit Vehicle
-                    </Link>
+                  <div className="flex shrink-0 gap-2">
+                    {vehicle.vin ? (
+                      <Link
+                        href={`/vehicles/${encodeURIComponent(
+                          vehicle.vin
+                        )}/edit`}
+                        className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                      >
+                        Edit Vehicle
+                      </Link>
+                    ) : (
+                      <span className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-400">
+                        VIN Required for Edit
+                      </span>
+                    )}
 
                     <button
                       type="button"
                       onClick={handleArchiveVehicle}
                       disabled={archiveLoading}
-                      className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center justify-center rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {archiveLoading
                         ? "Archiving..."
                         : "Archive Vehicle"}
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={handlePostToMarketplace}
+                      disabled={marketplaceLoading}
+                      className="inline-flex items-center justify-center rounded-md border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {marketplaceLoading
+                        ? "Opening Marketplace..."
+                        : "Post to Marketplace"}
+                    </button>
                   </div>
                 </div>
 
-                <div className="mt-5 rounded-lg bg-gray-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                    VIN
-                  </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {/* Vehicle Image Gallery */}
+                  <div className="rounded-md overflow-hidden bg-gray-100 sm:col-span-2 lg:col-span-1">
+                    {(() => {
+                      const galleryImages =
+                        Array.isArray(vehicle.images) && vehicle.images.length > 0
+                          ? vehicle.images
+                          : vehicle.primary_image
+                            ? [vehicle.primary_image]
+                            : [];
 
-                  <p className="mt-1 break-all font-mono text-sm text-gray-800">
-                    {vehicle.vin}
-                  </p>
-                </div>
-              </div>
+                      const showPreviousImage = () => {
+                        setActiveImageIndex((current) =>
+                          current === 0 ? galleryImages.length - 1 : current - 1
+                        );
+                      };
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <InfoCard
-                  label="Year"
-                  value={vehicle.year}
-                />
+                      const showNextImage = () => {
+                        setActiveImageIndex((current) =>
+                          current === galleryImages.length - 1 ? 0 : current + 1
+                        );
+                      };
 
-                <InfoCard
-                  label="Make"
-                  value={vehicle.make}
-                />
+                      if (galleryImages.length === 0) {
+                        return (
+                          <div className="h-48 flex items-center justify-center bg-gray-100">
+                            <VehicleImagePlaceholder />
+                          </div>
+                        );
+                      }
 
-                <InfoCard
-                  label="Model"
-                  value={vehicle.model}
-                />
+                      return (
+                        <>
+                          <div className="relative overflow-hidden">
+                            <img
+                              src={galleryImages[activeImageIndex]}
+                              alt={`${vehicle.year} ${vehicle.make} ${vehicle.model} photo ${activeImageIndex + 1}`}
+                              className="h-48 w-full object-cover"
+                              onError={() => setImageError(true)}
+                            />
 
-                <InfoCard
-                  label="Trim"
-                  value={vehicle.trim || "—"}
-                />
+                            {galleryImages.length > 1 && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={showPreviousImage}
+                                  className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-1.5 text-sm font-semibold text-white hover:bg-black/80"
+                                  aria-label="Previous photo"
+                                >
+                                  ←
+                                </button>
 
-                <InfoCard
-                  label="Body"
-                  value={vehicle.body || "—"}
-                />
+                                <button
+                                  type="button"
+                                  onClick={showNextImage}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-1.5 text-sm font-semibold text-white hover:bg-black/80"
+                                  aria-label="Next photo"
+                                >
+                                  →
+                                </button>
 
-                <InfoCard
-                  label="Drivetrain"
-                  value={vehicle.drivetrain || "—"}
-                />
+                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                                  {activeImageIndex + 1} / {galleryImages.length}
+                                </div>
+                              </>
+                            )}
+                          </div>
 
-                <InfoCard
-                  label="Fuel"
-                  value={vehicle.fuel || "—"}
-                />
+                          {galleryImages.length > 1 && (
+                            <div className="mt-2 flex flex-nowrap gap-1.5 overflow-x-auto">
+                              {galleryImages.map((image, index) => (
+                                <button
+                                  key={`${image}-${index}`}
+                                  type="button"
+                                  onClick={() => setActiveImageIndex(index)}
+                                  className={`overflow-hidden rounded border bg-white flex-shrink-0 ${
+                                    index === activeImageIndex
+                                      ? "border-blue-600 ring-2 ring-blue-200"
+                                      : "border-neutral-200"
+                                  }`}
+                                  aria-label={`View photo ${index + 1}`}
+                                >
+                                  <img
+                                    src={image}
+                                    alt={`${vehicle.year} ${vehicle.make} ${vehicle.model} photo ${index + 1}`}
+                                    className="h-12 w-full object-cover"
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
 
-                <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:col-span-2 lg:col-span-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                    Engine
-                  </p>
+                  {/* Vehicle Details */}
+                  <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:col-span-2 lg:col-span-2">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                      Vehicle Details
+                    </p>
 
-                  <p className="mt-2 text-lg font-semibold text-gray-900">
-                    {vehicle.engine || "—"}
-                  </p>
+                    <div className="mt-2">
+                      <p className="font-mono text-sm font-bold text-gray-900">
+                        {vehicle.vin || "VIN Not Available"}
+                      </p>
+
+                      <h2 className="mt-1 text-base font-bold text-gray-900">
+                        {vehicle.year} {vehicle.make} {vehicle.model}
+                      </h2>
+
+                      {vehicle.trim && (
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          Trim: {vehicle.trim}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                      <div>
+                        <span className="text-xs text-gray-500">Price:</span>{" "}
+                        <span className="text-sm font-semibold text-gray-900">
+                          {vehicle.price != null
+                            ? (() => {
+                                const currencyCode = vehicle.currency || "CAD";
+                                const localeMap: Record<string, string> = {
+                                  USD: "en-US",
+                                  PHP: "en-PH",
+                                  EUR: "de-DE",
+                                  GBP: "en-GB",
+                                  CAD: "en-CA",
+                                  AUD: "en-AU",
+                                  JPY: "ja-JP",
+                                  CNY: "zh-CN",
+                                  SGD: "en-SG",
+                                  HKD: "en-HK",
+                                  MYR: "en-MY",
+                                  THB: "th-TH",
+                                  IDR: "id-ID",
+                                  VND: "vi-VN",
+                                };
+                                const locale = localeMap[currencyCode] || "en-US";
+
+                                return new Intl.NumberFormat(locale, {
+                                  style: "currency",
+                                  currency: currencyCode,
+                                  useGrouping: true,
+                                  maximumFractionDigits: 0,
+                                }).format(vehicle.price);
+                              })()
+                            : "Not specified"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-xs text-gray-500">Mileage:</span>{" "}
+                        <span className="text-sm font-semibold text-gray-900">
+                          {vehicle.mileage != null
+                            ? `${vehicle.mileage.toLocaleString()} ${(vehicle.mileage_unit || "KM").toUpperCase()}`
+                            : "Not specified"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-xs text-gray-500">Body:</span>{" "}
+                        <span className="text-sm text-gray-800">
+                          {vehicle.body || "Not specified"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-xs text-gray-500">Engine:</span>{" "}
+                        <span className="text-sm text-gray-800">
+                          {vehicle.engine || "Not specified"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-xs text-gray-500">Drivetrain:</span>{" "}
+                        <span className="text-sm text-gray-800">
+                          {vehicle.drivetrain || "Not specified"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-xs text-gray-500">Transmission:</span>{" "}
+                        <span className="text-sm text-gray-800">
+                          {vehicle.transmission || "Not specified"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-xs text-gray-500">Fuel:</span>{" "}
+                        <span className="text-sm text-gray-800">
+                          {vehicle.fuel || "Not specified"}
+                        </span>
+                      </div>
+
+                      {vehicle.location && (
+                        <div className="sm:col-span-2">
+                          <span className="text-xs text-gray-500">Location:</span>{" "}
+                          <span className="text-sm text-gray-800">
+                            {vehicle.location}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* V2 VEHICLE MATCHING */}
-              <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
                       V2 Inventory Intelligence
                     </p>
 
-                    <h2 className="mt-1 text-xl font-bold text-gray-900">
+                    <h2 className="mt-0.5 text-sm font-bold text-gray-900">
                       Similar Vehicles
                     </h2>
-
-                    <p className="mt-1 text-sm text-gray-500">
-                      Vehicles in your active inventory
-                      that closely match this vehicle.
-                    </p>
                   </div>
 
                   {!matchingLoading &&
                     matching &&
                     matching.count !== undefined && (
-                      <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600">
                         {matching.count}{" "}
                         {matching.count === 1
                           ? "match"
@@ -1162,8 +1482,8 @@ export default function VehicleDetailsPage() {
                 </div>
 
                 {matchingLoading && (
-                  <div className="mt-6 rounded-lg bg-gray-50 p-5">
-                    <p className="text-sm text-gray-500">
+                  <div className="mt-2 rounded-md bg-gray-50 p-2">
+                    <p className="text-xs text-gray-500">
                       Finding similar vehicles...
                     </p>
                   </div>
@@ -1171,19 +1491,19 @@ export default function VehicleDetailsPage() {
 
                 {!matchingLoading &&
                   matchingError && (
-                    <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-5">
-                      <p className="text-sm font-medium text-red-700">
+                    <div className="mt-2 rounded-md border border-red-200 bg-red-50 p-2">
+                      <p className="text-xs font-medium text-red-700">
                         Unable to load vehicle matches.
                       </p>
 
-                      <p className="mt-1 text-sm text-red-600">
+                      <p className="mt-0.5 text-xs text-red-600">
                         {matchingError}
                       </p>
 
                       <button
                         type="button"
                         onClick={refreshMatching}
-                        className="mt-3 rounded-lg border border-red-300 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50"
+                        className="mt-1 rounded-md border border-red-300 bg-white px-2 py-1 text-[10px] font-semibold text-red-700 hover:bg-red-50"
                       >
                         Try Again
                       </button>
@@ -1195,60 +1515,55 @@ export default function VehicleDetailsPage() {
                   matching &&
                   matching.matches &&
                   matching.matches.length > 0 && (
-                    <div className="mt-6 space-y-3">
+                    <div className="mt-2 space-y-1.5">
                       {matching.matches.map((match) => (
-                        <Link
-                          key={match.id}
-                          href={`/vehicles/${encodeURIComponent(
-                            match.vin
-                          )}`}
-                          className="block rounded-xl border border-gray-200 p-4 transition hover:border-gray-400 hover:bg-gray-50"
-                        >
-                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        match.vin ? (
+                          <Link
+                            key={match.id}
+                            href={`/vehicles/${encodeURIComponent(
+                              match.vin
+                            )}`}
+                            className="block rounded-lg border border-gray-200 p-2 transition hover:border-gray-400 hover:bg-gray-50"
+                          >
+                          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                             <div className="min-w-0">
-                              <p className="font-semibold text-gray-900">
+                              <p className="text-xs font-semibold text-gray-900">
                                 {match.year}{" "}
                                 {match.make}{" "}
                                 {match.model}
                               </p>
 
                               {match.trim && (
-                                <p className="mt-1 text-sm text-gray-500">
+                                <p className="text-[10px] text-gray-500">
                                   {match.trim}
                                 </p>
                               )}
 
-                              <p className="mt-2 break-all font-mono text-xs text-gray-400">
+                              <p className="break-all font-mono text-[10px] text-gray-400">
                                 VIN: {match.vin}
                               </p>
                             </div>
 
                             <div className="shrink-0 text-left sm:text-right">
-                              <p className="text-2xl font-bold text-gray-900">
+                              <p className="text-sm font-bold text-gray-900">
                                 {match.matchScore}%
                               </p>
 
-                              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                              <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
                                 Match
                               </p>
                             </div>
                           </div>
 
                           {match.reasons.length > 0 && (
-                            <div className="mt-4 flex flex-wrap gap-2">
-                              {match.reasons.map(
-                                (reason) => (
-                                  <span
-                                    key={reason}
-                                    className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600"
-                                  >
-                                    ✓ {reason}
-                                  </span>
-                                )
-                              )}
+                            <div className="mt-1.5">
+                              <p className="text-[10px] font-medium text-gray-600">
+                                {match.reasons.join(" · ")}
+                              </p>
                             </div>
                           )}
                         </Link>
+                        ) : null
                       ))}
                     </div>
                   )}
@@ -1258,8 +1573,8 @@ export default function VehicleDetailsPage() {
                   matching &&
                   matching.matches &&
                   matching.matches.length === 0 && (
-                    <div className="mt-6 rounded-lg bg-gray-50 p-5">
-                      <p className="text-sm text-gray-500">
+                    <div className="mt-2 rounded-md bg-gray-50 p-2">
+                      <p className="text-xs text-gray-500">
                         No similar vehicles were found
                         in your active inventory.
                       </p>
@@ -1268,25 +1583,20 @@ export default function VehicleDetailsPage() {
               </div>
 
               {/* V2.2 PRICING */}
-              <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
                       V2.2 Pricing Intelligence
                     </p>
 
-                    <h2 className="mt-1 text-xl font-bold text-gray-900">
+                    <h2 className="mt-0.5 text-sm font-bold text-gray-900">
                       Price Intelligence
                     </h2>
-
-                    <p className="mt-1 text-sm text-gray-500">
-                      Market pricing, competitive listings,
-                      and days on market.
-                    </p>
                   </div>
 
                   {pricing?.pricing?.calculated_at && (
-                    <p className="text-xs text-gray-400">
+                    <p className="text-[10px] text-gray-400">
                       Updated{" "}
                       {new Date(
                         pricing.pricing.calculated_at
@@ -1296,20 +1606,20 @@ export default function VehicleDetailsPage() {
                 </div>
 
                 {pricingLoading && (
-                  <div className="mt-6 rounded-lg bg-gray-50 p-5">
-                    <p className="text-sm text-gray-500">
+                  <div className="mt-2 rounded-md bg-gray-50 p-2">
+                    <p className="text-xs text-gray-500">
                       Loading pricing intelligence...
                     </p>
                   </div>
                 )}
 
                 {!pricingLoading && pricingError && (
-                  <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-5">
-                    <p className="text-sm font-medium text-red-700">
+                  <div className="mt-2 rounded-md border border-red-200 bg-red-50 p-2">
+                    <p className="text-xs font-medium text-red-700">
                       Unable to load pricing intelligence.
                     </p>
 
-                    <p className="mt-1 text-sm text-red-600">
+                    <p className="mt-0.5 text-xs text-red-600">
                       {pricingError}
                     </p>
                   </div>
@@ -1319,105 +1629,105 @@ export default function VehicleDetailsPage() {
                   !pricingError &&
                   pricing && (
                     <>
-                      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
-                          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
                             Current Price
                           </p>
 
-                          <p className="mt-2 text-2xl font-bold text-gray-900">
+                          <p className="mt-0.5 text-sm font-bold text-gray-900">
                             {pricing.vehicle?.current_price != null
-                              ? `₱${pricing.vehicle.current_price.toLocaleString()}`
-                              : "—"}
+                              ? `$${pricing.vehicle.current_price.toLocaleString()}`
+                              : "Not specified"}
                           </p>
                         </div>
 
-                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
-                          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                        <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
                             Market Price
                           </p>
 
-                          <p className="mt-2 text-2xl font-bold text-gray-900">
+                          <p className="mt-0.5 text-sm font-bold text-gray-900">
                             {pricing.pricing?.market_price != null
-                              ? `₱${pricing.pricing.market_price.toLocaleString()}`
-                              : "—"}
+                              ? `$${pricing.pricing.market_price.toLocaleString()}`
+                              : "Not specified"}
                           </p>
                         </div>
 
-                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
-                          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                        <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
                             Recommended Price
                           </p>
 
-                          <p className="mt-2 text-2xl font-bold text-gray-900">
+                          <p className="mt-0.5 text-sm font-bold text-gray-900">
                             {pricing.pricing?.recommended_price != null
-                              ? `₱${pricing.pricing.recommended_price.toLocaleString()}`
-                              : "—"}
+                              ? `$${pricing.pricing.recommended_price.toLocaleString()}`
+                              : "Not specified"}
                           </p>
                         </div>
 
-                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
-                          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                        <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
                             Days on Market
                           </p>
 
-                          <p className="mt-2 text-2xl font-bold text-gray-900">
+                          <p className="mt-0.5 text-sm font-bold text-gray-900">
                             {pricing.days_on_market != null
                               ? pricing.days_on_market
-                              : "—"}
+                              : "Not specified"}
                           </p>
 
                           {pricing.days_on_market != null && (
-                            <p className="mt-1 text-xs text-gray-500">
+                            <p className="text-[10px] text-gray-500">
                               days
                             </p>
                           )}
                         </div>
                       </div>
 
-                      <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                        <div className="rounded-lg border border-gray-200 p-4">
-                          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                      <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                        <div className="rounded-md border border-gray-200 p-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
                             Low Market
                           </p>
 
-                          <p className="mt-1 font-semibold text-gray-900">
+                          <p className="mt-0.5 text-xs font-semibold text-gray-900">
                             {pricing.pricing?.low_price != null
-                              ? `₱${pricing.pricing.low_price.toLocaleString()}`
-                              : "—"}
+                              ? `$${pricing.pricing.low_price.toLocaleString()}`
+                              : "Not specified"}
                           </p>
                         </div>
 
-                        <div className="rounded-lg border border-gray-200 p-4">
-                          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                        <div className="rounded-md border border-gray-200 p-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
                             High Market
                           </p>
 
-                          <p className="mt-1 font-semibold text-gray-900">
+                          <p className="mt-0.5 text-xs font-semibold text-gray-900">
                             {pricing.pricing?.high_price != null
-                              ? `₱${pricing.pricing.high_price.toLocaleString()}`
-                              : "—"}
+                              ? `$${pricing.pricing.high_price.toLocaleString()}`
+                              : "Not specified"}
                           </p>
                         </div>
 
-                        <div className="rounded-lg border border-gray-200 p-4">
-                          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                        <div className="rounded-md border border-gray-200 p-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
                             Comparables
                           </p>
 
-                          <p className="mt-1 font-semibold text-gray-900">
+                          <p className="mt-0.5 text-xs font-semibold text-gray-900">
                             {pricing.pricing?.comparable_count ?? 0}
                           </p>
                         </div>
                       </div>
 
-                      <div className="mt-6 border-t border-gray-100 pt-4">
+                      <div className="mt-3 border-t border-gray-100 pt-2">
                         <button
                           type="button"
                           onClick={() =>
                             setShowAddComparable((v) => !v)
                           }
-                          className="text-sm font-semibold text-gray-700 hover:text-gray-900"
+                          className="text-xs font-semibold text-gray-700 hover:text-gray-900"
                         >
                           {showAddComparable
                             ? "Cancel"
@@ -1427,9 +1737,9 @@ export default function VehicleDetailsPage() {
                         {showAddComparable && (
                           <form
                             onSubmit={handleAddComparable}
-                            className="mt-3 space-y-3"
+                            className="mt-2 space-y-2"
                           >
-                            <p className="text-xs text-gray-500">
+                            <p className="text-[10px] text-gray-500">
                               No commercial market-data
                               provider is connected yet.
                               Comparables added here are
@@ -1438,9 +1748,9 @@ export default function VehicleDetailsPage() {
                               recalculate the pricing above.
                             </p>
 
-                            <div className="grid gap-3 sm:grid-cols-3">
+                            <div className="grid gap-2 sm:grid-cols-3">
                               <div>
-                                <label className="block text-xs font-medium text-gray-500">
+                                <label className="block text-[10px] font-medium text-gray-500">
                                   Year
                                 </label>
 
@@ -1457,12 +1767,12 @@ export default function VehicleDetailsPage() {
                                       )
                                     )
                                   }
-                                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
                                 />
                               </div>
 
                               <div>
-                                <label className="block text-xs font-medium text-gray-500">
+                                <label className="block text-[10px] font-medium text-gray-500">
                                   Make
                                 </label>
 
@@ -1475,12 +1785,12 @@ export default function VehicleDetailsPage() {
                                       e.target.value
                                     )
                                   }
-                                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
                                 />
                               </div>
 
                               <div>
-                                <label className="block text-xs font-medium text-gray-500">
+                                <label className="block text-[10px] font-medium text-gray-500">
                                   Model
                                 </label>
 
@@ -1493,14 +1803,14 @@ export default function VehicleDetailsPage() {
                                       e.target.value
                                     )
                                   }
-                                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
                                 />
                               </div>
                             </div>
 
-                            <div className="grid gap-3 sm:grid-cols-3">
+                            <div className="grid gap-2 sm:grid-cols-3">
                               <div>
-                                <label className="block text-xs font-medium text-gray-500">
+                                <label className="block text-[10px] font-medium text-gray-500">
                                   Trim
                                 </label>
 
@@ -1513,13 +1823,13 @@ export default function VehicleDetailsPage() {
                                       e.target.value
                                     )
                                   }
-                                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
                                 />
                               </div>
 
                               <div>
-                                <label className="block text-xs font-medium text-gray-500">
-                                  Price (₱)
+                                <label className="block text-[10px] font-medium text-gray-500">
+                                  Price ($)
                                 </label>
 
                                 <input
@@ -1535,13 +1845,13 @@ export default function VehicleDetailsPage() {
                                       )
                                     )
                                   }
-                                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
                                 />
                               </div>
 
                               <div>
-                                <label className="block text-xs font-medium text-gray-500">
-                                  Mileage (km)
+                                <label className="block text-[10px] font-medium text-gray-500">
+                                  Mileage ({vehicle.mileage_unit || 'km'})
                                 </label>
 
                                 <input
@@ -1556,13 +1866,13 @@ export default function VehicleDetailsPage() {
                                       )
                                     )
                                   }
-                                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
                                 />
                               </div>
                             </div>
 
                             <div>
-                              <label className="block text-xs font-medium text-gray-500">
+                              <label className="block text-[10px] font-medium text-gray-500">
                                 Location
                               </label>
 
@@ -1575,12 +1885,12 @@ export default function VehicleDetailsPage() {
                                     e.target.value
                                   )
                                 }
-                                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                                className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
                               />
                             </div>
 
                             {addComparableError && (
-                              <p className="text-sm text-red-600">
+                              <p className="text-xs text-red-600">
                                 {addComparableError}
                               </p>
                             )}
@@ -1588,7 +1898,7 @@ export default function VehicleDetailsPage() {
                             <button
                               type="submit"
                               disabled={addComparableLoading}
-                              className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+                              className="rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
                             >
                               {addComparableLoading
                                 ? "Saving..."
@@ -1600,13 +1910,13 @@ export default function VehicleDetailsPage() {
 
                       {pricing.comparables &&
                         pricing.comparables.length > 0 && (
-                          <div className="mt-6">
-                            <div className="flex items-center justify-between gap-3">
-                              <h3 className="font-semibold text-gray-900">
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="text-xs font-semibold text-gray-900">
                                 Competitive Listings
                               </h3>
 
-                              <span className="text-xs text-gray-400">
+                              <span className="text-[10px] text-gray-400">
                                 {pricing.comparables.length} listing
                                 {pricing.comparables.length === 1
                                   ? ""
@@ -1614,46 +1924,46 @@ export default function VehicleDetailsPage() {
                               </span>
                             </div>
 
-                            <div className="mt-3 space-y-3">
+                            <div className="mt-2 space-y-1.5">
                               {pricing.comparables.map(
                                 (comparable) => (
                                   <div
                                     key={comparable.id}
-                                    className="rounded-lg border border-gray-200 p-4"
+                                    className="rounded-md border border-gray-200 p-2"
                                   >
-                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
                                       <div>
-                                        <p className="font-semibold text-gray-900">
-                                          {comparable.year ?? "—"}{" "}
+                                        <p className="text-xs font-semibold text-gray-900">
+                                          {comparable.year ?? "N/A"}{" "}
                                           {comparable.make ?? ""}{" "}
                                           {comparable.model ?? ""}
                                         </p>
 
                                         {comparable.trim && (
-                                          <p className="text-sm text-gray-500">
+                                          <p className="text-[10px] text-gray-500">
                                             {comparable.trim}
                                           </p>
                                         )}
                                       </div>
 
-                                      <p className="font-bold text-gray-900">
+                                      <p className="text-xs font-bold text-gray-900">
                                         {comparable.price != null
-                                          ? `₱${comparable.price.toLocaleString()}`
-                                          : "—"}
+                                          ? `$${comparable.price.toLocaleString()}`
+                                          : "Not specified"}
                                       </p>
                                     </div>
 
-                                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-gray-500">
+                                    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-gray-500">
                                       <span>
                                         Mileage:{" "}
                                         {comparable.mileage != null
-                                          ? `${comparable.mileage.toLocaleString()} km`
-                                          : "—"}
+                                          ? `${comparable.mileage.toLocaleString()} ${vehicle.mileage_unit || 'km'}`
+                                          : "Not specified"}
                                       </span>
 
                                       <span>
                                         Location:{" "}
-                                        {comparable.location || "—"}
+                                        {comparable.location || "N/A"}
                                       </span>
 
                                       <span>
@@ -1668,7 +1978,7 @@ export default function VehicleDetailsPage() {
                                         href={comparable.source_url}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="mt-3 inline-block text-xs font-medium text-gray-700 underline hover:text-gray-900"
+                                        className="mt-1.5 inline-block text-[10px] font-medium text-gray-700 underline hover:text-gray-900"
                                       >
                                         View listing
                                       </a>
@@ -1681,8 +1991,8 @@ export default function VehicleDetailsPage() {
                         )}
 
                       {!pricing.comparables?.length && (
-                        <div className="mt-6 rounded-lg bg-gray-50 p-4">
-                          <p className="text-sm text-gray-500">
+                        <div className="mt-3 rounded-md bg-gray-50 p-2">
+                          <p className="text-xs text-gray-500">
                             No competitive listings are available yet.
                           </p>
                         </div>
@@ -1692,20 +2002,20 @@ export default function VehicleDetailsPage() {
               </div>
 
               {/* VEHICLE STATUS */}
-              <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="font-semibold text-gray-900">
+              <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                <h2 className="text-sm font-semibold text-gray-900">
                   Vehicle Status
                 </h2>
 
                 {historyLoading && (
-                  <p className="mt-3 text-sm text-gray-500">
+                  <p className="mt-2 text-xs text-gray-500">
                     Checking available history...
                   </p>
                 )}
 
                 {!historyLoading &&
                   historyError && (
-                    <p className="mt-3 text-sm text-red-600">
+                    <p className="mt-2 text-xs text-red-600">
                       {historyError}
                     </p>
                   )}
@@ -1713,56 +2023,81 @@ export default function VehicleDetailsPage() {
                 {!historyLoading &&
                   !historyError &&
                   history && (
-                    <ul className="mt-4 space-y-2 text-sm">
-                      <li
-                        className={
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className={
                           hasTheft
-                            ? "flex items-center gap-2 text-amber-700"
-                            : "flex items-center gap-2 text-green-700"
-                        }
-                      >
-                        <span>
-                          {hasTheft ? "⚠" : "✓"}
+                            ? "text-amber-700"
+                            : "text-green-700"
+                        }>
+                          {hasTheft ? "\u2713" : "\u2013"}
                         </span>
 
-                        <span>
+                        <span className={
+                          hasTheft
+                            ? "text-amber-700"
+                            : "text-green-700"
+                        }>
                           {hasTheft
                             ? "Theft-related record found"
-                            : "No theft-related record was found in the available data"}
+                            : "No theft-related record"}
                         </span>
-                      </li>
+                      </div>
 
-                      <li className="flex items-center gap-2 text-gray-700">
+                      <div className="flex items-center gap-2 text-xs text-gray-700">
                         <span>
-                          {hasOdometer ? "✓" : "–"}
+                          {hasOdometer ? "\u2713" : "\u2013"}
                         </span>
 
                         <span>
                           {hasOdometer
                             ? "Odometer records available"
-                            : "No odometer records available"}
+                            : "No odometer records"}
                         </span>
-                      </li>
+                      </div>
 
+                      <div className="flex items-center gap-2 text-xs text-gray-700">
+                        <span>
+                          {hasAccident ? "\u2713" : "\u2013"}
+                        </span>
+
+                        <span>
+                          {hasAccident
+                            ? "Accident records available"
+                            : "No accident records"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs text-gray-700">
+                        <span>
+                          {hasClaim ? "\u2713" : "\u2013"}
+                        </span>
+
+                        <span>
+                          {hasClaim
+                            ? "Insurance claim records available"
+                            : "No insurance claim records"}
+                        </span>
+                      </div>
                       {history.odometerAnomaly && (
-                        <li className="flex items-center gap-2 text-amber-700">
-                          <span>⚠</span>
+                        <div className="flex items-center gap-2 text-xs text-amber-700 sm:col-span-2">
+                          <span>\u26A0 </span>
 
                           <span>
                             Odometer Pattern Requires Review
                           </span>
-                        </li>
+                        </div>
                       )}
-                    </ul>
+                    </div>
                   )}
 
-                <div className="mt-4 border-t border-gray-100 pt-4">
+                <div className="mt-3 border-t border-gray-100 pt-2">
                   <button
                     type="button"
                     onClick={() =>
                       setShowAddEvent((v) => !v)
                     }
-                    className="text-sm font-semibold text-gray-700 hover:text-gray-900"
+                    className="text-xs font-semibold text-gray-700 hover:text-gray-900"
                   >
                     {showAddEvent
                       ? "Cancel"
@@ -1772,17 +2107,17 @@ export default function VehicleDetailsPage() {
                   {showAddEvent && (
                     <form
                       onSubmit={handleAddEvent}
-                      className="mt-3 space-y-3"
+                      className="mt-2 space-y-2"
                     >
-                      <p className="text-xs text-gray-500">
+                      <p className="text-[10px] text-gray-500">
                         No commercial vehicle-history
                         provider is connected yet.
                         Records added here are tagged
                         &quot;Manual Entry (Dealer)&quot;.
                       </p>
 
-                      <div className="flex gap-3">
-                        <label className="flex items-center gap-1.5 text-sm">
+                      <div className="flex flex-wrap gap-2">
+                        <label className="flex items-center gap-1 text-xs">
                           <input
                             type="radio"
                             checked={
@@ -1796,7 +2131,7 @@ export default function VehicleDetailsPage() {
                           Theft
                         </label>
 
-                        <label className="flex items-center gap-1.5 text-sm">
+                        <label className="flex items-center gap-1 text-xs">
                           <input
                             type="radio"
                             checked={
@@ -1808,11 +2143,39 @@ export default function VehicleDetailsPage() {
                           />
                           Odometer
                         </label>
+
+                        <label className="flex items-center gap-1 text-xs">
+                          <input
+                            type="radio"
+                            checked={
+                              newEventType === "ACCIDENT"
+                            }
+                            onChange={() => {
+                              setNewEventType("ACCIDENT");
+                              setNewEventOdometer("");
+                            }}
+                          />
+                          Accident
+                        </label>
+
+                        <label className="flex items-center gap-1 text-xs">
+                          <input
+                            type="radio"
+                            checked={
+                              newEventType === "CLAIM"
+                            }
+                            onChange={() => {
+                              setNewEventType("CLAIM");
+                              setNewEventOdometer("");
+                            }}
+                          />
+                          Insurance Claim
+                        </label>
                       </div>
 
-                      <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="grid gap-2 sm:grid-cols-2">
                         <div>
-                          <label className="block text-xs font-medium text-gray-500">
+                          <label className="block text-[10px] font-medium text-gray-500">
                             Date
                           </label>
 
@@ -1824,14 +2187,14 @@ export default function VehicleDetailsPage() {
                                 e.target.value
                               )
                             }
-                            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                            className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
                           />
                         </div>
 
                         {newEventType === "ODOMETER" && (
                           <div>
-                            <label className="block text-xs font-medium text-gray-500">
-                              Odometer (km)
+                            <label className="block text-[10px] font-medium text-gray-500">
+                              Odometer ({vehicle.mileage_unit || 'km'})
                             </label>
 
                             <input
@@ -1844,14 +2207,14 @@ export default function VehicleDetailsPage() {
                                   e.target.value
                                 )
                               }
-                              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                              className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
                             />
                           </div>
                         )}
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-gray-500">
+                        <label className="block text-[10px] font-medium text-gray-500">
                           Description
                         </label>
 
@@ -1868,12 +2231,12 @@ export default function VehicleDetailsPage() {
                               e.target.value
                             )
                           }
-                          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                          className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
                         />
                       </div>
 
                       {addEventError && (
-                        <p className="text-sm text-red-600">
+                        <p className="text-xs text-red-600">
                           {addEventError}
                         </p>
                       )}
@@ -1881,7 +2244,7 @@ export default function VehicleDetailsPage() {
                       <button
                         type="submit"
                         disabled={addEventLoading}
-                        className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+                        className="rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
                       >
                         {addEventLoading
                           ? "Saving..."
@@ -1893,25 +2256,25 @@ export default function VehicleDetailsPage() {
               </div>
 
               {/* HISTORY */}
-              <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                  <h2 className="font-semibold text-gray-900">
+              <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                  <h2 className="text-sm font-semibold text-gray-900">
                     Theft History
                   </h2>
 
                   {!historyLoading && !hasTheft && (
-                    <p className="mt-3 text-sm text-gray-500">
+                    <p className="mt-2 text-xs text-gray-500">
                       No theft-related record was
                       found in the available data.
                     </p>
                   )}
 
                   {hasTheft && (
-                    <ul className="mt-4 space-y-3">
+                    <ul className="mt-2 space-y-1.5">
                       {theftEvents.map((event) => (
                         <li
                           key={event.id}
-                          className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm"
+                          className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <p className="font-medium text-amber-900">
@@ -1924,7 +2287,7 @@ export default function VehicleDetailsPage() {
                             />
                           </div>
 
-                          <p className="mt-1 text-xs text-amber-700">
+                          <p className="mt-0.5 text-[10px] text-amber-700">
                             {event.event_date
                               ? new Date(
                                   event.event_date
@@ -1936,7 +2299,7 @@ export default function VehicleDetailsPage() {
                               : ""}
                           </p>
 
-                          <p className="mt-1 text-xs text-amber-600">
+                          <p className="text-[10px] text-amber-600">
                             Source: {event.source}
                           </p>
                         </li>
@@ -1945,14 +2308,14 @@ export default function VehicleDetailsPage() {
                   )}
                 </div>
 
-                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                  <h2 className="font-semibold text-gray-900">
+                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                  <h2 className="text-sm font-semibold text-gray-900">
                     Odometer History
                   </h2>
 
                   {!historyLoading &&
                     !hasOdometer && (
-                      <p className="mt-3 text-sm text-gray-500">
+                      <p className="mt-2 text-xs text-gray-500">
                         No odometer records were
                         returned by the connected data
                         source.
@@ -1960,18 +2323,18 @@ export default function VehicleDetailsPage() {
                     )}
 
                   {hasOdometer && (
-                    <ol className="mt-4 space-y-2 text-sm">
+                    <ol className="mt-2 space-y-1 text-xs">
                       {odometerEvents.map((event) => (
                         <li
                           key={event.id}
-                          className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2"
+                          className="flex items-center justify-between gap-2 rounded-md bg-gray-50 px-2 py-1.5"
                         >
                           <span className="text-gray-700">
                             {event.event_date
                               ? new Date(
                                   event.event_date
                                 ).toLocaleDateString()
-                              : "—"}
+                              : "Not specified"}
                           </span>
 
                           <span className="flex items-center gap-2">
@@ -1980,8 +2343,8 @@ export default function VehicleDetailsPage() {
                                 ? event.odometer.toLocaleString(
                                     "en-US"
                                   )
-                                : "—"}{" "}
-                              km
+                                : "Not specified"}{" "}
+                              {vehicle.mileage_unit || 'km'}
                             </span>
 
                             <ConfidenceTag
@@ -1993,17 +2356,119 @@ export default function VehicleDetailsPage() {
                     </ol>
                   )}
                 </div>
+
+                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                  <h2 className="text-sm font-semibold text-gray-900">
+                    Accident History
+                  </h2>
+
+                  {!historyLoading && !hasAccident && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      No accident records were
+                      found in the available data.
+                    </p>
+                  )}
+
+                  {hasAccident && (
+                    <ul className="mt-2 space-y-1.5">
+                      {accidentEvents.map((event) => (
+                        <li
+                          key={event.id}
+                          className="rounded-md border border-red-200 bg-red-50 p-2 text-xs"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-medium text-red-900">
+                              {event.description ||
+                                "Accident record"}
+                            </p>
+
+                            <ConfidenceTag
+                              source={event.source}
+                            />
+                          </div>
+
+                          <p className="mt-0.5 text-[10px] text-red-700">
+                            {event.event_date
+                              ? new Date(
+                                  event.event_date
+                                ).toLocaleDateString()
+                              : "Date not provided"}
+
+                            {event.location
+                              ? ` · ${event.location}`
+                              : ""}
+                          </p>
+
+                          <p className="text-[10px] text-red-600">
+                            Source: {event.source}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                  <h2 className="text-sm font-semibold text-gray-900">
+                    Insurance Claim History
+                  </h2>
+
+                  {!historyLoading && !hasClaim && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      No insurance claim records were
+                      found in the available data.
+                    </p>
+                  )}
+
+                  {hasClaim && (
+                    <ul className="mt-2 space-y-1.5">
+                      {claimEvents.map((event) => (
+                        <li
+                          key={event.id}
+                          className="rounded-md border border-blue-200 bg-blue-50 p-2 text-xs"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-medium text-blue-900">
+                              {event.description ||
+                                "Insurance claim record"}
+                            </p>
+
+                            <ConfidenceTag
+                              source={event.source}
+                            />
+                          </div>
+
+                          <p className="mt-0.5 text-[10px] text-blue-700">
+                            {event.event_date
+                              ? new Date(
+                                  event.event_date
+                                ).toLocaleDateString()
+                              : "Date not provided"}
+
+                            {event.location
+                              ? ` · ${event.location}`
+                              : ""}
+                          </p>
+
+                          <p className="text-[10px] text-blue-600">
+                            Source: {event.source}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
 
               {/* AI */}
-              <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="font-semibold text-gray-900">
+                    <h2 className="text-sm font-semibold text-gray-900">
                       AI Analysis
                     </h2>
 
-                    <p className="mt-1 text-sm text-gray-500">
+                    <p className="text-xs text-gray-500">
                       Turns the raw history above into a
                       plain-language explanation, without
                       adding facts beyond what was found.
@@ -2016,7 +2481,7 @@ export default function VehicleDetailsPage() {
                     disabled={
                       aiLoading || historyLoading
                     }
-                    className="shrink-0 rounded-lg bg-black px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    className="shrink-0 rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
                   >
                     {aiLoading
                       ? "Generating..."
@@ -2025,63 +2490,62 @@ export default function VehicleDetailsPage() {
                 </div>
 
                 {aiError && (
-                  <p className="mt-4 text-sm text-red-600">
+                  <p className="mt-2 text-xs text-red-600">
                     {aiError}
                   </p>
                 )}
 
                 {aiSummary && (
-                  <div className="mt-5 space-y-4">
+                  <div className="mt-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700 ring-1 ring-purple-200">
                         AI Interpretation
                       </span>
 
-                      <span className="text-xs text-gray-400">
-                        Explains the source facts above —
-                        not a source fact itself.
+                      <span className="text-[10px] text-gray-400">
+                        Explains the source facts above - not a source fact itself.
                       </span>
                     </div>
 
-                    <div className="rounded-lg bg-gray-50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    <div className="rounded-md bg-gray-50 p-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                         Quick Summary
                       </p>
 
-                      <p className="mt-1 text-sm text-gray-800">
+                      <p className="mt-0.5 text-xs text-gray-800">
                         {aiSummary.quick_summary}
                       </p>
                     </div>
 
-                    <div className="rounded-lg bg-gray-50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    <div className="rounded-md bg-gray-50 p-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                         Salesperson Explanation
                       </p>
 
-                      <p className="mt-1 text-sm text-gray-800">
+                      <p className="mt-0.5 text-xs text-gray-800">
                         {
                           aiSummary.salesperson_explanation
                         }
                       </p>
                     </div>
 
-                    <div className="rounded-lg border border-gray-200 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    <div className="rounded-md border border-gray-200 p-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                         Customer-Friendly Summary
                       </p>
 
-                      <p className="mt-1 text-sm text-gray-800">
+                      <p className="mt-0.5 text-xs text-gray-800">
                         {aiSummary.customer_summary}
                       </p>
                     </div>
 
                     {aiSummary.warnings.length > 0 && (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      <div className="rounded-md border border-amber-200 bg-amber-50 p-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
                           Warnings
                         </p>
 
-                        <ul className="mt-1 list-inside list-disc text-sm text-amber-800">
+                        <ul className="mt-0.5 list-inside list-disc text-xs text-amber-800">
                           {aiSummary.warnings.map(
                             (warning, i) => (
                               <li key={i}>
@@ -2093,7 +2557,7 @@ export default function VehicleDetailsPage() {
                       </div>
                     )}
 
-                    <p className="text-xs text-gray-400">
+                    <p className="text-[10px] text-gray-400">
                       Generated by AI from the
                       vehicle-history records shown above.
                       This does not replace an independent
@@ -2106,20 +2570,20 @@ export default function VehicleDetailsPage() {
 
               {/* CUSTOMER REPORT */}
               {aiSummary && (
-                <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                  <h2 className="font-semibold text-gray-900">
+                <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                  <h2 className="text-sm font-semibold text-gray-900">
                     Customer Report
                   </h2>
 
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="text-xs text-gray-500">
                     Creates a professional, shareable
                     report the customer can open without a
                     dealership login, and download as a PDF.
                   </p>
 
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                      <label className="mb-1 block text-xs font-medium text-gray-700">
                         Customer
                       </label>
 
@@ -2142,7 +2606,7 @@ export default function VehicleDetailsPage() {
                           }
                         }}
                         disabled={crmLoading}
-                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-800"
+                        className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-800"
                       >
                         <option value="">
                           No customer selected
@@ -2163,7 +2627,7 @@ export default function VehicleDetailsPage() {
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                      <label className="mb-1 block text-xs font-medium text-gray-700">
                         Lead
                       </label>
 
@@ -2193,7 +2657,7 @@ export default function VehicleDetailsPage() {
                           crmLoading ||
                           !selectedCustomerId
                         }
-                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-800 disabled:bg-gray-100"
+                        className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-800 disabled:bg-gray-100"
                       >
                         <option value="">
                           No lead selected
@@ -2219,13 +2683,13 @@ export default function VehicleDetailsPage() {
                   </div>
 
                   {crmLoading && (
-                    <p className="mt-3 text-xs text-gray-500">
+                    <p className="mt-2 text-[10px] text-gray-500">
                       Loading customers and leads...
                     </p>
                   )}
 
                   {crmError && (
-                    <p className="mt-3 text-sm text-red-600">
+                    <p className="mt-2 text-xs text-red-600">
                       {crmError}
                     </p>
                   )}
@@ -2233,7 +2697,7 @@ export default function VehicleDetailsPage() {
                     type="button"
                     onClick={handleCreateReport}
                     disabled={reportLoading}
-                    className="mt-4 rounded-lg bg-black px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    className="mt-3 rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
                   >
                     {reportLoading
                       ? "Creating report..."
@@ -2243,27 +2707,27 @@ export default function VehicleDetailsPage() {
                   </button>
 
                   {reportError && (
-                    <p className="mt-3 text-sm text-red-600">
+                    <p className="mt-2 text-xs text-red-600">
                       {reportError}
                     </p>
                   )}
 
                   {reportUrl && (
-                    <div className="mt-4 space-y-3">
-                      <div className="flex flex-col gap-2 rounded-lg bg-gray-50 p-3 sm:flex-row sm:items-center">
+                    <div className="mt-3 space-y-2">
+                      <div className="flex flex-col gap-2 rounded-md bg-gray-50 p-2 sm:flex-row sm:items-center">
                         <input
                           readOnly
                           value={reportUrl}
                           onFocus={(e) =>
                             e.target.select()
                           }
-                          className="flex-1 truncate rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+                          className="flex-1 truncate rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700"
                         />
 
                         <button
                           type="button"
                           onClick={handleCopyLink}
-                          className="shrink-0 rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                          className="shrink-0 rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
                         >
                           {copied
                             ? "Copied!"
@@ -2271,12 +2735,12 @@ export default function VehicleDetailsPage() {
                         </button>
                       </div>
 
-                      <div className="flex flex-wrap gap-3">
+                      <div className="flex flex-wrap gap-2">
                         <a
                           href={reportUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                          className="rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
                         >
                           View Report
                         </a>
@@ -2286,7 +2750,7 @@ export default function VehicleDetailsPage() {
                             "/report/",
                             "/api/reports/"
                           )}/pdf`}
-                          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                          className="rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
                         >
                           Download PDF
                         </a>
@@ -2295,7 +2759,7 @@ export default function VehicleDetailsPage() {
                           type="button"
                           onClick={handleRevokeReport}
                           disabled={reportLoading}
-                          className="rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-md border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Revoke Link
                         </button>
@@ -2306,27 +2770,6 @@ export default function VehicleDetailsPage() {
               )}
             </>
           )}
-      </div>
-    </main>
-  );
-}
-
-function InfoCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-        {label}
-      </p>
-
-      <p className="mt-2 text-lg font-semibold text-gray-900">
-        {value}
-      </p>
     </div>
   );
 }
@@ -2353,8 +2796,6 @@ function ConfidenceTag({
     </span>
   );
 }
-
-
 
 
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { AppHeader } from "@/components/AppHeader";
+import VehicleImagePlaceholder from "@/components/VehicleImagePlaceholder";
 
 type Vehicle = {
   vin: string;
@@ -17,9 +17,11 @@ type Vehicle = {
   fuel: string | null;
   price: number | null;
   mileage: number | null;
+  mileage_unit: string | null;
   description: string | null;
   status: string;
   primary_image: string | null;
+  currency: string;
 };
 
 type VehicleResponse = {
@@ -39,9 +41,11 @@ type VehicleForm = {
   fuel: string;
   price: string;
   mileage: string;
+  mileage_unit: string;
   description: string;
   status: string;
   primary_image: string;
+  currency: string;
 };
 
 function formatNumberInput(value: string) {
@@ -152,16 +156,38 @@ export default function EditVehiclePage() {
     fuel: "",
     price: "",
     mileage: "",
+    mileage_unit: "km",
     description: "",
     status: "AVAILABLE",
     primary_image: "",
+    currency: "CAD",
   });
 
   const [loading, setLoading] = useState(Boolean(vin));
+  const [checkingRole, setCheckingRole] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(
     vin ? "" : "Invalid VIN."
   );
+
+  // Check user role and redirect customers
+  useEffect(() => {
+    async function checkRole() {
+      try {
+        const response = await fetch("/api/auth/session");
+        const data = await response.json();
+        if (data.profile?.role === "customer") {
+          router.push("/leads");
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to check user role:", err);
+      } finally {
+        setCheckingRole(false);
+      }
+    }
+    checkRole();
+  }, [router]);
 
   useEffect(() => {
     if (!vin) {
@@ -214,9 +240,11 @@ export default function EditVehiclePage() {
             vehicle.mileage == null
               ? ""
               : Number(vehicle.mileage).toLocaleString("en-US"),
+          mileage_unit: vehicle.mileage_unit ?? "km",
           description: vehicle.description ?? "",
           status: vehicle.status ?? "AVAILABLE",
           primary_image: vehicle.primary_image ?? "",
+          currency: vehicle.currency ?? "CAD",
         });
       } catch (err) {
         console.error("Load vehicle error:", err);
@@ -290,9 +318,11 @@ export default function EditVehiclePage() {
             fuel: form.fuel,
             price,
             mileage,
+            mileage_unit: "KM", // Force KM for Canadian market
             description: form.description,
             status: form.status,
             primary_image: form.primary_image,
+            currency: "CAD", // Force CAD for Canadian market
           }),
         }
       );
@@ -323,10 +353,18 @@ export default function EditVehiclePage() {
     }
   }
 
+  // Don't render form while checking role
+  if (checkingRole) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-sm text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-100">
-        <AppHeader />
 
         <div className="mx-auto max-w-5xl px-6 py-10">
           <p className="text-sm text-gray-600">
@@ -339,7 +377,6 @@ export default function EditVehiclePage() {
 
   return (
     <main className="min-h-screen bg-gray-100">
-      <AppHeader />
 
       <div className="mx-auto max-w-5xl px-6 py-10">
         <div className="mb-6">
@@ -476,7 +513,7 @@ export default function EditVehiclePage() {
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <Field
-                label="Price"
+                label="Price (CAD)"
                 value={form.price}
                 onChange={(value) =>
                   updateField(

@@ -44,9 +44,12 @@ export async function getCurrentUserProfile() {
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (authError || !user) {
+    return null;
+  }
 
   const { data: profile, error } = await supabase
     .from("users")
@@ -55,7 +58,6 @@ export async function getCurrentUserProfile() {
     .maybeSingle();
 
   if (error) {
-    console.error("getCurrentUserProfile error:", error);
     return null;
   }
 

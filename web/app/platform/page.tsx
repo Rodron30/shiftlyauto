@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
 
 type Usage = {
   active_users: number;
@@ -144,6 +143,56 @@ function metadataText(metadata: Record<string, unknown>) {
       return `${key}: ${formatted}`;
     })
     .join(" | ");
+}
+
+function formatActionLabel(action: string): string {
+  const actionMap: Record<string, string> = {
+    DEALERSHIP_STATUS_CHANGED: "Status changed",
+    DEALERSHIP_PLAN_CHANGED: "Plan changed",
+    DEALERSHIP_CREATED: "Dealership created",
+    DEALERSHIP_UPDATED: "Dealership updated",
+    DEALERSHIP_DELETED: "Dealership deleted",
+    USER_INVITED: "User invited",
+    USER_ROLE_CHANGED: "User role changed",
+    USER_DELETED: "User deleted",
+  };
+
+  return actionMap[action] || action;
+}
+
+function getDealershipName(metadata: Record<string, unknown>, accounts: Account[]): string {
+  const dealershipId = metadata.dealership_id as string;
+  if (dealershipId) {
+    const account = accounts.find(a => a.dealership.id === dealershipId);
+    if (account) return account.dealership.name;
+  }
+  const name = metadata.dealership_name as string;
+  return name || "Unknown";
+}
+
+function getActorName(actorId: string | null, accounts: Account[]): string {
+  if (!actorId) return "System";
+  const account = accounts.find(a => a.dealership.id === actorId);
+  if (account) return account.dealership.name;
+  return actorId.substring(0, 8) + "...";
+}
+
+function formatActionDetails(action: string, metadata: Record<string, unknown>): string {
+  if (action === "DEALERSHIP_STATUS_CHANGED") {
+    const oldStatus = metadata.old_status as string;
+    const newStatus = metadata.new_status as string;
+    if (oldStatus && newStatus) {
+      return `${oldStatus} → ${newStatus}`;
+    }
+  }
+  if (action === "DEALERSHIP_PLAN_CHANGED") {
+    const oldPlan = metadata.old_plan as string;
+    const newPlan = metadata.new_plan as string;
+    if (oldPlan && newPlan) {
+      return `${oldPlan} → ${newPlan}`;
+    }
+  }
+  return metadataText(metadata);
 }
 
 export default function PlatformPage() {
@@ -387,7 +436,6 @@ export default function PlatformPage() {
   if (loading) {
     return (
       <>
-        <AppHeader />
 
         <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
           <div className="mx-auto max-w-7xl">
@@ -403,7 +451,6 @@ export default function PlatformPage() {
   if (error && !data) {
     return (
       <>
-        <AppHeader />
 
         <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
           <div className="mx-auto max-w-7xl">
@@ -426,10 +473,9 @@ export default function PlatformPage() {
 
   return (
     <>
-      <AppHeader />
 
       <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
-        <div className="mx-auto max-w-7xl space-y-8">
+        <div className="mx-auto max-w-7xl space-y-6">
           <section>
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
@@ -515,13 +561,18 @@ export default function PlatformPage() {
                       key={status}
                       className="flex items-center justify-between rounded-xl border border-white/10 bg-black/10 px-4 py-3"
                     >
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-medium ${statusClass(
-                          status
-                        )}`}
-                      >
-                        {status}
-                      </span>
+                      <div className="flex flex-col">
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-medium ${statusClass(
+                            status
+                          )}`}
+                        >
+                          {status}
+                        </span>
+                        <span className="mt-1 text-xs text-white/50">
+                          {count === 1 ? '1 dealership' : `${count} dealerships`}
+                        </span>
+                      </div>
 
                       <span className="font-semibold">
                         {formatNumber(count)}
@@ -548,9 +599,14 @@ export default function PlatformPage() {
                       key={plan}
                       className="flex items-center justify-between rounded-xl border border-white/10 bg-black/10 px-4 py-3"
                     >
-                      <span className="font-medium">
-                        {plan}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="font-medium">
+                          {plan}
+                        </span>
+                        <span className="mt-1 text-xs text-white/50">
+                          {count === 1 ? '1 dealership' : `${count} dealerships`}
+                        </span>
+                      </div>
 
                       <span className="font-semibold">
                         {formatNumber(count)}
@@ -689,13 +745,13 @@ export default function PlatformPage() {
                         key={dealershipId}
                         className="border-b border-white/5"
                       >
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <div className="font-medium">
                             {account.dealership.name}
                           </div>
 
                           <div className="mt-1 text-xs text-white/35">
-                            {dealershipId}
+                            {dealershipId.substring(0, 8)}...
                           </div>
                         </td>
 
@@ -721,7 +777,7 @@ export default function PlatformPage() {
                                         event.target.value,
                                     }))
                                   }
-                                  className="rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-white"
+                                  className="h-9 rounded-lg border border-white/10 bg-slate-900 px-3 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20"
                                 >
                                   {STATUS_OPTIONS.map((status) => (
                                     <option
@@ -746,7 +802,7 @@ export default function PlatformPage() {
                                       selectedStatus
                                     )
                                   }
-                                  className="rounded-lg border border-white/10 px-2 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                  className="h-9 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                   {statusBusy
                                     ? "Updating..."
@@ -775,7 +831,7 @@ export default function PlatformPage() {
                                         event.target.value,
                                     }))
                                   }
-                                  className="rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-white"
+                                  className="h-9 rounded-lg border border-white/10 bg-slate-900 px-3 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20"
                                 >
                                   {PLAN_OPTIONS.map((plan) => (
                                     <option
@@ -800,7 +856,7 @@ export default function PlatformPage() {
                                       selectedPlan
                                     )
                                   }
-                                  className="rounded-lg border border-white/10 px-2 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                  className="h-9 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                   {planBusy
                                     ? "Updating..."
@@ -811,25 +867,25 @@ export default function PlatformPage() {
                           </div>
                         </td>
 
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           {formatNumber(
                             account.usage?.active_users ?? 0
                           )}
                         </td>
 
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           {formatNumber(
                             account.usage?.vehicle_count ?? 0
                           )}
                         </td>
 
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           {formatNumber(
                             account.usage?.reports_generated ?? 0
                           )}
                         </td>
 
-                        <td className="px-4 py-4 text-white/60">
+                        <td className="px-4 py-3 text-white/60">
                           {formatDate(
                             account.dealership.saas_created_at
                           )}
@@ -914,35 +970,35 @@ export default function PlatformPage() {
                         key={log.id}
                         className="border-b border-white/5"
                       >
-                        <td className="px-4 py-4 whitespace-nowrap text-white/60">
+                        <td className="px-4 py-3 whitespace-nowrap text-white/60">
                           {formatDateTime(log.created_at)}
                         </td>
 
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-300">
-                            {log.action}
+                            {formatActionLabel(log.action)}
                           </span>
                         </td>
 
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <div className="font-medium">
-                            {log.target_type ?? "Unknown"}
+                            {getDealershipName(log.metadata, data.accounts)}
                           </div>
 
                           {log.target_id && (
                             <div className="mt-1 text-xs text-white/35">
-                              {log.target_id}
+                              {log.target_id.substring(0, 8)}...
                             </div>
                           )}
                         </td>
 
-                        <td className="px-4 py-4 text-xs text-white/60">
-                          {log.actor_user_id ?? "System"}
+                        <td className="px-4 py-3 text-xs text-white/60">
+                          {getActorName(log.actor_user_id, data.accounts)}
                         </td>
 
-                        <td className="max-w-xl px-4 py-4 text-xs text-white/50">
+                        <td className="max-w-xl px-4 py-3 text-xs text-white/50">
                           <div className="break-words">
-                            {metadataText(log.metadata)}
+                            {formatActionDetails(log.action, log.metadata)}
                           </div>
                         </td>
                       </tr>
@@ -1017,6 +1073,7 @@ export default function PlatformPage() {
     </>
   );
 }
+
 
 
 

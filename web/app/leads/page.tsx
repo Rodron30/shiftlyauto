@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
 
 type Vehicle = {
   id: string;
@@ -10,6 +9,7 @@ type Vehicle = {
   make: string;
   model: string;
   trim: string | null;
+  currency: string | null;
 };
 
 type Customer = {
@@ -36,6 +36,7 @@ type Lead = {
   follow_up_date: string | null;
   notes: string | null;
   created_at: string;
+  created_by: string | null;
   updated_at?: string;
   customer?: {
     id: string;
@@ -50,6 +51,7 @@ type Lead = {
     make: string;
     model: string;
     trim: string | null;
+    currency: string | null;
   } | null;
 };
 
@@ -79,10 +81,33 @@ function formatNumberInput(value: string) {
   return Number(cleaned).toLocaleString("en-US");
 }
 
-function formatCurrency(value: number) {
-  return `PHP ${value.toLocaleString("en-US", {
+function formatCurrency(value: number, currency: string | null = null) {
+  const currencyCode = currency || "USD";
+  
+  const localeMap: Record<string, string> = {
+    USD: "en-US",
+    PHP: "en-PH",
+    EUR: "de-DE",
+    GBP: "en-GB",
+    CAD: "en-CA",
+    AUD: "en-AU",
+    JPY: "ja-JP",
+    CNY: "zh-CN",
+    SGD: "en-SG",
+    HKD: "en-HK",
+    MYR: "en-MY",
+    THB: "th-TH",
+    IDR: "id-ID",
+    VND: "vi-VN",
+  };
+
+  const locale = localeMap[currencyCode] || "en-US";
+
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: currencyCode,
     maximumFractionDigits: 0,
-  })}`;
+  }).format(value);
 }
 
 function formatStatus(status: string) {
@@ -102,6 +127,9 @@ export default function LeadsPage() {
   const [search, setSearch] = useState("");
 
   const [showForm, setShowForm] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [showNewButton, setShowNewButton] = useState(false);
 
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -195,6 +223,24 @@ export default function LeadsPage() {
     loadVehicles();
   }, []);
 
+  useEffect(() => {
+    async function checkRole() {
+      try {
+        const response = await fetch("/api/auth/session");
+        const data = await response.json();
+        const role = data.profile?.role || null;
+        const canCreateLead = role !== null;
+        setUserRole(role);
+        setUserId(data.profile?.id || null);
+        setShowNewButton(canCreateLead);
+      } catch (err) {
+        console.error("Failed to check user role:", err);
+        setShowNewButton(false);
+      }
+    }
+    checkRole();
+  }, []);
+
   const resetForm = () => {
     setCustomerId("");
     setCustomerName("");
@@ -247,6 +293,8 @@ export default function LeadsPage() {
     const parsedBudget = budget
       ? Number(budget.replace(/,/g, ""))
       : undefined;
+
+
 
     if (
       parsedBudget !== undefined &&
@@ -306,6 +354,7 @@ export default function LeadsPage() {
     newStatus: string
   ) => {
     const previousLeads = leads;
+    const currentLead = leads.find(lead => lead.id === leadId);
 
     setLeads((prev) =>
       prev.map((lead) =>
@@ -507,25 +556,23 @@ export default function LeadsPage() {
   );
 
   return (
-    <main className="min-h-screen bg-gray-100">
-      <AppHeader />
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium text-neutral-500">
+            Vehicle Intelligence
+          </p>
 
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-gray-500">
-              Vehicle Intelligence
-            </p>
+          <h1 className="mt-1 text-xl font-semibold text-neutral-900">
+            Leads
+          </h1>
 
-            <h1 className="mt-1 text-3xl font-bold text-gray-900">
-              Leads
-            </h1>
+          <p className="mt-2 max-w-2xl text-xs text-neutral-600">
+            Track customer interest from first contact to sale.
+          </p>
+        </div>
 
-            <p className="mt-2 max-w-2xl text-gray-600">
-              Track customer interest from first contact to sale.
-            </p>
-          </div>
-
+        {showNewButton ? (
           <button
             type="button"
             onClick={() => {
@@ -535,78 +582,81 @@ export default function LeadsPage() {
 
               setShowForm((value) => !value);
             }}
-            className="inline-flex items-center justify-center rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-700"
+            className="inline-flex items-center justify-center rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-neutral-800"
           >
             {showForm ? "Cancel" : "+ New Lead"}
           </button>
-        </div>
+        ) : (
+          <div className="h-8" />
+        )}
+      </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-5">
-          {STATUSES.map((status) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() => setStatusFilter(status)}
-              className={`rounded-xl border bg-white p-4 text-left shadow-sm transition hover:shadow ${
-                statusFilter === status
-                  ? "border-gray-900"
-                  : "border-gray-200"
-              }`}
-            >
-              <p className="text-xs font-medium text-gray-500">
-                {formatStatus(status)}
-              </p>
-
-              <p className="mt-1 text-2xl font-bold text-gray-900">
-                {statusCounts[status] || 0}
-              </p>
-            </button>
-          ))}
-        </div>
-
-        {showForm && (
-          <form
-            onSubmit={handleSubmit}
-            className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+      <div className="mt-4 grid gap-2 sm:grid-cols-5">
+        {STATUSES.map((status) => (
+          <button
+            key={status}
+            type="button"
+            onClick={() => setStatusFilter(status)}
+            className={`rounded-lg border bg-white p-3 text-left shadow-sm transition hover:shadow ${
+              statusFilter === status
+                ? "border-black"
+                : "border-neutral-200"
+            }`}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  New Lead
-                </h2>
+            <p className="text-[10px] font-medium text-neutral-500">
+              {formatStatus(status)}
+            </p>
 
-                <p className="mt-1 text-xs text-gray-500">
-                  Link the lead to an existing customer or create a
-                  new customer automatically.
-                </p>
-              </div>
+            <p className="mt-1 text-lg font-bold text-neutral-900">
+              {statusCounts[status] || 0}
+            </p>
+          </button>
+        ))}
+      </div>
+
+      {showForm && userRole !== null && (
+        <form
+          onSubmit={handleSubmit}
+          className="mt-6 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900">
+                New Lead
+              </h2>
+
+              <p className="mt-1 text-xs text-neutral-600">
+                Link the lead to an existing customer or create a
+                new customer automatically.
+              </p>
             </div>
+          </div>
 
-            <div className="mt-5">
-              <label className="block text-xs font-medium text-gray-500">
-                Existing Customer
-              </label>
+          <div className="mt-5">
+            <label className="block text-xs font-medium text-neutral-500">
+              Existing Customer
+            </label>
 
-              <select
-                value={customerId}
-                onChange={(e) =>
-                  handleCustomerSelect(e.target.value)
-                }
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
-              >
-                <option value="">
-                  New customer
-                </option>
+            <select
+              value={customerId}
+              onChange={(e) =>
+                handleCustomerSelect(e.target.value)
+              }
+              className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+            >
+              <option value="">
+                New customer
+              </option>
 
-                {customers.map((customer) => (
-                  <option
-                    key={customer.id}
-                    value={customer.id}
-                  >
-                    {customer.name}
-                    {customer.phone
-                      ? ` - ${customer.phone}`
-                      : ""}
+              {customers.map((customer) => (
+                <option
+                  key={customer.id}
+                  value={customer.id}
+                >
+                  {customer.name}
+                  {customer.phone
+                    ? ` - ${customer.phone}`
+                    : ""}
                     {customer.email
                       ? ` - ${customer.email}`
                       : ""}
@@ -617,7 +667,7 @@ export default function LeadsPage() {
 
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-neutral-500">
                   Customer Name*
                 </label>
 
@@ -629,12 +679,12 @@ export default function LeadsPage() {
                     setCustomerName(e.target.value)
                   }
                   placeholder="Juan Dela Cruz"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-neutral-500">
                   Phone
                 </label>
 
@@ -645,12 +695,12 @@ export default function LeadsPage() {
                     setCustomerPhone(e.target.value)
                   }
                   placeholder="09171234567"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-neutral-500">
                   Email
                 </label>
 
@@ -661,24 +711,24 @@ export default function LeadsPage() {
                     setCustomerEmail(e.target.value)
                   }
                   placeholder="juan@example.com"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
             </div>
 
-            <p className="mt-3 text-xs text-gray-400">
+            <p className="mt-3 text-xs text-neutral-400">
               Provide at least a phone number or an email.
             </p>
 
             <div className="mt-4">
-              <label className="block text-xs font-medium text-gray-500">
+              <label className="block text-xs font-medium text-neutral-500">
                 Interested Vehicle
               </label>
 
               <select
                 value={vehicleId}
                 onChange={(e) => setVehicleId(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
               >
                 <option value="">
                   Not linked to a specific vehicle
@@ -695,6 +745,7 @@ export default function LeadsPage() {
                       ? ` ${vehicle.trim}`
                       : ""}{" "}
                     - {vehicle.vin}
+                    {vehicle.currency ? ` (${vehicle.currency})` : ""}
                   </option>
                 ))}
               </select>
@@ -702,7 +753,7 @@ export default function LeadsPage() {
 
             {!vehicleId && (
               <div className="mt-4">
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-neutral-500">
                   General Interest
                 </label>
 
@@ -712,15 +763,15 @@ export default function LeadsPage() {
                   onChange={(e) =>
                     setInterestNote(e.target.value)
                   }
-                  placeholder="Looking for a sedan under PHP 1M"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  placeholder="Looking for a sedan under $50,000"
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
             )}
 
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-neutral-500">
                   Budget
                 </label>
 
@@ -733,13 +784,13 @@ export default function LeadsPage() {
                       formatNumberInput(e.target.value)
                     )
                   }
-                  placeholder="1,000,000"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  placeholder="50,000"
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-neutral-500">
                   Financing Preference
                 </label>
 
@@ -750,12 +801,12 @@ export default function LeadsPage() {
                     setFinancingPreference(e.target.value)
                   }
                   placeholder="Bank financing"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-neutral-500">
                   Follow-up Date
                 </label>
 
@@ -765,13 +816,13 @@ export default function LeadsPage() {
                   onChange={(e) =>
                     setFollowUpDate(e.target.value)
                   }
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
             </div>
 
             <div className="mt-4">
-              <label className="block text-xs font-medium text-gray-500">
+              <label className="block text-xs font-medium text-neutral-500">
                 Notes
               </label>
 
@@ -780,7 +831,7 @@ export default function LeadsPage() {
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
                 placeholder="Prefers weekend viewing..."
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
               />
             </div>
 
@@ -793,17 +844,17 @@ export default function LeadsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="mt-4 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+              className="mt-4 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
             >
               {saving ? "Saving..." : "Save Lead"}
             </button>
           </form>
         )}
 
-        <div className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="mt-6 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
           <div className="grid gap-3 md:grid-cols-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500">
+              <label className="block text-xs font-medium text-neutral-500">
                 Search Leads
               </label>
 
@@ -812,12 +863,12 @@ export default function LeadsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Customer, phone, email, VIN..."
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-500">
+              <label className="block text-xs font-medium text-neutral-500">
                 Status
               </label>
 
@@ -826,7 +877,7 @@ export default function LeadsPage() {
                 onChange={(e) =>
                   setStatusFilter(e.target.value)
                 }
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
               >
                 <option value="ALL">All statuses</option>
 
@@ -839,7 +890,7 @@ export default function LeadsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-500">
+              <label className="block text-xs font-medium text-neutral-500">
                 Customer
               </label>
 
@@ -848,7 +899,7 @@ export default function LeadsPage() {
                 onChange={(e) =>
                   setCustomerFilter(e.target.value)
                 }
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
               >
                 <option value="ALL">All customers</option>
 
@@ -867,7 +918,7 @@ export default function LeadsPage() {
 
         <div className="mt-6">
           {loading && (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-neutral-500">
               Loading leads...
             </p>
           )}
@@ -879,7 +930,7 @@ export default function LeadsPage() {
           )}
 
           {!loading && !error && visibleLeads.length === 0 && (
-            <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
+            <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500 shadow-sm">
               No leads found.
             </div>
           )}
@@ -889,23 +940,23 @@ export default function LeadsPage() {
               {visibleLeads.map((lead) => (
                 <div
                   key={lead.id}
-                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+                  className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-gray-900">
+                        <p className="font-semibold text-neutral-900">
                           {lead.customer_name}
                         </p>
 
                         {lead.customer_id && (
-                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-500">
                             Customer linked
                           </span>
                         )}
                       </div>
 
-                      <p className="mt-1 text-xs text-gray-500">
+                      <p className="mt-1 text-xs text-neutral-500">
                         {lead.customer_phone && (
                           <>
                             {lead.customer_phone}
@@ -928,7 +979,7 @@ export default function LeadsPage() {
 
                     <div className="flex items-center gap-2">
                       {savingLeadId === lead.id && (
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-neutral-400">
                           Saving...
                         </span>
                       )}
@@ -944,7 +995,7 @@ export default function LeadsPage() {
                         disabled={savingLeadId === lead.id}
                         className={`rounded-full border-0 px-3 py-1 text-xs font-semibold outline-none ${
                           STATUS_CLASSES[lead.status] ||
-                          "bg-gray-100 text-gray-700"
+                          "bg-neutral-100 text-neutral-700"
                         }`}
                       >
                         {STATUSES.map((status) => (
@@ -959,7 +1010,7 @@ export default function LeadsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-3 text-sm text-gray-600">
+                  <div className="mt-3 text-sm text-neutral-600">
                     {lead.vehicle ? (
                       <p>
                         Interested in:{" "}
@@ -979,11 +1030,11 @@ export default function LeadsPage() {
                     ) : null}
                   </div>
 
-                  <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500">
+                  <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-neutral-500">
                     {lead.budget !== null && (
                       <span>
                         Budget:{" "}
-                        {formatCurrency(lead.budget)}
+                        {formatCurrency(lead.budget, lead.vehicle?.currency || null)}
                       </span>
                     )}
 
@@ -1004,35 +1055,37 @@ export default function LeadsPage() {
                     )}
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        startFollowUpEdit(lead)
-                      }
-                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      {lead.follow_up_date
-                        ? "Edit Follow-up"
-                        : "Add Follow-up"}
-                    </button>
+                  {(userRole !== "customer" || lead.created_by === userId) && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          startFollowUpEdit(lead)
+                        }
+                        className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                      >
+                        {lead.follow_up_date
+                          ? "Edit Follow-up"
+                          : "Add Follow-up"}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        startNotesEdit(lead)
-                      }
-                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      {lead.notes
-                        ? "Edit Notes"
-                        : "Add Notes"}
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          startNotesEdit(lead)
+                        }
+                        className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                      >
+                        {lead.notes
+                          ? "Edit Notes"
+                          : "Add Notes"}
+                      </button>
+                    </div>
+                  )}
 
                   {editingFollowUpId === lead.id && (
-                    <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                      <label className="block text-xs font-medium text-gray-500">
+                    <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+                      <label className="block text-xs font-medium text-neutral-500">
                         Follow-up Date
                       </label>
 
@@ -1045,7 +1098,7 @@ export default function LeadsPage() {
                               e.target.value
                             )
                           }
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-black"
+                          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                         />
 
                         <button
@@ -1056,7 +1109,7 @@ export default function LeadsPage() {
                           disabled={
                             savingLeadId === lead.id
                           }
-                          className="rounded-lg bg-black px-3 py-2 text-xs font-semibold text-white disabled:bg-gray-300"
+                          className="rounded-lg bg-black px-3 py-2 text-xs font-semibold text-white disabled:bg-neutral-300"
                         >
                           Save
                         </button>
@@ -1064,7 +1117,7 @@ export default function LeadsPage() {
                         <button
                           type="button"
                           onClick={cancelFollowUpEdit}
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700"
+                          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700"
                         >
                           Cancel
                         </button>
@@ -1073,8 +1126,8 @@ export default function LeadsPage() {
                   )}
 
                   {editingNotesId === lead.id && (
-                    <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                      <label className="block text-xs font-medium text-gray-500">
+                    <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+                      <label className="block text-xs font-medium text-neutral-500">
                         Lead Notes
                       </label>
 
@@ -1084,7 +1137,7 @@ export default function LeadsPage() {
                           setEditNotes(e.target.value)
                         }
                         rows={3}
-                        className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-black"
+                        className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                       />
 
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -1096,7 +1149,7 @@ export default function LeadsPage() {
                           disabled={
                             savingLeadId === lead.id
                           }
-                          className="rounded-lg bg-black px-3 py-2 text-xs font-semibold text-white disabled:bg-gray-300"
+                          className="rounded-lg bg-black px-3 py-2 text-xs font-semibold text-white disabled:bg-neutral-300"
                         >
                           Save
                         </button>
@@ -1104,7 +1157,7 @@ export default function LeadsPage() {
                         <button
                           type="button"
                           onClick={cancelNotesEdit}
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700"
+                          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700"
                         >
                           Cancel
                         </button>
@@ -1113,7 +1166,7 @@ export default function LeadsPage() {
                   )}
 
                   {lead.notes && editingNotesId !== lead.id && (
-                    <p className="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+                    <p className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm text-neutral-600">
                       {lead.notes}
                     </p>
                   )}
@@ -1122,7 +1175,12 @@ export default function LeadsPage() {
             </div>
           )}
         </div>
-      </div>
-    </main>
+    </div>
   );
 }
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import {
   createSupabaseServerClient,
   getCurrentUserProfile,
@@ -66,6 +66,17 @@ export async function POST(request: Request) {
     );
   }
 
+  // Customers cannot create reports
+  if (profile.role === "customer") {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Customers do not have permission to create reports.",
+      },
+      { status: 403 }
+    );
+  }
+
   const rateLimitKey = getRateLimitKey(request, profile.id);
   const { allowed } = checkRateLimit(rateLimitKey, 30, 60_000);
 
@@ -99,7 +110,7 @@ export async function POST(request: Request) {
 
   const { data: vehicle, error: vehicleError } = await supabase
     .from("vehicles")
-    .select("id, dealership_id, vin, year, make, model, trim")
+    .select("id, dealership_id, vin, year, make, model, trim, mileage_unit")
     .eq("id", body.vehicleId)
     .eq("dealership_id", profile.dealership_id)
     .maybeSingle();
@@ -231,7 +242,7 @@ export async function POST(request: Request) {
   }
 
   const rows = (events ?? []) as (HistoryEventInput & {
-    event_type: "THEFT" | "ODOMETER" | "OTHER";
+    event_type: "THEFT" | "ODOMETER" | "ACCIDENT" | "CLAIM" | "OTHER";
   })[];
 
   const theft = rows
@@ -254,6 +265,27 @@ export async function POST(request: Request) {
       source: row.source,
     }));
 
+  const accident = rows
+    .filter((row) => row.event_type === "ACCIDENT")
+    .map((row) => ({
+      date: row.event_date,
+      description: row.description,
+      location: row.location,
+      odometer: row.odometer,
+      source: row.source,
+    }));
+
+  const claim = rows
+    .filter((row) => row.event_type === "CLAIM")
+    .map((row) => ({
+      date: row.event_date,
+      description: row.description,
+      location: row.location,
+      odometer: row.odometer,
+      source: row.source,
+    }));
+
+
   const uniqueSources = Array.from(
     new Set(rows.map((row) => row.source).filter(Boolean))
   );
@@ -273,9 +305,14 @@ export async function POST(request: Request) {
     history_highlights: {
       theft_found: theft.length > 0,
       odometer_available: odometer.length > 0,
+      accident_found: accident.length > 0,
+      claim_found: claim.length > 0,
     },
     theft,
     odometer,
+    accident,
+    claim,
+    mileage_unit: vehicle.mileage_unit ?? null,
     customer_summary: body.aiSummary.customer_summary,
     warnings: body.aiSummary.warnings,
     data_source:

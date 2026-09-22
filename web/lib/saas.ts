@@ -128,20 +128,37 @@ export function getSaasAccessError(): string {
 export async function getCurrentSaasContext(): Promise<
   SaasContext | null
 > {
+  console.log("[getCurrentSaasContext] Starting SaaS context lookup");
   const profile = await getCurrentUserProfile();
 
+  console.log("[getCurrentSaasContext] Profile from getCurrentUserProfile:", !!profile);
+  console.log("[getCurrentSaasContext] Profile id:", profile?.id || null);
+  console.log("[getCurrentSaasContext] Profile dealership_id:", profile?.dealership_id || null);
+
   if (!profile?.id || !profile.dealership_id) {
+    console.log("[getCurrentSaasContext] Missing profile or dealership_id, returning null");
     return null;
   }
 
   const supabase = await createSupabaseServerClient();
 
+  console.log("[getCurrentSaasContext] Querying dealership for id:", profile.dealership_id);
   const { data: dealership, error: dealershipError } =
     await supabase
       .from("dealerships")
       .select("id, saas_status")
       .eq("id", profile.dealership_id)
       .maybeSingle();
+
+  console.log("[getCurrentSaasContext] Dealership query result exists:", !!dealership);
+  console.log("[getCurrentSaasContext] Dealership query error:", !!dealershipError);
+  if (dealership) {
+    console.log("[getCurrentSaasContext] Dealership saas_status:", dealership.saas_status);
+  }
+  if (dealershipError) {
+    console.error("[getCurrentSaasContext] Dealership error:", dealershipError);
+    console.error("[getCurrentSaasContext] Dealership error message:", dealershipError.message);
+  }
 
   if (dealershipError || !dealership) {
     console.error(
@@ -152,6 +169,7 @@ export async function getCurrentSaasContext(): Promise<
     return null;
   }
 
+  console.log("[getCurrentSaasContext] Querying subscription for dealership_id:", profile.dealership_id);
   const { data: subscription, error: subscriptionError } =
     await supabase
       .from("saas_subscriptions")
@@ -184,6 +202,16 @@ export async function getCurrentSaasContext(): Promise<
       .eq("dealership_id", profile.dealership_id)
       .maybeSingle();
 
+  console.log("[getCurrentSaasContext] Subscription query result exists:", !!subscription);
+  console.log("[getCurrentSaasContext] Subscription query error:", !!subscriptionError);
+  if (subscription) {
+    console.log("[getCurrentSaasContext] Subscription status:", subscription.status);
+  }
+  if (subscriptionError) {
+    console.error("[getCurrentSaasContext] Subscription error:", subscriptionError);
+    console.error("[getCurrentSaasContext] Subscription error message:", subscriptionError.message);
+  }
+
   if (subscriptionError || !subscription) {
     console.error(
       "getCurrentSaasContext subscription error:",
@@ -197,6 +225,7 @@ export async function getCurrentSaasContext(): Promise<
     ? subscription.plan[0]
     : subscription.plan;
 
+  console.log("[getCurrentSaasContext] Plan exists:", !!plan);
   if (!plan) {
     console.error(
       "getCurrentSaasContext: subscription has no plan"
@@ -204,6 +233,9 @@ export async function getCurrentSaasContext(): Promise<
 
     return null;
   }
+
+  console.log("[getCurrentSaasContext] Plan code:", plan.code);
+  console.log("[getCurrentSaasContext] Plan max_ai_requests_per_month:", plan.max_ai_requests_per_month);
 
   return {
     dealershipId: profile.dealership_id,
@@ -228,9 +260,15 @@ export async function requireSaasAccess(): Promise<
       error: string;
     }
 > {
+  console.log("[requireSaasAccess] Starting SaaS access check");
   const profile = await getCurrentUserProfile();
 
+  console.log("[requireSaasAccess] Profile from getCurrentUserProfile:", !!profile);
+  console.log("[requireSaasAccess] Profile id:", profile?.id || null);
+  console.log("[requireSaasAccess] Profile dealership_id:", profile?.dealership_id || null);
+
   if (!profile?.id || !profile.dealership_id) {
+    console.log("[requireSaasAccess] CHECK FAILED: Missing profile or dealership_id - returning 401");
     return {
       ok: false,
       status: 401,
@@ -238,9 +276,12 @@ export async function requireSaasAccess(): Promise<
     };
   }
 
+  console.log("[requireSaasAccess] Profile check passed, calling getCurrentSaasContext");
   const context = await getCurrentSaasContext();
 
+  console.log("[requireSaasAccess] Context from getCurrentSaasContext:", !!context);
   if (!context) {
+    console.log("[requireSaasAccess] CHECK FAILED: No context returned - returning 500");
     return {
       ok: false,
       status: 500,
@@ -248,7 +289,16 @@ export async function requireSaasAccess(): Promise<
     };
   }
 
-  if (!isSaasAccessAllowed(context)) {
+  console.log("[requireSaasAccess] Context exists, checking access permissions");
+  console.log("[requireSaasAccess] Dealership status:", context.dealershipStatus);
+  console.log("[requireSaasAccess] Subscription status:", context.subscription.status);
+  console.log("[requireSaasAccess] Plan code:", context.plan.code);
+
+  const accessAllowed = isSaasAccessAllowed(context);
+  console.log("[requireSaasAccess] isSaasAccessAllowed result:", accessAllowed);
+
+  if (!accessAllowed) {
+    console.log("[requireSaasAccess] CHECK FAILED: Access not allowed - returning 403");
     return {
       ok: false,
       status: 403,
@@ -256,6 +306,7 @@ export async function requireSaasAccess(): Promise<
     };
   }
 
+  console.log("[requireSaasAccess] All checks passed - returning success");
   return {
     ok: true,
     context,

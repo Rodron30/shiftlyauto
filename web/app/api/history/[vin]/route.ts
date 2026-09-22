@@ -15,7 +15,7 @@ type RouteContext = {
 type HistoryEvent = {
   id: string;
   event_date: string | null;
-  event_type: "THEFT" | "ODOMETER" | "OTHER";
+  event_type: "THEFT" | "ODOMETER" | "ACCIDENT" | "CLAIM" | "OTHER";
   description: string | null;
   location: string | null;
   odometer: number | null;
@@ -24,7 +24,7 @@ type HistoryEvent = {
 };
 
 type CreateHistoryEventBody = {
-  eventType: "THEFT" | "ODOMETER";
+  eventType: "THEFT" | "ODOMETER" | "ACCIDENT" | "CLAIM";
   eventDate?: string | null;
   description?: string | null;
   location?: string | null;
@@ -142,6 +142,8 @@ export async function GET(
           status: "VEHICLE_NOT_SAVED",
           theft: [],
           odometer: [],
+          accident: [],
+          claim: [],
           odometerAnomaly: false,
         },
         { status: 200 }
@@ -193,6 +195,16 @@ export async function GET(
         event.event_type === "ODOMETER"
     );
 
+    const accident = rows.filter(
+      (event) =>
+        event.event_type === "ACCIDENT"
+    );
+
+    const claim = rows.filter(
+      (event) =>
+        event.event_type === "CLAIM"
+    );
+
     const odometerAnomaly =
       detectOdometerAnomaly(odometer);
 
@@ -202,6 +214,8 @@ export async function GET(
         status: "CHECKED",
         theft,
         odometer,
+        accident,
+        claim,
         odometerAnomaly,
       },
       { status: 200 }
@@ -357,15 +371,13 @@ export async function POST(
     /*
      * 4. Validate event type.
      */
-    if (
-      body.eventType !== "THEFT" &&
-      body.eventType !== "ODOMETER"
-    ) {
+    const validEventTypes = ["THEFT", "ODOMETER", "ACCIDENT", "CLAIM"];
+    if (!validEventTypes.includes(body.eventType)) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "eventType must be THEFT or ODOMETER.",
+            "eventType must be THEFT, ODOMETER, ACCIDENT, or CLAIM.",
         },
         { status: 400 }
       );
@@ -547,11 +559,6 @@ export async function POST(
       odometer,
       source: "Manual Entry (Dealer)",
     };
-
-    console.log(
-      "Creating history event:",
-      insertPayload
-    );
 
     const {
       data: inserted,

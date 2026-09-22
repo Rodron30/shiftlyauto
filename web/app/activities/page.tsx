@@ -1,7 +1,6 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
 
 type Customer = {
   id: string;
@@ -337,106 +336,103 @@ export default function ActivitiesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AppHeader />
+    <div className="p-6 lg:p-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold text-neutral-900">
+          Salesperson Activity
+        </h1>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Salesperson Activity
-          </h1>
+        <p className="mt-1 text-sm text-neutral-600">
+          Track calls, messages, emails, meetings, follow-ups,
+          notes, and lead status changes.
+        </p>
+      </div>
 
-          <p className="mt-1 text-sm text-gray-600">
-            Track calls, messages, emails, meetings, follow-ups,
-            notes, and lead status changes.
-          </p>
+      {error && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
         </div>
+      )}
 
-        {error && (
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+      {success && (
+        <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {success}
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+        <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <div className="mb-5">
+            <h2 className="text-lg font-semibold text-neutral-900">
+              Record Activity
+            </h2>
+
+            <p className="mt-1 text-sm text-neutral-600">
+              Add a new salesperson interaction.
+            </p>
           </div>
-        )}
 
-        {success && (
-          <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {success}
-          </div>
-        )}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700">
+                Activity Type
+              </label>
 
-        <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="mb-5">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Record Activity
-              </h2>
-
-              <p className="mt-1 text-sm text-gray-500">
-                Add a new salesperson interaction.
-              </p>
+              <select
+                value={activityType}
+                onChange={(event) =>
+                  setActivityType(event.target.value)
+                }
+                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+              >
+                {ACTIVITY_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {TYPE_LABELS[type]}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Activity Type
-                </label>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700">
+                Customer
+              </label>
 
-                <select
-                  value={activityType}
-                  onChange={(event) =>
-                    setActivityType(event.target.value)
-                  }
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
-                >
-                  {ACTIVITY_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {TYPE_LABELS[type]}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={customerId}
+                onChange={(event) =>
+                  handleCustomerChange(event.target.value)
+                }
+                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+              >
+                <option value="">No customer selected</option>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Customer
-                </label>
+                {customers.map((customer) => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name}
+                    {customer.phone
+                      ? ` - ${customer.phone}`
+                      : ""}
+                  </option>
+                ))}
+              </select>
 
-                <select
-                  value={customerId}
-                  onChange={(event) =>
-                    handleCustomerChange(event.target.value)
-                  }
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
-                >
-                  <option value="">No customer selected</option>
+              {selectedCustomer && (
+                <div className="mt-2 rounded-lg bg-neutral-50 p-3 text-xs text-neutral-600">
+                  {selectedCustomer.phone && (
+                    <div>Phone: {selectedCustomer.phone}</div>
+                  )}
 
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                      {customer.phone
-                        ? ` - ${customer.phone}`
-                        : ""}
-                    </option>
-                  ))}
-                </select>
+                  {selectedCustomer.email && (
+                    <div>Email: {selectedCustomer.email}</div>
+                  )}
+                </div>
+              )}
+            </div>
 
-                {selectedCustomer && (
-                  <div className="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
-                    {selectedCustomer.phone && (
-                      <div>Phone: {selectedCustomer.phone}</div>
-                    )}
-
-                    {selectedCustomer.email && (
-                      <div>Email: {selectedCustomer.email}</div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Lead
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700">
+                Lead
                 </label>
 
                 <select
@@ -444,7 +440,7 @@ export default function ActivitiesPage() {
                   onChange={(event) =>
                     setLeadId(event.target.value)
                   }
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
+                  className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 >
                   <option value="">No lead selected</option>
 
@@ -457,7 +453,7 @@ export default function ActivitiesPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-neutral-700">
                   Activity Date / Time
                 </label>
 
@@ -467,12 +463,12 @@ export default function ActivitiesPage() {
                   onChange={(event) =>
                     setActivityAt(event.target.value)
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-neutral-700">
                   Description
                 </label>
 
@@ -483,14 +479,14 @@ export default function ActivitiesPage() {
                   }
                   rows={5}
                   placeholder="Describe the customer interaction..."
-                  className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-gray-500"
+                  className="w-full resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
               >
                 {saving ? "Saving..." : "Record Activity"}
               </button>
@@ -498,14 +494,14 @@ export default function ActivitiesPage() {
           </section>
 
           <section className="min-w-0">
-            <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-5 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
               <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">
+                  <h2 className="text-lg font-semibold text-neutral-900">
                     Activity History
                   </h2>
 
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-neutral-600">
                     {visibleActivities.length} activity
                     {visibleActivities.length === 1 ? "" : "ies"}
                   </p>
@@ -515,7 +511,7 @@ export default function ActivitiesPage() {
                   type="button"
                   onClick={loadActivities}
                   disabled={loading}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
                 >
                   Refresh
                 </button>
@@ -527,7 +523,7 @@ export default function ActivitiesPage() {
                   onChange={(event) =>
                     setCustomerFilter(event.target.value)
                   }
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 >
                   <option value="">All Customers</option>
 
@@ -543,7 +539,7 @@ export default function ActivitiesPage() {
                   onChange={(event) =>
                     setLeadFilter(event.target.value)
                   }
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 >
                   <option value="">All Leads</option>
 
@@ -559,7 +555,7 @@ export default function ActivitiesPage() {
                   onChange={(event) =>
                     setUserFilter(event.target.value)
                   }
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 >
                   <option value="">All Salespeople</option>
 
@@ -575,7 +571,7 @@ export default function ActivitiesPage() {
                   onChange={(event) =>
                     setTypeFilter(event.target.value)
                   }
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                 >
                   <option value="">All Activity Types</option>
 
@@ -589,16 +585,16 @@ export default function ActivitiesPage() {
             </div>
 
             {loading ? (
-              <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
+              <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500 shadow-sm">
                 Loading activity history...
               </div>
             ) : visibleActivities.length === 0 ? (
-              <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-sm">
-                <h3 className="font-semibold text-gray-900">
+              <div className="rounded-2xl border border-neutral-200 bg-white p-10 text-center shadow-sm">
+                <h3 className="font-semibold text-neutral-900">
                   No activities found
                 </h3>
 
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-neutral-600">
                   Record a customer interaction to start the
                   activity history.
                 </p>
@@ -608,7 +604,7 @@ export default function ActivitiesPage() {
                 {visibleActivities.map((activity) => (
                   <article
                     key={activity.id}
-                    className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+                    className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm"
                   >
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
@@ -623,46 +619,46 @@ export default function ActivitiesPage() {
                             ] || activity.activity_type}
                           </span>
 
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-neutral-400">
                             {formatDateTime(
                               activity.activity_at
                             )}
                           </span>
                         </div>
 
-                        <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-gray-800">
+                        <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-neutral-800">
                           {activity.description}
                         </p>
                       </div>
 
                       <div className="shrink-0 text-left sm:text-right">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-neutral-900">
                           {activity.user?.name ||
                             activity.user?.email ||
                             "Salesperson"}
                         </div>
 
-                        <div className="mt-1 text-xs capitalize text-gray-500">
+                        <div className="mt-1 text-xs capitalize text-neutral-500">
                           {activity.user?.role || "salesperson"}
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+                    <div className="mt-4 flex flex-wrap gap-2 border-t border-neutral-100 pt-4">
                       {activity.customer && (
-                        <span className="rounded-lg bg-gray-50 px-3 py-1.5 text-xs text-gray-700">
+                        <span className="rounded-lg bg-neutral-50 px-3 py-1.5 text-xs text-neutral-700">
                           Customer: {activity.customer.name}
                         </span>
                       )}
 
                       {activity.lead && (
-                        <span className="rounded-lg bg-gray-50 px-3 py-1.5 text-xs text-gray-700">
+                        <span className="rounded-lg bg-neutral-50 px-3 py-1.5 text-xs text-neutral-700">
                           Lead: {activity.lead.customer_name}
                         </span>
                       )}
 
                       {activity.lead?.status && (
-                        <span className="rounded-lg bg-gray-50 px-3 py-1.5 text-xs text-gray-700">
+                        <span className="rounded-lg bg-neutral-50 px-3 py-1.5 text-xs text-neutral-700">
                           Status: {activity.lead.status}
                         </span>
                       )}
@@ -673,8 +669,8 @@ export default function ActivitiesPage() {
             )}
           </section>
         </div>
-      </main>
     </div>
   );
 }
+
 

@@ -25,6 +25,17 @@ export async function GET(request: Request) {
       );
     }
 
+    // Customers cannot access salesperson activities
+    if (profile.role === "customer") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Customers do not have permission to view salesperson activities.",
+        },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
 
     const customerId = searchParams.get("customerId")?.trim() || "";

@@ -28,9 +28,14 @@ export type CustomerReportPayload = {
   history_highlights: {
     theft_found: boolean;
     odometer_available: boolean;
+    accident_found: boolean;
+    claim_found: boolean;
   };
   theft: CustomerReportHistoryEvent[];
   odometer: CustomerReportHistoryEvent[];
+  accident: CustomerReportHistoryEvent[];
+  claim: CustomerReportHistoryEvent[];
+  mileage_unit: string | null;
   customer_summary: string;
   warnings: string[];
   data_source: string;

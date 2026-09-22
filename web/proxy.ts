@@ -16,6 +16,14 @@ const PROTECTED_PATHS = [
   "/reports",
   "/staff",
   "/settings",
+  "/activities",
+  "/crm",
+  "/customers",
+  "/integrations",
+  "/leads",
+  "/platform",
+  "/saas",
+  "/trade-appraisals",
 ];
 
 function matchesPath(pathname: string, path: string) {
@@ -111,17 +119,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/",
-    "/vehicles/:path*",
-    "/reports/:path*",
-    "/staff/:path*",
-    "/settings/:path*",
-    "/login",
-    "/signup",
-    "/auth/callback",
-    "/auth/reset-password",
-    "/reset-password",
-    "/report/:path*",
-    "/api/:path*",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

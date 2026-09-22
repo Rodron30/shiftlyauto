@@ -171,3 +171,44 @@ footer a {
 footer a:hover {
   text-decoration: underline;
 }
+
+/* Vehicle info display for listings without VIN */
+.vehicle-info {
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  margin-bottom: 0;
+  box-sizing: border-box;
+}
+
+.vehicle-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.vehicle-detail {
+  font-size: 12px;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.vehicle-detail:last-child {
+  margin-bottom: 0;
+}
+
+.vehicle-description {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.vehicle-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}

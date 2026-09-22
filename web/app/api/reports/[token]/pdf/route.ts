@@ -473,6 +473,26 @@ export async function GET(
       "History Highlights"
     );
 
+    // Convert historical odometer values to KM if vehicle unit is MI
+    // This handles cases where historical data was recorded in miles
+    const convertMilesToKm = (miles: number): number => {
+      return Math.round(miles * 1.60934);
+    };
+
+    const getHistoricalOdometerDisplay = (odometer: number | null, vehicleUnit: string | null): string => {
+      if (odometer === null) return "-";
+      
+      // If vehicle's current unit is MI, convert historical values to KM
+      if (vehicleUnit === "MI" || vehicleUnit === "MILES" || vehicleUnit === "MILE") {
+        return `${convertMilesToKm(odometer).toLocaleString("en-US")} KM`;
+      }
+      
+      // Otherwise assume historical values are already in KM
+      return `${odometer.toLocaleString("en-US")} KM`;
+    };
+
+    const mileageUnit = "KM";
+
     ensureSpace(16);
 
     page.drawText(
@@ -511,6 +531,42 @@ export async function GET(
       }
     );
 
+    y -= 16;
+
+    ensureSpace(16);
+
+    page.drawText(
+      report.history_highlights
+        ?.accident_found
+        ? "Accident records available"
+        : "No accident records available",
+      {
+        x: MARGIN,
+        y,
+        size: 10,
+        font,
+        color: INK,
+      }
+    );
+
+    y -= 16;
+
+    ensureSpace(16);
+
+    page.drawText(
+      report.history_highlights
+        ?.claim_found
+        ? "Insurance claim records available"
+        : "No insurance claim records available",
+      {
+        x: MARGIN,
+        y,
+        size: 10,
+        font,
+        color: INK,
+      }
+    );
+
     y -= 20;
 
     drawLine();
@@ -537,8 +593,7 @@ export async function GET(
       for (const event of report.theft) {
         drawKeyValueRow(
           "Date:",
-          event.date ??
-            "Not provided"
+          event.date ?? "Not provided"
         );
 
         drawKeyValueRow(
@@ -586,16 +641,11 @@ export async function GET(
       );
     } else {
       for (const event of report.odometer) {
-        const km =
-          event.odometer != null
-            ? `${event.odometer.toLocaleString(
-                "en-US"
-              )} km`
-            : "—";
+        const odometerValue = getHistoricalOdometerDisplay(event.odometer, report.mileage_unit);
 
         drawKeyValueRow(
-          event.date ?? "—",
-          km
+          event.date ?? "Not provided",
+          odometerValue
         );
       }
 
@@ -605,6 +655,104 @@ export async function GET(
     drawLine();
 
     // =====================================================
+    // ACCIDENT HISTORY
+    // =====================================================
+
+    drawHeading(
+      "Accident History"
+    );
+
+    if (
+      !report.accident ||
+      report.accident.length === 0
+    ) {
+      drawParagraph(
+        "No accident records were found in the available data.",
+        {
+          color: MUTED,
+        }
+      );
+    } else {
+      for (const event of report.accident) {
+        drawKeyValueRow(
+          "Date:",
+          event.date ?? "Not provided"
+        );
+
+        drawKeyValueRow(
+          "Description:",
+          event.description ??
+            "Accident record"
+        );
+
+        if (event.location) {
+          drawKeyValueRow(
+            "Location:",
+            event.location
+          );
+        }
+
+        drawKeyValueRow(
+          "Source:",
+          event.source ||
+            "Unknown"
+        );
+
+        y -= 8;
+      }
+    }
+
+    drawLine();
+
+    // =====================================================
+    // INSURANCE CLAIM HISTORY
+    // =====================================================
+
+    drawHeading(
+      "Insurance Claim History"
+    );
+
+    if (
+      !report.claim ||
+      report.claim.length === 0
+    ) {
+      drawParagraph(
+        "No insurance claim records were found in the available data.",
+        {
+          color: MUTED,
+        }
+      );
+    } else {
+      for (const event of report.claim) {
+        drawKeyValueRow(
+          "Date:",
+          event.date ?? "Not provided"
+        );
+
+        drawKeyValueRow(
+          "Description:",
+          event.description ??
+            "Insurance claim record"
+        );
+
+        if (event.location) {
+          drawKeyValueRow(
+            "Location:",
+            event.location
+          );
+        }
+
+        drawKeyValueRow(
+          "Source:",
+          event.source ||
+            "Unknown"
+        );
+
+        y -= 8;
+      }
+    }
+
+    drawLine();
     // CUSTOMER SUMMARY
     // =====================================================
 

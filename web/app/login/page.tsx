@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
+import { PasswordField } from "@/components/PasswordField";
 
 export default function LoginPage() {
   return (
@@ -25,6 +26,14 @@ function LoginForm() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [resetSent, setResetSent] = useState(false);
+
+  // Clear form state on mount to prevent autofill from previous session
+  useEffect(() => {
+    setEmail("");
+    setPassword("");
+    setError("");
+    setResetSent(false);
+  }, [searchParams]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -138,59 +147,52 @@ function LoginForm() {
   const busy = loading || googleLoading;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
-      <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-neutral-100 px-4">
+      <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-8 shadow-sm">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-neutral-900">
             Shiftly Auto
           </h1>
 
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-neutral-500">
             Dealer Vehicle Intelligence
           </p>
         </div>
 
         <form
+          key={searchParams.toString()}
           onSubmit={handleSignIn}
           className="mt-8 space-y-4"
         >
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-neutral-700"
             >
               Email
             </label>
 
             <input
               id="email"
+              name="email"
               type="email"
               required
-              autoComplete="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 outline-none focus:border-black"
+              className="mt-1 w-full rounded-lg border border-neutral-300 px-4 py-2.5 text-neutral-900 outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
             />
           </div>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Password
-            </label>
-
-            <input
-              id="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 outline-none focus:border-black"
-            />
-          </div>
+          <PasswordField
+            label="Password"
+            id="password"
+            name="password"
+            value={password}
+            onChange={setPassword}
+            required
+            autoComplete="current-password"
+          />
 
           {error && (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -207,7 +209,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-lg bg-black py-2.5 font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+            className="w-full rounded-lg bg-black py-2.5 font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
@@ -216,7 +218,7 @@ function LoginForm() {
             type="button"
             onClick={handleGoogleSignIn}
             disabled={busy}
-            className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white py-2.5 font-semibold text-gray-900 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-3 rounded-lg border border-neutral-300 bg-white py-2.5 font-semibold text-neutral-900 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <svg
               aria-hidden="true"
@@ -250,17 +252,17 @@ function LoginForm() {
             type="button"
             onClick={handleForgotPassword}
             disabled={busy}
-            className="w-full text-center text-sm text-gray-500 hover:text-gray-900 disabled:cursor-not-allowed"
+            className="w-full text-center text-sm text-neutral-500 hover:text-neutral-900 disabled:cursor-not-allowed"
           >
             Forgot Password?
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-500">
+        <p className="mt-6 text-center text-sm text-neutral-500">
           New dealership?{" "}
           <Link
             href="/signup"
-            className="font-semibold text-gray-900 hover:underline"
+            className="font-semibold text-neutral-900 hover:underline"
           >
             Set up your account
           </Link>

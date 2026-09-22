@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
+import { useRouter } from "next/navigation";
 
 type Dealership = {
   id: string;
@@ -32,10 +32,22 @@ type Invite = {
   used_at: string | null;
 };
 
+type CustomerInvite = {
+  id: string;
+  customer_name: string;
+  email: string;
+  token: string;
+  created_at: string;
+  expires_at: string;
+  used_at: string | null;
+};
+
 export default function SettingsPage() {
+  const router = useRouter();
   const [dealership, setDealership] = useState<Dealership | null>(null);
   const [role, setRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [checkingRole, setCheckingRole] = useState(true);
   const [error, setError] = useState("");
 
   const [saving, setSaving] = useState(false);
@@ -43,6 +55,7 @@ export default function SettingsPage() {
 
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [customerInvites, setCustomerInvites] = useState<CustomerInvite[]>([]);
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("salesperson");
@@ -50,16 +63,48 @@ export default function SettingsPage() {
   const [inviteError, setInviteError] = useState("");
   const [lastInviteLink, setLastInviteLink] = useState("");
 
+  const [customerInviteName, setCustomerInviteName] = useState("");
+  const [customerInviteEmail, setCustomerInviteEmail] = useState("");
+  const [customerInviteLoading, setCustomerInviteLoading] = useState(false);
+  const [customerInviteError, setCustomerInviteError] = useState("");
+  const [lastCustomerInviteLink, setLastCustomerInviteLink] = useState("");
+
+  const [customerSignupLink, setCustomerSignupLink] = useState("");
+  const [customerSignupLoading, setCustomerSignupLoading] = useState(false);
+  const [customerSignupError, setCustomerSignupError] = useState("");
+
+  // Check user role first before loading anything
   useEffect(() => {
+    async function checkRole() {
+      try {
+        const response = await fetch("/api/auth/session");
+        const data = await response.json();
+        if (data.profile?.role === "customer") {
+          router.push("/leads");
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to check user role:", err);
+      } finally {
+        setCheckingRole(false);
+      }
+    }
+    checkRole();
+  }, [router]);
+
+  useEffect(() => {
+    if (checkingRole) return;
     async function load() {
       try {
         setLoading(true);
         setError("");
 
-        const [dealershipRes, membersRes, invitesRes] = await Promise.all([
+        const [dealershipRes, membersRes, invitesRes, signupLinkRes, customerInvitesRes] = await Promise.all([
           fetch("/api/dealership", { cache: "no-store" }),
           fetch("/api/team/members", { cache: "no-store" }),
           fetch("/api/team/invite", { cache: "no-store" }),
+          fetch("/api/dealership/signup-link", { cache: "no-store" }),
+          fetch("/api/customer/invite", { cache: "no-store" }),
         ]);
 
         const dealershipJson = await dealershipRes.json();
@@ -74,6 +119,14 @@ export default function SettingsPage() {
 
         const invitesJson = await invitesRes.json();
         if (invitesJson.success) setInvites(invitesJson.invites);
+
+        const signupLinkJson = await signupLinkRes.json();
+        if (signupLinkJson.success) {
+          setCustomerSignupLink(signupLinkJson.dealership.signupLink);
+        }
+
+        const customerInvitesJson = await customerInvitesRes.json();
+        if (customerInvitesJson.success) setCustomerInvites(customerInvitesJson.invites);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load settings.");
       } finally {
@@ -82,7 +135,7 @@ export default function SettingsPage() {
     }
 
     load();
-  }, []);
+  }, [checkingRole]);
 
   const isAdmin = role === "admin";
 
@@ -159,46 +212,142 @@ export default function SettingsPage() {
     }
   };
 
+  const handleRegenerateCustomerSignup = async () => {
+    try {
+      setCustomerSignupLoading(true);
+      setCustomerSignupError("");
+
+      const response = await fetch("/api/dealership/signup-link", {
+        method: "POST",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to regenerate signup link.");
+      }
+
+      setCustomerSignupLink(result.dealership.signupLink);
+    } catch (err) {
+      setCustomerSignupError(err instanceof Error ? err.message : "Failed to regenerate signup link.");
+    } finally {
+      setCustomerSignupLoading(false);
+    }
+  };
+
+  const handleCustomerInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCustomerInviteError("");
+    setLastCustomerInviteLink("");
+
+    if (!customerInviteName.trim()) {
+      setCustomerInviteError("Please enter the customer's name.");
+      return;
+    }
+
+    if (!customerInviteEmail.includes("@")) {
+      setCustomerInviteError("Enter a valid email.");
+      return;
+    }
+
+    try {
+      setCustomerInviteLoading(true);
+
+      const response = await fetch("/api/customer/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_name: customerInviteName,
+          email: customerInviteEmail,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to create customer invitation.");
+      }
+
+      const link = `${window.location.origin}/signup?invite=${result.invite.token}`;
+      setLastCustomerInviteLink(link);
+      setCustomerInvites((prev) => [result.invite, ...prev]);
+      setCustomerInviteName("");
+      setCustomerInviteEmail("");
+    } catch (err) {
+      setCustomerInviteError(err instanceof Error ? err.message : "Failed to create customer invitation.");
+    } finally {
+      setCustomerInviteLoading(false);
+    }
+  };
+
+  const handleDeleteCustomerInvite = async (inviteId: string) => {
+    try {
+      const response = await fetch(`/api/customer/invite?id=${inviteId}`, {
+        method: "DELETE",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to delete customer invitation.");
+      }
+
+      setCustomerInvites((prev) => prev.filter((inv) => inv.id !== inviteId));
+    } catch (err) {
+      setCustomerInviteError(err instanceof Error ? err.message : "Failed to delete customer invitation.");
+    }
+  };
+
+  const handleCopyCustomerSignup = async () => {
+    try {
+      await navigator.clipboard.writeText(customerSignupLink);
+      // Optional: show success feedback
+    } catch (err) {
+      setCustomerSignupError("Failed to copy link to clipboard.");
+    }
+  };
+
   return (
-    <main className="min-h-screen bg-gray-100">
-      <AppHeader />
+    <div className="p-6 lg:p-8">
+      <h1 className="text-2xl font-semibold text-neutral-900">Settings</h1>
 
-      <div className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+      {checkingRole && (
+        <p className="mt-6 text-sm text-neutral-500">Checking permissions...</p>
+      )}
 
-        {loading && (
-          <p className="mt-6 text-sm text-gray-500">Loading settings...</p>
-        )}
+      {loading && !checkingRole && (
+        <p className="mt-6 text-sm text-neutral-500">Loading settings...</p>
+      )}
 
-        {!loading && error && (
-          <p className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </p>
-        )}
+      {!loading && !checkingRole && error && (
+        <p className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </p>
+      )}
 
-        {!loading && dealership && (
-          <>
-            {/* Branding */}
-            <section className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="font-semibold text-gray-900">
-                Dealership Branding
-              </h2>
-              {!isAdmin && (
-                <p className="mt-1 text-xs text-amber-700">
-                  Only dealership admins can edit these settings.
-                </p>
-              )}
+      {!loading && !checkingRole && dealership && (
+        <>
+          {/* Branding */}
+          <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+            <h2 className="font-semibold text-neutral-900">
+              Dealership Branding
+            </h2>
+            {!isAdmin && (
+              <p className="mt-1 text-xs text-amber-700">
+                Only dealership admins can edit these settings.
+              </p>
+            )}
 
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field
-                  label="Dealership Name"
-                  value={dealership.name}
-                  disabled={!isAdmin}
-                  onChange={(v) => setDealership({ ...dealership, name: v })}
-                />
-                <Field
-                  label="Logo URL"
-                  value={dealership.logo_url ?? ""}
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Dealership Name"
+                value={dealership.name}
+                disabled={!isAdmin}
+                onChange={(v) => setDealership({ ...dealership, name: v })}
+              />
+              <Field
+                label="Logo URL"
+                value={dealership.logo_url ?? ""}
                   disabled={!isAdmin}
                   onChange={(v) =>
                     setDealership({ ...dealership, logo_url: v })
@@ -253,37 +402,135 @@ export default function SettingsPage() {
             </section>
 
             {/* Team */}
-            <section className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="font-semibold text-gray-900">Team</h2>
+            <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+              <h2 className="font-semibold text-neutral-900">Team</h2>
 
               <ul className="mt-4 space-y-2">
                 {members.map((m) => (
                   <li
                     key={m.id}
-                    className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-2.5 text-sm"
+                    className="flex items-center justify-between rounded-lg bg-neutral-50 px-4 py-2.5 text-sm"
                   >
                     <div>
-                      <p className="font-medium text-gray-900">
+                      <p className="font-medium text-neutral-900">
                         {m.name || m.email || "—"}
                       </p>
-                      <p className="text-xs text-gray-500">{m.email}</p>
+                      <p className="text-xs text-neutral-500">{m.email}</p>
                     </div>
-                    <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium capitalize text-gray-700 ring-1 ring-gray-200">
+                    <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium capitalize text-neutral-700 ring-1 ring-neutral-200">
                       {m.role}
                     </span>
                   </li>
                 ))}
                 {members.length === 0 && (
-                  <p className="text-sm text-gray-500">No team members yet.</p>
+                  <p className="text-sm text-neutral-500">No team members yet.</p>
                 )}
               </ul>
 
               {isAdmin && (
-                <div className="mt-6 border-t border-gray-100 pt-5">
-                  <h3 className="text-sm font-semibold text-gray-900">
+                <div className="mt-6 border-t border-neutral-100 pt-5">
+                  <h3 className="text-sm font-semibold text-neutral-900">
+                    Invite Customer
+                  </h3>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Create a secure one-time invitation for a customer. The customer will be able to set their own password and will be assigned read-only access to your dealership.
+                  </p>
+                  <form
+                    onSubmit={handleCustomerInvite}
+                    className="mt-3 flex flex-col gap-2 sm:flex-row"
+                  >
+                    <input
+                      type="text"
+                      required
+                      placeholder="Customer name"
+                      value={customerInviteName}
+                      onChange={(e) => setCustomerInviteName(e.target.value)}
+                      className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+                    />
+                    <input
+                      type="email"
+                      required
+                      placeholder="customer@email.com"
+                      value={customerInviteEmail}
+                      onChange={(e) => setCustomerInviteEmail(e.target.value)}
+                      className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+                    />
+                    <button
+                      type="submit"
+                      disabled={customerInviteLoading}
+                      className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                    >
+                      {customerInviteLoading ? "Creating..." : "Create Invite"}
+                    </button>
+                  </form>
+
+                  {customerInviteError && (
+                    <p className="mt-2 text-sm text-red-600">{customerInviteError}</p>
+                  )}
+
+                  {lastCustomerInviteLink && (
+                    <div className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm">
+                      <p className="font-medium text-neutral-700">
+                        Customer invite created
+                      </p>
+                      <p className="mt-1 text-xs text-neutral-500">
+                        Copy this link and send it to the customer using your normal email or messaging service.
+                      </p>
+                      <input
+                        readOnly
+                        value={lastCustomerInviteLink}
+                        onFocus={(e) => e.target.select()}
+                        className="mt-1 w-full truncate rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700"
+                      />
+                    </div>
+                  )}
+
+                  {customerInvites.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-xs font-semibold text-neutral-700">Pending Customer Invitations</h4>
+                      <ul className="mt-2 space-y-1.5">
+                        {customerInvites.map((inv) => (
+                          <li
+                            key={inv.id}
+                            className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-600"
+                          >
+                            <div>
+                              <span className="font-medium text-neutral-900">{inv.customer_name}</span>
+                              <span className="mx-1 text-neutral-400">·</span>
+                              <span>{inv.email}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span>
+                                {inv.used_at
+                                  ? "Joined"
+                                  : new Date(inv.expires_at) < new Date()
+                                    ? "Expired"
+                                    : "Pending"}
+                              </span>
+                              {!inv.used_at && new Date(inv.expires_at) > new Date() && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCustomerInvite(inv.id)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {isAdmin && (
+                <div className="mt-6 border-t border-neutral-100 pt-5">
+                  <h3 className="text-sm font-semibold text-neutral-900">
                     Add Staff Member
                   </h3>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-neutral-500">
                     Creates a secure one-time invite link. No email is sent by Supabase, so this flow is not affected by Supabase email rate limits.
                   </p>
                   <form
@@ -296,12 +543,12 @@ export default function SettingsPage() {
                       placeholder="teammate@dealership.com"
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                      className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                     />
                     <select
                       value={inviteRole}
                       onChange={(e) => setInviteRole(e.target.value)}
-                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                      className="rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                     >
                       <option value="salesperson">Salesperson</option>
                       <option value="manager">Manager</option>
@@ -309,7 +556,7 @@ export default function SettingsPage() {
                     <button
                       type="submit"
                       disabled={inviteLoading}
-                      className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+                      className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
                     >
                       {inviteLoading ? "Creating..." : "Create Invite"}
                     </button>
@@ -320,18 +567,18 @@ export default function SettingsPage() {
                   )}
 
                   {lastInviteLink && (
-                    <div className="mt-3 rounded-lg bg-gray-50 p-3 text-sm">
-                      <p className="font-medium text-gray-700">
+                    <div className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm">
+                      <p className="font-medium text-neutral-700">
                         Staff invite created
                       </p>
-                      <p className="mt-1 text-xs text-gray-500">
+                      <p className="mt-1 text-xs text-neutral-500">
                         Copy this link and send it to the staff member using your normal email or messaging service.
                       </p>
                       <input
                         readOnly
                         value={lastInviteLink}
                         onFocus={(e) => e.target.select()}
-                        className="mt-1 w-full truncate rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700"
+                        className="mt-1 w-full truncate rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700"
                       />
                     </div>
                   )}
@@ -341,7 +588,7 @@ export default function SettingsPage() {
                       {invites.map((inv) => (
                         <li
                           key={inv.id}
-                          className="flex items-center justify-between text-xs text-gray-500"
+                          className="flex items-center justify-between text-xs text-neutral-500"
                         >
                           <span>
                             {inv.email} · {inv.role}
@@ -362,8 +609,7 @@ export default function SettingsPage() {
             </section>
           </>
         )}
-      </div>
-    </main>
+    </div>
   );
 }
 
@@ -382,7 +628,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium uppercase tracking-wide text-gray-400">
+      <label className="block text-xs font-medium uppercase tracking-wide text-neutral-500">
         {label}
       </label>
       <input
@@ -391,8 +637,9 @@ function Field({
         disabled={disabled}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-black disabled:bg-gray-50 disabled:text-gray-500"
+        className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 disabled:bg-neutral-50 disabled:text-neutral-500"
       />
     </div>
   );
 }
+

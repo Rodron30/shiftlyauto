@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import {
   createSupabaseServerClient,
   getCurrentUserProfile,
@@ -97,6 +97,8 @@ export async function PATCH(
       );
     }
 
+    // Customers can edit only their own customer records
+
     const saasAccess = await requireSaasAccess();
 
     if (!saasAccess.ok) {
@@ -144,6 +146,16 @@ export async function PATCH(
       return NextResponse.json(
         { error: "Customer not found" },
         { status: 404 }
+      );
+    }
+
+    if (profile.role === "customer" && existing.created_by !== profile.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Customers can only edit their own customer records.",
+        },
+        { status: 403 }
       );
     }
 
@@ -259,6 +271,17 @@ export async function DELETE(
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    // Customers cannot delete customers
+    if (profile.role === "customer") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Customers do not have permission to delete customer records.",
+        },
+        { status: 403 }
       );
     }
 

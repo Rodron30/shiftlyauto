@@ -137,6 +137,17 @@ export async function DELETE(
       );
     }
 
+    // Customers cannot delete reports
+    if (profile.role === "customer") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Customers do not have permission to delete reports.",
+        },
+        { status: 403 }
+      );
+    }
+
     const { token } = await params;
 
     // IMPORTANT:

@@ -180,42 +180,42 @@ export default function SaasPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-7xl px-6 py-10">
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-          <p className="text-sm text-gray-500">
+      <div className="p-6 lg:p-8">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
+          <p className="text-sm text-neutral-500">
             Loading SaaS account...
           </p>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <main className="mx-auto max-w-7xl px-6 py-10">
+      <div className="p-6 lg:p-8">
         <div className="rounded-2xl border border-red-200 bg-red-50 p-8">
           <h1 className="text-lg font-semibold text-red-800">
             SaaS account unavailable
           </h1>
           <p className="mt-2 text-sm text-red-700">{error}</p>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-10">
+    <div className="p-6 lg:p-8">
       <div className="flex flex-col gap-6">
         <header>
-          <p className="text-sm font-medium text-gray-500">
+          <p className="text-sm font-medium text-neutral-500">
             Shiftly Auto SaaS
           </p>
 
-          <h1 className="mt-1 text-3xl font-bold tracking-tight text-gray-900">
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-900">
             SaaS Account
           </h1>
 
-          <p className="mt-2 max-w-3xl text-sm text-gray-600">
+          <p className="mt-2 max-w-3xl text-sm text-neutral-600">
             Your dealership operates as an isolated SaaS account while
             sharing the central Shiftly Auto platform, AI engine, data
             APIs, integrations, and reporting infrastructure.
@@ -223,76 +223,76 @@ export default function SaasPage() {
         </header>
 
         <section className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
+          <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm lg:col-span-2">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-500">
+                <p className="text-sm font-medium text-neutral-500">
                   Current plan
                 </p>
 
-                <h2 className="mt-1 text-2xl font-bold text-gray-900">
+                <h2 className="mt-1 text-2xl font-bold text-neutral-900">
                   {plan?.name ?? "Unknown plan"}
                 </h2>
 
                 {plan?.description ? (
-                  <p className="mt-2 text-sm text-gray-600">
+                  <p className="mt-2 text-sm text-neutral-600">
                     {plan.description}
                   </p>
                 ) : null}
               </div>
 
-              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-700">
+              <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-neutral-700">
                 {subscription?.status ?? "UNKNOWN"}
               </span>
             </div>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
                   Plan code
                 </p>
-                <p className="mt-1 font-semibold text-gray-900">
+                <p className="mt-1 font-semibold text-neutral-900">
                   {plan?.code ?? "N/A"}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
                   Billing
                 </p>
-                <p className="mt-1 font-semibold text-gray-900">
+                <p className="mt-1 font-semibold text-neutral-900">
                   {subscription?.billing_interval ?? "N/A"}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
                   Period ends
                 </p>
-                <p className="mt-1 font-semibold text-gray-900">
+                <p className="mt-1 font-semibold text-neutral-900">
                   {formatDate(subscription?.current_period_end ?? null)}
                 </p>
               </div>
             </div>
 
             {subscription?.trial_ends_at ? (
-              <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <p className="text-sm font-medium text-gray-900">
+              <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                <p className="text-sm font-medium text-neutral-900">
                   Trial period
                 </p>
-                <p className="mt-1 text-sm text-gray-600">
+                <p className="mt-1 text-sm text-neutral-600">
                   Trial ends {formatDate(subscription.trial_ends_at)}.
                 </p>
               </div>
             ) : null}
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <p className="text-sm font-medium text-gray-500">
+          <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+            <p className="text-sm font-medium text-neutral-500">
               Platform
             </p>
 
-            <h2 className="mt-1 text-xl font-bold text-gray-900">
+            <h2 className="mt-1 text-xl font-bold text-neutral-900">
               Central Shiftly Auto
             </h2>
 
@@ -306,9 +306,9 @@ export default function SaasPage() {
               ].map((item) => (
                 <div
                   key={item}
-                  className="flex items-center gap-3 text-sm text-gray-700"
+                  className="flex items-center gap-3 text-sm text-neutral-700"
                 >
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 text-xs">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-neutral-300 text-xs">
                     +
                   </span>
                   <span>{item}</span>
@@ -320,11 +320,11 @@ export default function SaasPage() {
 
         <section>
           <div className="mb-4">
-            <h2 className="text-xl font-bold text-gray-900">
+            <h2 className="text-xl font-semibold text-neutral-900">
               Current month usage
             </h2>
 
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-neutral-600">
               Usage period: {usage?.usage_month ?? "Current month"}
             </p>
           </div>
@@ -336,39 +336,39 @@ export default function SaasPage() {
               return (
                 <div
                   key={item.label}
-                  className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+                  className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">
+                      <p className="text-sm font-medium text-neutral-500">
                         {item.label}
                       </p>
 
-                      <p className="mt-1 text-2xl font-bold text-gray-900">
+                      <p className="mt-1 text-2xl font-bold text-neutral-900">
                         {item.value.toLocaleString()}
                       </p>
                     </div>
 
-                    <p className="text-xs font-medium text-gray-500">
+                    <p className="text-xs font-medium text-neutral-500">
                       / {formatLimit(item.limit)}
                     </p>
                   </div>
 
                   {item.limit !== null ? (
                     <div className="mt-4">
-                      <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                      <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
                         <div
-                          className="h-full rounded-full bg-gray-900"
+                          className="h-full rounded-full bg-black"
                           style={{ width: `${percent}%` }}
                         />
                       </div>
 
-                      <p className="mt-2 text-xs text-gray-500">
+                      <p className="mt-2 text-xs text-neutral-500">
                         {percent}% of plan limit
                       </p>
                     </div>
                   ) : (
-                    <p className="mt-4 text-xs text-gray-500">
+                    <p className="mt-4 text-xs text-neutral-500">
                       No plan limit configured
                     </p>
                   )}
@@ -378,8 +378,8 @@ export default function SaasPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-gray-900">
+        <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-neutral-900">
             Included features
           </h2>
 
@@ -388,13 +388,13 @@ export default function SaasPage() {
               ([feature, enabled]) => (
                 <div
                   key={feature}
-                  className="rounded-xl border border-gray-100 bg-gray-50 p-4"
+                  className="rounded-xl border border-neutral-200 bg-neutral-50 p-4"
                 >
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-sm font-semibold text-neutral-900">
                     {feature.replaceAll("_", " ")}
                   </p>
 
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-neutral-500">
                     {enabled ? "Enabled" : "Not included"}
                   </p>
                 </div>
@@ -403,12 +403,12 @@ export default function SaasPage() {
           </div>
 
           {Object.keys(plan?.features ?? {}).length === 0 ? (
-            <p className="mt-4 text-sm text-gray-500">
+            <p className="mt-4 text-sm text-neutral-500">
               No feature entitlements configured.
             </p>
           ) : null}
         </section>
       </div>
-    </main>
+    </div>
   );
 }
