@@ -39,6 +39,152 @@ const VDP_PATTERNS = [
 ];
 
 /**
+ * Detects if a URL is a DealerInspire inventory page.
+ */
+function isDealerInspireInventory(url: string): boolean {
+  const urlObj = new URL(url);
+  const hostname = urlObj.hostname.toLowerCase();
+  return hostname.includes("dealerinspire.com");
+}
+
+/**
+ * Discovers inventory records from DealerInspire's /llm/inventory/ endpoint.
+ * This endpoint provides structured JSON data with VINs and VDP URLs.
+ * Supports pagination to collect up to maxVehicles VIN/VDP pairs.
+ */
+async function discoverDealerInspireInventory(
+  baseUrl: string,
+  maxVehicles: number
+): Promise<{ vinToVdpMap: Map<string, string>; totalRecords: number }> {
+  console.log(`🏭 DealerInspire inventory discovery initiated for: ${baseUrl}, max: ${maxVehicles}`);
+
+  try {
+    const urlObj = new URL(baseUrl);
+    const hostname = urlObj.hostname;
+    const protocol = urlObj.protocol;
+
+    // Determine inventory type from path
+    const isNew = baseUrl.includes("/new-vehicles/") || baseUrl.includes("type=new");
+    const inventoryType = isNew ? "new" : "used";
+
+    const vinToVdpMap = new Map<string, string>();
+    let totalRecords = 0;
+    let pageNumber = 1;
+    let hasMorePages = true;
+
+    while (hasMorePages && vinToVdpMap.size < maxVehicles) {
+      // Capture size before processing to detect progress
+      const sizeBeforePage = vinToVdpMap.size;
+
+      // Construct the LLM inventory endpoint URL with pagination
+      const llmUrl = new URL(`${protocol}//${hostname}/llm/inventory/`);
+      llmUrl.searchParams.set("type", inventoryType);
+      if (pageNumber > 1) {
+        llmUrl.searchParams.set("_p", pageNumber.toString());
+      }
+      const llmEndpoint = llmUrl.toString();
+
+      console.log(`📡 Fetching DealerInspire LLM page ${pageNumber}: ${llmEndpoint}`);
+
+      const response = await fetch(llmEndpoint, {
+        headers: {
+          "User-Agent": USER_AGENT,
+          "Accept": "application/json",
+        },
+        signal: AbortSignal.timeout(15000),
+      });
+
+      console.log(`📡 DealerInspire LLM Response page ${pageNumber}:`, {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        contentType: response.headers.get("content-type"),
+      });
+
+      if (!response.ok) {
+        throw new Error(`DealerInspire LLM endpoint returned ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      console.log(`📦 DealerInspire LLM data received page ${pageNumber}, type: ${Array.isArray(data) ? 'array' : typeof data}`);
+
+      // The LLM endpoint typically returns an array of inventory records
+      const records = Array.isArray(data) ? data : (data.inventory || data.vehicles || []);
+
+      console.log(`📊 DealerInspire page ${pageNumber} records: ${records.length}`);
+
+      if (records.length === 0) {
+        console.log(`🏁 DealerInspire pagination stopped: No records on page ${pageNumber}`);
+        hasMorePages = false;
+        break;
+      }
+
+      let validPairsOnPage = 0;
+
+      records.forEach((record: any, index: number) => {
+        try {
+          const vin = record.vin || record.VIN;
+          const vdpUrl = record.url || record.view_full_listing || record.vdp_url || record.link;
+
+          if (vin && vdpUrl) {
+            // Normalize the VDP URL to be absolute
+            const normalizedVdpUrl = vdpUrl.startsWith("http")
+              ? vdpUrl
+              : `${protocol}//${hostname}${vdpUrl}`;
+
+            const normalizedVin = vin.toUpperCase();
+
+            // Deduplicate by VIN (Map automatically handles this)
+            if (!vinToVdpMap.has(normalizedVin)) {
+              vinToVdpMap.set(normalizedVin, normalizedVdpUrl);
+              validPairsOnPage++;
+
+              if (vinToVdpMap.size <= 3) {
+                console.log(`🔍 Sample DealerInspire record ${vinToVdpMap.size}:`, {
+                  vin: normalizedVin,
+                  vdpUrl: normalizedVdpUrl,
+                  title: record.title || record.vehicle_title,
+                });
+              }
+            }
+          }
+        } catch (e) {
+          // Skip malformed records
+        }
+      });
+
+      totalRecords += records.length;
+
+      console.log(`📊 Page ${pageNumber} summary: ${records.length} records, ${validPairsOnPage} new VIN/VDP pairs, total collected: ${vinToVdpMap.size}/${maxVehicles}`);
+
+      // Progress guard: stop if no new VIN/VDP pairs were discovered on this page
+      if (validPairsOnPage === 0) {
+        console.log(`🏁 DealerInspire pagination stopped: No new VIN/VDP pairs discovered on page ${pageNumber}`);
+        hasMorePages = false;
+        break;
+      }
+
+      // Check if we've collected enough vehicles
+      if (vinToVdpMap.size >= maxVehicles) {
+        console.log(`🏁 DealerInspire pagination stopped: Collected ${vinToVdpMap.size} VIN/VDP pairs (max: ${maxVehicles})`);
+        hasMorePages = false;
+        break;
+      }
+
+      pageNumber++;
+    }
+
+    console.log(`✅ DealerInspire discovery completed: ${vinToVdpMap.size} VIN/VDP pairs found across ${pageNumber - 1} pages, ${totalRecords} total records`);
+
+    return { vinToVdpMap, totalRecords };
+  } catch (error) {
+    console.error(`❌ DealerInspire LLM discovery failed:`, error);
+    throw error;
+  }
+}
+
+/**
  * Normalizes a URL relative to a base URL and removes tracking parameters.
  */
 function normalizeUrl(url: string, baseUrl: string): string {
@@ -278,69 +424,105 @@ export async function crawlInventory(
 
     console.log(`✅ SSRF validation passed`);
 
-    // Fetch listing page HTML
-    console.log(`🌐 Starting inventory page fetch: ${listingPageUrl}`);
+    // Check if this is a DealerInspire inventory page
+    const isDealerInspire = isDealerInspireInventory(listingPageUrl);
+    console.log(`🏭 Platform detection: ${isDealerInspire ? 'DealerInspire' : 'Generic'}`);
 
-    const response = await fetch(listingPageUrl, {
-      redirect: "error",
-      headers: {
-        "User-Agent": opts.userAgent || USER_AGENT,
-      },
-      signal: AbortSignal.timeout(15000), // 15 second timeout
-    });
+    let vdpLinks: string[] = [];
 
-    console.log(`📡 HTTP Response:`, {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      redirect: response.redirected,
-      url: response.url,
-      contentType: response.headers.get("content-type"),
-    });
+    if (isDealerInspire) {
+      // Use DealerInspire's LLM endpoint for structured inventory discovery
+      try {
+        const { vinToVdpMap, totalRecords } = await discoverDealerInspireInventory(
+          listingPageUrl,
+          opts.maxVehicles
+        );
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Convert VIN-to-VDP map to array of VDP URLs
+        vdpLinks = Array.from(vinToVdpMap.values());
+
+        console.log(`🏭 DealerInspire discovery results:`, {
+          totalRecords,
+          vinVdpPairs: vinToVdpMap.size,
+          maxVehicles: opts.maxVehicles,
+          vdpLinksToScrape: vdpLinks.length
+        });
+
+        if (vdpLinks.length === 0) {
+          console.warn("❌ BLOCKER: DealerInspire LLM endpoint returned no VDP URLs");
+          return { vehicles, errors };
+        }
+      } catch (llmError) {
+        console.error(`❌ DealerInspire LLM discovery failed, falling back to generic HTML scraping:`, llmError);
+        // Fall through to generic HTML scraping
+      }
     }
 
-    const html = await response.text();
-
-    console.log(`📄 Content Analysis:`, {
-      htmlLength: html.length,
-      charset: response.headers.get("content-type"),
-      encoding: response.headers.get("content-encoding"),
-    });
-
-    // HTML structure analysis
-    const $ = cheerio.load(html);
-    const anchorCount = $("a[href]").length;
-    const scriptCount = $("script").length;
-    const jsonLdCount = $('script[type="application/ld+json"]').length;
-    const dataVinCount = $('[data-vin]').length;
-    const dataVehicleUrlCount = $('[data-vehicle-url], [data-vdp-url]').length;
-
-    console.log(`🔍 HTML Structure Analysis:`, {
-      anchorCount,
-      scriptCount,
-      jsonLdCount,
-      dataVinCount,
-      dataVehicleUrlCount,
-      title: $('title').text(),
-      metaDescription: $('meta[name="description"]').attr('content'),
-    });
-
-    // Extract VDP links
-    console.log(`🔎 Starting VDP URL extraction...`);
-    const vdpLinks = extractVdpLinks(html, listingPageUrl);
-
-    console.log(`VDP Discovery Results:`, {
-      totalLinks: vdpLinks.length,
-      sampleLinks: vdpLinks.slice(0, 5),
-      listingPageUrl
-    });
-
+    // Generic HTML scraping (fallback or for non-DealerInspire sites)
     if (vdpLinks.length === 0) {
-      console.warn("❌ BLOCKER: No VDP links found on listing page - check page structure");
-      return { vehicles, errors };
+      console.log(`🌐 Starting generic HTML inventory page fetch: ${listingPageUrl}`);
+
+      const response = await fetch(listingPageUrl, {
+        redirect: "error",
+        headers: {
+          "User-Agent": opts.userAgent || USER_AGENT,
+        },
+        signal: AbortSignal.timeout(15000), // 15 second timeout
+      });
+
+      console.log(`📡 HTTP Response:`, {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        redirect: response.redirected,
+        url: response.url,
+        contentType: response.headers.get("content-type"),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const html = await response.text();
+
+      console.log(`📄 Content Analysis:`, {
+        htmlLength: html.length,
+        charset: response.headers.get("content-type"),
+        encoding: response.headers.get("content-encoding"),
+      });
+
+      // HTML structure analysis
+      const $ = cheerio.load(html);
+      const anchorCount = $("a[href]").length;
+      const scriptCount = $("script").length;
+      const jsonLdCount = $('script[type="application/ld+json"]').length;
+      const dataVinCount = $('[data-vin]').length;
+      const dataVehicleUrlCount = $('[data-vehicle-url], [data-vdp-url]').length;
+
+      console.log(`🔍 HTML Structure Analysis:`, {
+        anchorCount,
+        scriptCount,
+        jsonLdCount,
+        dataVinCount,
+        dataVehicleUrlCount,
+        title: $('title').text(),
+        metaDescription: $('meta[name="description"]').attr('content'),
+      });
+
+      // Extract VDP links
+      console.log(`🔎 Starting VDP URL extraction...`);
+      vdpLinks = extractVdpLinks(html, listingPageUrl);
+
+      console.log(`VDP Discovery Results:`, {
+        totalLinks: vdpLinks.length,
+        sampleLinks: vdpLinks.slice(0, 5),
+        listingPageUrl
+      });
+
+      if (vdpLinks.length === 0) {
+        console.warn("❌ BLOCKER: No VDP links found on listing page - check page structure");
+        return { vehicles, errors };
+      }
     }
 
     console.log(`✅ Discovery successful: ${vdpLinks.length} VDP links found, proceeding to scrape...`);
