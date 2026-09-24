@@ -23,13 +23,14 @@ export interface ShiftlyVehicle {
   fuel?: string | null;
   transmission?: string | null;
   price?: number | null;
-  currency?: string;
+  currency?: string | null;
   mileage?: number | null;
-  mileage_unit?: string;
+  mileage_unit?: string | null;
   description?: string | null;
   location?: string | null;
   status?: string;
   primary_image?: string | null;
+  images?: string[];
   created_by: string;
 }
 
@@ -51,19 +52,20 @@ const KILOMETER_INDICATORS = ["km", "kilometer", "kilometre", "kilometres"];
 /**
  * Parses price text to extract numeric value and currency.
  * Returns null if price cannot be reliably determined.
+ * Does not invent currency if not present in source.
  */
-function parsePrice(priceText: string): { price: number | null; currency: string } {
+function parsePrice(priceText: string): { price: number | null; currency: string | null } {
   if (!priceText || typeof priceText !== "string") {
-    return { price: null, currency: "USD" };
+    return { price: null, currency: null };
   }
 
   const cleaned = priceText.replace(/,/g, "").trim();
   if (!cleaned) {
-    return { price: null, currency: "USD" };
+    return { price: null, currency: null };
   }
 
   // Detect currency symbol
-  let currency = "USD"; // Default to USD
+  let currency: string | null = null;
   for (const [symbol, code] of Object.entries(CURRENCY_SYMBOLS)) {
     if (cleaned.includes(symbol)) {
       currency = code;
@@ -88,27 +90,35 @@ function parsePrice(priceText: string): { price: number | null; currency: string
 /**
  * Parses mileage text to extract numeric value and unit.
  * Returns null if mileage cannot be reliably determined.
+ * Does not invent unit if not present in source.
  */
 function parseMileage(mileageText: string): {
   mileage: number | null;
-  mileage_unit: string;
+  mileage_unit: string | null;
 } {
   if (!mileageText || typeof mileageText !== "string") {
-    return { mileage: null, mileage_unit: "MI" };
+    return { mileage: null, mileage_unit: null };
   }
 
   const cleaned = mileageText.replace(/,/g, "").toLowerCase().trim();
   if (!cleaned) {
-    return { mileage: null, mileage_unit: "MI" };
+    return { mileage: null, mileage_unit: null };
   }
 
   // Detect unit
-  let mileage_unit = "MI"; // Default to miles
+  let mileage_unit: string | null = null;
   const lowerText = cleaned.toLowerCase();
 
   for (const indicator of KILOMETER_INDICATORS) {
     if (lowerText.includes(indicator)) {
       mileage_unit = "KM";
+      break;
+    }
+  }
+
+  for (const indicator of MILEAGE_INDICATORS) {
+    if (lowerText.includes(indicator)) {
+      mileage_unit = "MI";
       break;
     }
   }
@@ -195,6 +205,11 @@ export async function transformToShiftlyVehicle(
       ? scraped.imageUrls[0]
       : null;
 
+  // Preserve complete image array with VIN isolation
+  const images = scraped.imageUrls && scraped.imageUrls.length > 0
+    ? [...scraped.imageUrls] // Create new array to prevent shared references
+    : [];
+
   // Build description from available data
   const descriptionParts: string[] = [];
   if (scraped.engine) descriptionParts.push(`Engine: ${scraped.engine}`);
@@ -206,31 +221,33 @@ export async function transformToShiftlyVehicle(
   const description =
     descriptionParts.length > 0 ? descriptionParts.join(". ") : null;
 
-  // Normalize to Canadian market standards
+  // Normalize to Canadian market standards (only if source values exist)
   let finalPrice = price;
   let finalCurrency = currency;
   let finalMileage = mileage;
   let finalMileageUnit = mileage_unit;
 
-  // Convert currency to CAD if needed
+  // Convert currency to CAD only if source currency exists and is not CAD
   if (price !== null && currency && currency !== "CAD") {
     const convertedPrice = await convertToCAD(price, currency);
     if (convertedPrice !== null) {
       finalPrice = convertedPrice;
       finalCurrency = "CAD";
-      console.log(`💱 Scraper normalization: ${price} ${currency} → ${finalPrice} CAD`);
+      console.log(`💱 Currency normalization: ${price} ${currency} → ${finalPrice} CAD`);
     }
   }
 
-  // Convert mileage to KM if needed
+  // Convert mileage to KM only if source unit exists and is not KM
   if (mileage !== null && mileage_unit && mileage_unit !== "KM") {
     const convertedMileage = normalizeMileageToKm(mileage, mileage_unit);
     if (convertedMileage !== null) {
       finalMileage = convertedMileage;
       finalMileageUnit = "KM";
-      console.log(`📏 Scraper normalization: ${mileage} ${mileage_unit} → ${finalMileage} KM`);
+      console.log(`📏 Mileage normalization: ${mileage} ${mileage_unit} → ${finalMileage} KM`);
     }
   }
+
+  console.log(`🖼️ Vehicle isolation: VIN ${scraped.vin || 'unknown'} - ${images.length} images preserved`);
 
   return {
     dealership_id: dealershipId,
@@ -245,13 +262,14 @@ export async function transformToShiftlyVehicle(
     fuel: null, // Not typically available from basic scraping
     transmission: scraped.transmission || null,
     price: finalPrice,
-    currency: finalCurrency,
+    currency: finalCurrency, // Keep null if source didn't provide currency
     mileage: finalMileage,
-    mileage_unit: finalMileageUnit,
+    mileage_unit: finalMileageUnit, // Keep null if source didn't provide unit
     description,
     location: null, // Could be extracted from page in future
     status: "AVAILABLE", // Default status for scraped vehicles
     primary_image,
+    images, // Complete deduplicated image array
     created_by: createdBy,
   };
 }
@@ -264,10 +282,16 @@ export async function transformBatchToShiftlyVehicles(
   dealershipId: string,
   createdBy: string
 ): Promise<ShiftlyVehicle[]> {
+  console.log(`🔄 transformBatchToShiftlyVehicles called: ${scrapedVehicles.length} vehicles`);
+
   const transformed = await Promise.all(
     scrapedVehicles.map((scraped) =>
       transformToShiftlyVehicle(scraped, dealershipId, createdBy)
     )
   );
+
+  console.log(`✅ transformBatchToShiftlyVehicles completed: ${transformed.length} vehicles transformed`);
   return transformed;
 }
+
+

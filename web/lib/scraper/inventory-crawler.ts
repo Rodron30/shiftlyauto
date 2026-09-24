@@ -21,6 +21,7 @@ const DEFAULT_CRAWLER_OPTIONS: CrawlerOptions = {
 /**
  * Common VDP URL patterns found on dealership inventory pages.
  * These are conservative patterns to avoid picking up non-vehicle links.
+ * The patterns are generic and should work across multiple dealership platforms.
  */
 const VDP_PATTERNS = [
   /\/vehicle\//i,
@@ -32,6 +33,9 @@ const VDP_PATTERNS = [
   /\/vehicle-details\//i,
   /\/vdp\//i,
   /\/details\//i,
+  /\/inventory\/[a-z0-9-]+\/fwd-\d+d-[a-z]+-[a-z0-9]{17}\//i, // Generic inventory pattern with VIN
+  /\/inventory\/[a-z0-9-]+-[a-z0-9]{17}\//i, // Generic VIN-based inventory pattern
+  /[a-z0-9]{17}/i, // VIN-based URLs (very broad, used as fallback)
 ];
 
 /**
@@ -68,16 +72,18 @@ function isVdpUrl(url: string): boolean {
 
 /**
  * Extracts VDP links from an inventory listing page.
+ * Looks for vehicle URLs in multiple places: anchor tags, JSON-LD, embedded data, etc.
  */
 function extractVdpLinks(html: string, baseUrl: string): string[] {
   const $ = cheerio.load(html);
   const links: string[] = [];
+  const vinRegex = /\b[A-HJ-NPR-Z0-9]{17}\b/g;
 
+  // Method 1: Extract from anchor tags (traditional method)
   $("a[href]").each((_, elem) => {
     const href = $(elem).attr("href");
     if (!href) return;
 
-    // Normalize the URL
     const normalized = normalizeUrl(href, baseUrl);
 
     // Check if it looks like a VDP URL
@@ -86,8 +92,149 @@ function extractVdpLinks(html: string, baseUrl: string): string[] {
     }
   });
 
+  // Method 2: Extract from JSON-LD structured data
+  try {
+    $('script[type="application/ld+json"]').each((_, elem) => {
+      try {
+        const jsonText = $(elem).html();
+        if (!jsonText) return;
+
+        const parsed = JSON.parse(jsonText);
+        const schemas = Array.isArray(parsed) ? parsed : [parsed];
+
+        schemas.forEach((schema: any) => {
+          // Look for Vehicle/Car/Product schemas with URLs
+          if (schema["@type"] === "Vehicle" || schema["@type"] === "Car" || schema["@type"] === "Product") {
+            if (schema.url) {
+              const normalized = normalizeUrl(schema.url, baseUrl);
+              if (isVdpUrl(normalized)) {
+                links.push(normalized);
+              }
+            }
+            // Also check offers for vehicle URLs
+            if (schema.offers && Array.isArray(schema.offers)) {
+              schema.offers.forEach((offer: any) => {
+                if (offer.url) {
+                  const normalized = normalizeUrl(offer.url, baseUrl);
+                  if (isVdpUrl(normalized)) {
+                    links.push(normalized);
+                  }
+                }
+              });
+            }
+          }
+        });
+      } catch (e) {
+        // Invalid JSON, skip
+      }
+    });
+  } catch (e) {
+    // JSON-LD parsing failed, continue with other methods
+  }
+
+  // Method 3: Extract from data attributes and data-* properties
+  $('[data-vin], [data-vehicle-url], [data-vehicle-id], [data-vdp-url]').each((_, elem) => {
+    const $elem = $(elem);
+    const vin = $elem.attr('data-vin');
+    const vehicleUrl = $elem.attr('data-vehicle-url') || $elem.attr('data-vdp-url');
+
+    if (vehicleUrl) {
+      const normalized = normalizeUrl(vehicleUrl, baseUrl);
+      if (isVdpUrl(normalized)) {
+        links.push(normalized);
+      }
+    }
+
+    // If we have a VIN but no URL, try to construct URL from page context
+    if (vin && vin.length === 17) {
+      // Look for nearby anchor with this VIN
+      const $parent = $elem.closest('a[href]');
+      if ($parent.length) {
+        const href = $parent.attr('href');
+        if (href) {
+          const normalized = normalizeUrl(href, baseUrl);
+          if (isVdpUrl(normalized)) {
+            links.push(normalized);
+          }
+        }
+      }
+    }
+  });
+
+  // Method 4: Look for VINs in text and try to find associated URLs
+  const textContent = $('body').text();
+  const vinsFound = textContent.match(vinRegex) || [];
+
+  if (vinsFound.length > 0) {
+    // For each VIN found, try to find a nearby link
+    const uniqueVins = Array.from(new Set(vinsFound.map((v) => v.toUpperCase())));
+
+    uniqueVins.forEach((vin) => {
+      // Search for this VIN in anchor text or nearby elements
+      $(`a[href]:contains("${vin}")`).each((_, elem) => {
+        const href = $(elem).attr('href');
+        if (href) {
+          const normalized = normalizeUrl(href, baseUrl);
+          if (isVdpUrl(normalized)) {
+            links.push(normalized);
+          }
+        }
+      });
+
+      // Also search for elements with this VIN in data attributes
+      $(`[data-vin="${vin}"], [data-vin="${vin.toLowerCase()}"]`).each((_, elem) => {
+        const $elem = $(elem);
+        const $parent = $elem.closest('a[href]');
+        if ($parent.length) {
+          const href = $parent.attr('href');
+          if (href) {
+            const normalized = normalizeUrl(href, baseUrl);
+            if (isVdpUrl(normalized)) {
+              links.push(normalized);
+            }
+          }
+        }
+      });
+    });
+  }
+
+  // Method 5: Look for inventory data in script tags (common pattern for client-side rendered sites)
+  $('script').each((_, elem) => {
+    try {
+      const scriptContent = $(elem).html();
+      if (!scriptContent) return;
+
+      // Look for inventory data patterns in JavaScript
+      const inventoryPatterns = [
+        /inventory[^a-z0-9]*:\s*\[([^\]]+)\]/gi,
+        /vehicles[^a-z0-9]*:\s*\[([^\]]+)\]/gi,
+        /url["\s:]+["']([^"']+)["']/gi,
+      ];
+
+      inventoryPatterns.forEach((pattern) => {
+        const matches = scriptContent.match(pattern) || [];
+        matches.forEach((match) => {
+          try {
+            // Extract URL from the match
+            const urlMatch = match.match(/https?:\/\/[^\s"'<>]+/i);
+            if (urlMatch) {
+              const normalized = normalizeUrl(urlMatch[0], baseUrl);
+              if (isVdpUrl(normalized)) {
+                links.push(normalized);
+              }
+            }
+          } catch (e) {
+            // Skip invalid matches
+          }
+        });
+      });
+    } catch (e) {
+      // Script parsing failed, continue
+    }
+  });
+
   // Deduplicate links
-  return [...new Set(links)];
+  return Array.from(new Set(links));
 }
 
 /**
@@ -105,9 +252,17 @@ export async function crawlInventory(
   listingPageUrl: string,
   options: Partial<CrawlerOptions> = {}
 ): Promise<{ vehicles: RawScrapedVehicle[]; errors: ScraperError[] }> {
+  console.log(`🕷️ crawlInventory function called: ${listingPageUrl}`);
+
   const opts = { ...DEFAULT_CRAWLER_OPTIONS, ...options };
   const errors: ScraperError[] = [];
   const vehicles: RawScrapedVehicle[] = [];
+
+  console.log(`⚙️ Crawler options:`, {
+    maxVehicles: opts.maxVehicles,
+    delayMs: opts.delayMs,
+    userAgent: opts.userAgent
+  });
 
   try {
     // Validate URL
@@ -116,10 +271,16 @@ export async function crawlInventory(
       throw new Error("Only HTTP/HTTPS protocols are supported");
     }
 
+    console.log(`✅ URL protocol validation passed`);
+
     // Validate destination with DNS-aware SSRF protection
     await validateScrapeUrl(listingPageUrl);
 
+    console.log(`✅ SSRF validation passed`);
+
     // Fetch listing page HTML
+    console.log(`🌐 Starting inventory page fetch: ${listingPageUrl}`);
+
     const response = await fetch(listingPageUrl, {
       redirect: "error",
       headers: {
@@ -128,21 +289,61 @@ export async function crawlInventory(
       signal: AbortSignal.timeout(15000), // 15 second timeout
     });
 
+    console.log(`📡 HTTP Response:`, {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      redirect: response.redirected,
+      url: response.url,
+      contentType: response.headers.get("content-type"),
+    });
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     const html = await response.text();
 
+    console.log(`📄 Content Analysis:`, {
+      htmlLength: html.length,
+      charset: response.headers.get("content-type"),
+      encoding: response.headers.get("content-encoding"),
+    });
+
+    // HTML structure analysis
+    const $ = cheerio.load(html);
+    const anchorCount = $("a[href]").length;
+    const scriptCount = $("script").length;
+    const jsonLdCount = $('script[type="application/ld+json"]').length;
+    const dataVinCount = $('[data-vin]').length;
+    const dataVehicleUrlCount = $('[data-vehicle-url], [data-vdp-url]').length;
+
+    console.log(`🔍 HTML Structure Analysis:`, {
+      anchorCount,
+      scriptCount,
+      jsonLdCount,
+      dataVinCount,
+      dataVehicleUrlCount,
+      title: $('title').text(),
+      metaDescription: $('meta[name="description"]').attr('content'),
+    });
+
     // Extract VDP links
+    console.log(`🔎 Starting VDP URL extraction...`);
     const vdpLinks = extractVdpLinks(html, listingPageUrl);
 
+    console.log(`VDP Discovery Results:`, {
+      totalLinks: vdpLinks.length,
+      sampleLinks: vdpLinks.slice(0, 5),
+      listingPageUrl
+    });
+
     if (vdpLinks.length === 0) {
-      console.warn("No VDP links found on listing page");
+      console.warn("❌ BLOCKER: No VDP links found on listing page - check page structure");
       return { vehicles, errors };
     }
 
-    console.log(`Found ${vdpLinks.length} VDP links, scraping up to ${opts.maxVehicles}`);
+    console.log(`✅ Discovery successful: ${vdpLinks.length} VDP links found, proceeding to scrape...`);
 
     // Scrape each VDP with rate limiting
     const linksToScrape = vdpLinks.slice(0, opts.maxVehicles);
@@ -181,12 +382,12 @@ export async function crawlInventory(
       }
     }
 
-    console.log(`Successfully scraped ${vehicles.length} vehicles`);
+    console.log(`✅ crawlInventory completed: ${vehicles.length} vehicles scraped, ${errors.length} errors`);
     return { vehicles, errors };
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
-    console.error(`Inventory crawl error for ${listingPageUrl}:`, errorMessage);
+    console.error(`❌ crawlInventory error for ${listingPageUrl}:`, errorMessage);
     errors.push({
       url: listingPageUrl,
       error: errorMessage,

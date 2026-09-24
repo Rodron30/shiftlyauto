@@ -152,9 +152,27 @@ export async function POST(
       .eq("dealership_id", profile.dealership_id);
 
     try {
+      console.log(`🚀 SYNC START: Integration ID ${integration.id}, Type ${integration.integration_type}`);
+      console.log(`📋 Integration Config:`, {
+        id: integration.id,
+        type: integration.integration_type,
+        status: integration.status,
+        dealership_id: integration.dealership_id,
+        config: integration.config
+      });
+
       const result = await syncIntegration(
         integration as Integration
       );
+
+      console.log(`✅ SYNC COMPLETE: Integration ID ${integration.id}`, {
+        status: result.status,
+        recordsProcessed: result.recordsProcessed,
+        recordsCreated: result.recordsCreated,
+        recordsUpdated: result.recordsUpdated,
+        recordsFailed: result.recordsFailed,
+        errorMessage: result.errorMessage
+      });
 
       const completedAt = new Date().toISOString();
 

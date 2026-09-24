@@ -1,5 +1,5 @@
 import { lookup } from "node:dns/promises";
-import net from "node:net";
+import * as net from "node:net";
 
 function isPrivateOrReservedIp(ip: string): boolean {
   const normalized = ip.toLowerCase();

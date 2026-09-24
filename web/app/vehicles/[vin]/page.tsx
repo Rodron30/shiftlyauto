@@ -1362,39 +1362,17 @@ export default function VehicleDetailsPage() {
                         </p>
                       )}
                     </div>
-
                     <div className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-2">
                       <div>
                         <span className="text-xs text-gray-500">Price:</span>{" "}
                         <span className="text-sm font-semibold text-gray-900">
                           {vehicle.price != null
-                            ? (() => {
-                                const currencyCode = vehicle.currency || "CAD";
-                                const localeMap: Record<string, string> = {
-                                  USD: "en-US",
-                                  PHP: "en-PH",
-                                  EUR: "de-DE",
-                                  GBP: "en-GB",
-                                  CAD: "en-CA",
-                                  AUD: "en-AU",
-                                  JPY: "ja-JP",
-                                  CNY: "zh-CN",
-                                  SGD: "en-SG",
-                                  HKD: "en-HK",
-                                  MYR: "en-MY",
-                                  THB: "th-TH",
-                                  IDR: "id-ID",
-                                  VND: "vi-VN",
-                                };
-                                const locale = localeMap[currencyCode] || "en-US";
-
-                                return new Intl.NumberFormat(locale, {
-                                  style: "currency",
-                                  currency: currencyCode,
-                                  useGrouping: true,
-                                  maximumFractionDigits: 0,
-                                }).format(vehicle.price);
-                              })()
+                            ? new Intl.NumberFormat("en-CA", {
+                                style: "currency",
+                                currency: "CAD",
+                                useGrouping: true,
+                                maximumFractionDigits: 0,
+                              }).format(vehicle.price)
                             : "Not specified"}
                         </span>
                       </div>
@@ -1403,15 +1381,8 @@ export default function VehicleDetailsPage() {
                         <span className="text-xs text-gray-500">Mileage:</span>{" "}
                         <span className="text-sm font-semibold text-gray-900">
                           {vehicle.mileage != null
-                            ? `${vehicle.mileage.toLocaleString()} ${(vehicle.mileage_unit || "KM").toUpperCase()}`
+                            ? `${vehicle.mileage.toLocaleString()} KM`
                             : "Not specified"}
-                        </span>
-                      </div>
-
-                      <div>
-                        <span className="text-xs text-gray-500">Body:</span>{" "}
-                        <span className="text-sm text-gray-800">
-                          {vehicle.body || "Not specified"}
                         </span>
                       </div>
 
@@ -2796,6 +2767,9 @@ function ConfidenceTag({
     </span>
   );
 }
+
+
+
 
 
 

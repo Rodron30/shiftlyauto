@@ -123,10 +123,63 @@ export default function NewVehiclePage() {
       if (params.get("mileage")) defaultForm.mileage = params.get("mileage") || "";
       if (params.get("description")) defaultForm.description = params.get("description") || "";
       if (params.get("location")) defaultForm.location = params.get("location") || "";
+
+if (params.get("primary_image")) {
+  defaultForm.primary_image = params.get("primary_image") || "";
+}
+
+const imagesParam = params.get("images");
+
+if (imagesParam) {
+  try {
+    const parsedImages = JSON.parse(imagesParam);
+
+    if (Array.isArray(parsedImages)) {
+      defaultForm.images = parsedImages.filter(
+        (image) => typeof image === "string" && image.trim()
+      );
+    }
+  } catch (error) {
+    console.error("Failed to parse vehicle images:", error);
+  }
+}
     }
 
     return defaultForm;
   });
+
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const imagesParam = params.get("images");
+    const primaryImageParam = params.get("primary_image");
+
+    let parsedImages: string[] = [];
+
+    if (imagesParam) {
+      try {
+        const parsed = JSON.parse(imagesParam);
+        if (Array.isArray(parsed)) {
+          parsedImages = parsed.filter(
+            (image): image is string =>
+              typeof image === "string" && image.trim().length > 0
+          );
+        }
+      } catch (error) {
+        console.error("Failed to hydrate vehicle images:", error);
+      }
+    }
+
+    if (parsedImages.length > 0 || primaryImageParam) {
+      setForm((current) => ({
+        ...current,
+        primary_image: primaryImageParam || current.primary_image,
+        images: parsedImages.length > 0 ? parsedImages : current.images,
+      }));
+    }
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -150,6 +203,12 @@ export default function NewVehiclePage() {
     setError("");
 
     try {
+      console.log("?? Vehicle submit image check:", {
+        primary_image: form.primary_image,
+        images_count: Array.isArray(form.images) ? form.images.length : -1,
+        first_images: Array.isArray(form.images) ? form.images.slice(0, 3) : [],
+      });
+
       const response = await fetch("/api/vehicles", {
         method: "POST",
         headers: {

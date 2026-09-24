@@ -196,6 +196,7 @@ function extractFromText($: cheerio.CheerioAPI, baseUrl: string): Partial<RawScr
     "[data-vin]",
     ".vehicle-identification-number",
     "#vin",
+    "[data-testid='vin-number']",
   ];
 
   for (const selector of vinSelectors) {
@@ -238,24 +239,58 @@ function extractFromText($: cheerio.CheerioAPI, baseUrl: string): Partial<RawScr
     }
   }
 
-  // Try to find images
+  // Try to find images with generic multi-platform support
   const imageUrls: string[] = [];
+  const imageSet = new Set<string>();
+
   $("img").each((_, elem) => {
-    const src = $(elem).attr("src");
-    if (src) {
-      const normalized = normalizeUrl(src, baseUrl);
-      if (
-        normalized.match(/\.(jpg|jpeg|png|webp)$/i) &&
-        !normalized.includes("logo") &&
-        !normalized.includes("icon")
-      ) {
-        imageUrls.push(normalized);
+    const img = $(elem);
+    const src = img.attr("src");
+    const dataSrc = img.attr("data-src");
+    const dataLazySrc = img.attr("data-lazy-src");
+    const currentSrc = img.attr("currentSrc");
+    const dataOriginal = img.attr("data-original");
+
+    // Check all possible image attributes for different platforms
+    [src, dataSrc, dataLazySrc, currentSrc, dataOriginal].forEach((imgUrl) => {
+      if (!imgUrl) return;
+
+      const normalized = normalizeUrl(imgUrl, baseUrl);
+
+      // Accept standard image formats from any domain
+      if (normalized.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i)) {
+        // Filter out logos, icons, and UI elements
+        if (
+          !normalized.includes("logo") &&
+          !normalized.includes("icon") &&
+          !normalized.includes("banner") &&
+          !normalized.includes("background") &&
+          !normalized.includes("pattern")
+        ) {
+          imageSet.add(normalized);
+        }
       }
+    });
+  });
+
+  // Also scan HTML for image URLs (for lazy-loaded content across platforms)
+  const html = $.html();
+  const imageUrlRegex = /https?:\/\/[^\s"'<>]+\.(jpg|jpeg|png|webp|gif|bmp)/gi;
+  const htmlImageMatches = html.match(imageUrlRegex) || [];
+  htmlImageMatches.forEach((url) => {
+    const normalized = normalizeUrl(url, baseUrl);
+    // Generic image filtering
+    if (
+      !normalized.includes("logo") &&
+      !normalized.includes("icon") &&
+      !normalized.includes("banner")
+    ) {
+      imageSet.add(normalized);
     }
   });
 
-  if (imageUrls.length > 0) {
-    result.imageUrls = [...new Set(imageUrls)]; // Deduplicate
+  if (imageSet.size > 0) {
+    result.imageUrls = Array.from(imageSet);
   }
 
   return result;
@@ -315,7 +350,7 @@ export async function scrapeVdp(vdpUrl: string): Promise<RawScrapedVehicle | nul
       scrapedData.imageUrls = [];
     }
 
-    console.log(`🖼️ DealerInspire extraction: ${scrapedData.imageUrls.length} images extracted from ${vdpUrl}`);
+    console.log(`🖼️ VDP extraction: ${scrapedData.imageUrls.length} images extracted from ${vdpUrl}`);
 
     if (!scrapedData.priceText) {
       scrapedData.priceText = "";
