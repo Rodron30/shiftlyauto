@@ -22,10 +22,12 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  console.log("🚀 ACTUAL SYNC ROUTE REACHED - Route handler entry");
   try {
     const profile = await getCurrentUserProfile();
 
     if (!profile?.id || !profile.dealership_id) {
+      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Unauthorized");
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -36,6 +38,7 @@ export async function POST(
       profile.role !== "admin" &&
       profile.role !== "manager"
     ) {
+      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Forbidden");
       return NextResponse.json(
         { error: "Only managers and admins can sync integrations" },
         { status: 403 }
@@ -45,6 +48,7 @@ export async function POST(
     const saasAccess = await requireSaasAccess();
 
     if (!saasAccess.ok) {
+      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - SaaS Access Failed");
       return NextResponse.json(
         {
           error: saasAccess.error,
@@ -52,6 +56,8 @@ export async function POST(
         { status: saasAccess.status }
       );
     }
+
+    console.log("🚀 ACTUAL SYNC ROUTE REACHED - After requireSaasAccess");
 
     const { id } = await context.params;
 
@@ -73,6 +79,7 @@ export async function POST(
         requestedSyncType as SyncType
       )
     ) {
+      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Invalid sync type");
       return NextResponse.json(
         { error: "Invalid sync type" },
         { status: 400 }
@@ -94,6 +101,7 @@ export async function POST(
         "POST /api/integrations/[id]/sync lookup:",
         integrationError
       );
+      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Integration lookup error");
 
       return NextResponse.json(
         { error: "Unable to load integration" },
@@ -102,6 +110,7 @@ export async function POST(
     }
 
     if (!integration) {
+      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Integration not found");
       return NextResponse.json(
         { error: "Integration not found" },
         { status: 404 }
@@ -109,6 +118,7 @@ export async function POST(
     }
 
     if (integration.status === "DISABLED") {
+      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Integration disabled");
       return NextResponse.json(
         { error: "Integration is disabled" },
         { status: 400 }
@@ -134,6 +144,7 @@ export async function POST(
         "POST /api/integrations/[id]/sync log:",
         logError
       );
+      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Sync log creation error");
 
       return NextResponse.json(
         { error: "Unable to create sync log" },
@@ -150,6 +161,8 @@ export async function POST(
       })
       .eq("id", integration.id)
       .eq("dealership_id", profile.dealership_id);
+
+    console.log("🚀 ACTUAL SYNC ROUTE REACHED - About to call syncIntegration");
 
     try {
       console.log(`🚀 SYNC START: Integration ID ${integration.id}, Type ${integration.integration_type}`);
@@ -204,6 +217,7 @@ export async function POST(
         .eq("id", integration.id)
         .eq("dealership_id", profile.dealership_id);
 
+      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Success");
       return NextResponse.json({
         integration_id: integration.id,
         sync_log_id: log.id,
@@ -239,6 +253,7 @@ export async function POST(
         .eq("id", integration.id)
         .eq("dealership_id", profile.dealership_id);
 
+      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Error");
       return NextResponse.json(
         {
           error: "Integration sync failed",
