@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import {
   validatePreApprovalForm,
@@ -14,22 +14,54 @@ import { sendPreApprovalNotification } from "@/lib/bcautoloan/email";
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse request body
-    const body = await request.json();
-
-    // Validate payload size (prevent large payloads)
+    // Enforce the payload limit before parsing JSON.
     const contentLength = request.headers.get("content-length");
-    if (contentLength && parseInt(contentLength) > 10000) {
-      // 10KB limit
+    if (contentLength !== null) {
+      const parsedLength = Number(contentLength);
+      if (!Number.isFinite(parsedLength) || parsedLength < 0) {
+        return NextResponse.json(
+          { error: "Invalid Content-Length header" },
+          { status: 400 }
+        );
+      }
+      if (parsedLength > 10000) {
+        return NextResponse.json(
+          { error: "Request payload too large" },
+          { status: 413 }
+        );
+      }
+    }
+
+    // Enforce the limit even when Content-Length is absent.
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > 10000) {
       return NextResponse.json(
         { error: "Request payload too large" },
         { status: 413 }
       );
     }
 
+    let body: unknown;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON request body" },
+        { status: 400 }
+      );
+    }
+
+    if (body === null || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json(
+        { error: "Request body must be a JSON object" },
+        { status: 400 }
+      );
+    }
+
+    const payload = body as Record<string, unknown>;
     // Check honeypot field (spam protection)
     // If honeypot is filled, it's likely a bot - return success but don't process
-    if (body.honeypot && body.honeypot !== "") {
+    if (typeof payload.honeypot === "string" && payload.honeypot.trim() !== "") {
       console.warn("Honeypot field filled - likely spam submission");
       return NextResponse.json(
         {
@@ -60,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate and sanitize input
-    const validationErrors = validatePreApprovalForm(body);
+    const validationErrors = validatePreApprovalForm(payload as Partial<PreApprovalFormData>);
     if (validationErrors.length > 0) {
       return NextResponse.json(
         { error: "Validation failed", details: validationErrors },
@@ -68,7 +100,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const sanitizedData = sanitizePreApprovalData(body as PreApprovalFormData);
+    const sanitizedData = sanitizePreApprovalData(payload as unknown as PreApprovalFormData);
 
     // Validate required environment configuration
     const dealershipId = process.env.BCAUTOLOAN_DEALERSHIP_ID;
@@ -228,7 +260,7 @@ export async function POST(request: NextRequest) {
         "PRE_APPROVAL"
       );
 
-      if (!crmResult.error) {
+      if (!crmResult.error && crmResult.customerId && crmResult.leadId) {
         customerId = crmResult.customerId;
         leadId = crmResult.leadId;
 
@@ -243,34 +275,60 @@ export async function POST(request: NextRequest) {
           .eq("id", application.id);
 
         if (crmUpdateError) {
-          console.error("CRM update error:", crmUpdateError);
+          console.error("Pre-approval CRM link update failed:", {
+            applicationNumber,
+            applicationId: application.id,
+            customerId,
+            leadId,
+            error: crmUpdateError,
+          });
           // Don't fail the submission, just log the error
         }
       } else {
-        console.warn("CRM integration failed:", crmResult.error);
+        console.warn("Pre-approval CRM integration incomplete:", {
+          applicationNumber,
+          applicationId: application.id,
+          customerId: crmResult.customerId,
+          leadId: crmResult.leadId,
+          error: crmResult.error ?? "Missing customer or lead ID",
+        });
         // Don't fail the submission, just log the error
       }
     } catch (error) {
-      console.error("CRM integration error:", error);
+      console.error("Pre-approval CRM integration exception:", {
+        applicationNumber,
+        applicationId: application.id,
+        error,
+      });
       // Don't fail the submission, just log the error
     }
 
     // Send notification email after the application and CRM records are complete.
     // Email failure does not invalidate the saved application.
-    const emailResult = await sendPreApprovalNotification({
-      applicationNumber,
-      firstName: sanitizedData.firstName,
-      lastName: sanitizedData.lastName,
-      email: sanitizedData.email,
-      phone: sanitizedData.phone,
-      vehicleType: sanitizedData.vehicleType,
-      vehicleMake: sanitizedData.vehicleMake,
-      vehicleModel: sanitizedData.vehicleModel,
-      vehicleBudget: sanitizedData.vehicleBudget,
-    });
+    try {
+      const emailResult = await sendPreApprovalNotification({
+        applicationNumber,
+        firstName: sanitizedData.firstName,
+        lastName: sanitizedData.lastName,
+        email: sanitizedData.email,
+        phone: sanitizedData.phone,
+        vehicleType: sanitizedData.vehicleType,
+        vehicleMake: sanitizedData.vehicleMake,
+        vehicleModel: sanitizedData.vehicleModel,
+        vehicleBudget: sanitizedData.vehicleBudget,
+      });
 
-    if (!emailResult.success) {
-      console.warn("Pre-approval saved successfully, but notification email was not sent.");
+      if (!emailResult.success) {
+        console.warn(
+          "Pre-approval saved successfully, but notification email was not sent:",
+          emailResult.error ?? "Unknown notification error"
+        );
+      }
+    } catch (emailError) {
+      console.error(
+        "Pre-approval saved successfully, but notification email threw an exception:",
+        emailError instanceof Error ? emailError.message : "Unknown email error"
+      );
     }
 
     // Return success response

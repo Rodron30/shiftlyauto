@@ -46,6 +46,37 @@ export function sanitizeString(input: string): string {
 
 export function validatePreApprovalForm(data: Partial<PreApprovalFormData>): ValidationError[] {
   const errors: ValidationError[] = [];
+  const stringFields = [
+    "vehicleType", "vehicleBudget", "creditRating",
+    "employmentStatus", "incomeType", "employer", "jobTitle",
+    "income", "incomeFrequency", "vehicleMake", "vehicleModel",
+    "downPayment", "firstName", "lastName", "email", "phone",
+    "address", "city", "province", "postalCode",
+  ] as const;
+
+  const values = data as Record<string, unknown>;
+
+  for (const field of stringFields) {
+    if (typeof values[field] !== "string") {
+      errors.push({ field, message: "This field must be a string." });
+    }
+  }
+
+  if (values.hasTrade !== undefined && typeof values.hasTrade !== "boolean") {
+    errors.push({
+      field: "hasTrade",
+      message: "Trade-in selection must be true or false.",
+    });
+  }
+
+  if (values.honeypot !== undefined && typeof values.honeypot !== "string") {
+    errors.push({ field: "honeypot", message: "Invalid honeypot field." });
+  }
+
+  // Avoid calling string methods on malformed request values.
+  if (errors.length > 0) {
+    return errors;
+  }
 
   // Step 1: Personal Information
   if (!data.firstName || data.firstName.trim().length < 2) {
