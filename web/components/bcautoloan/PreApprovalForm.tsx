@@ -377,23 +377,7 @@ export function PreApprovalForm() {
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <div className="mb-8">
-        <div className="mb-3 flex items-center justify-between text-sm">
-          <span className="font-medium text-bc-text-secondary">
-            Step {Math.min(currentStep + 1, STEPS.length)} of {STEPS.length}
-          </span>
-          <span className="text-bc-text-muted">
-            {Math.round(progress)}% complete
-          </span>
-        </div>
 
-        <div className="h-2 overflow-hidden rounded-full bg-bc-surface-light">
-          <div
-            className="h-full rounded-full bg-bc-primary transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
 
       <div className="rounded-3xl border border-bc-border bg-white p-6 shadow-sm sm:p-10">
         {currentStep === 0 && (
