@@ -28,8 +28,7 @@ const STEPS = [
   "Income",
   "Personal",
   "Address",
-  "Details",
-  "Review",
+  "Details & Review",
 ];
 
 const OPTION_CLASS =
@@ -307,8 +306,8 @@ export function PreApprovalForm() {
               : "Failed to submit application. Please try again.",
         },
       ]);
-      // Stay on the review step to show the error
-      setCurrentStep(10);
+      // Stay on the combined details and review step
+      setCurrentStep(9);
     } finally {
       setIsSubmitting(false);
     }
@@ -614,158 +613,168 @@ export function PreApprovalForm() {
         )}
 
         {currentStep === 9 && (
-          <Question
-            title="Tell us about the vehicle you have in mind."
-            subtitle="This helps our team understand what you are looking for."
-          >
-            <div className="space-y-5">
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field
-                  label="Vehicle Make"
-                  value={formData.vehicleMake || ""}
-                  onChange={(value) => updateField("vehicleMake", value)}
-                  error={getError("vehicleMake")}
-                  placeholder="Toyota"
-                />
-
-                <Field
-                  label="Vehicle Model"
-                  value={formData.vehicleModel || ""}
-                  onChange={(value) => updateField("vehicleModel", value)}
-                  error={getError("vehicleModel")}
-                  placeholder="Camry"
-                />
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field
-                  label="Employer"
-                  value={formData.employer || ""}
-                  onChange={(value) => updateField("employer", value)}
-                  error={getError("employer")}
-                  placeholder="Company Name"
-                />
-
-                <Field
-                  label="Job Title"
-                  value={formData.jobTitle || ""}
-                  onChange={(value) => updateField("jobTitle", value)}
-                  error={getError("jobTitle")}
-                  placeholder="Manager"
-                />
-              </div>
-
-              <Field
-                label="Down Payment"
-                value={formData.downPayment || ""}
-                onChange={(value) => {
-                  const digits = value.replace(/[^0-9]/g, "");
-                  const formatted = digits
-                    ? Number(digits).toLocaleString("en-US")
-                    : "";
-                  updateField("downPayment", formatted);
-                }}
-                error={getError("downPayment")}
-                placeholder="5,000"
-              />
-
-              <div>
-                <label className="bc-label">Income Frequency</label>
-                <select
-                  value={formData.incomeFrequency || ""}
-                  onChange={(event) =>
-                    updateField("incomeFrequency", event.target.value)
-                  }
-                  className="bc-input w-full"
-                >
-                  <option value="">Select Frequency</option>
-                  {INCOME_FREQUENCIES.map((frequency) => (
-                    <option key={frequency} value={frequency}>
-                      {frequency}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </Question>
-        )}
-
-        {currentStep === 10 && (
           <Question title="Review your application">
-            <div className="space-y-3">
-              {summary.map(([label, value]) => (
-                <div
-                  key={label}
-                  className="flex items-center justify-between gap-4 rounded-2xl bg-bc-surface-light px-5 py-4"
-                >
-                  <span className="text-sm text-bc-text-tertiary">
-                    {label}
-                  </span>
-                  <span className="text-right text-sm font-semibold text-bc-text-primary">
-                    {value || "Not provided"}
-                  </span>
-                </div>
-              ))}
-
-              <div className="mt-6 rounded-2xl border border-bc-border p-5">
-                <h3 className="font-semibold text-bc-text-primary">
-                  Contact
+            <div className="space-y-5">
+              <div className="space-y-5">
+                <h3 className="text-lg font-semibold text-bc-text-primary">
+                  Vehicle & Employment Details
                 </h3>
-                <p className="mt-2 text-sm text-bc-text-secondary">
-                  {formData.firstName} {formData.lastName}
-                  <br />
-                  {formData.email}
-                  <br />
-                  {formData.phone}
-                </p>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <Field
+                    label="Vehicle Make"
+                    value={formData.vehicleMake || ""}
+                    onChange={(value) => updateField("vehicleMake", value)}
+                    error={getError("vehicleMake")}
+                    placeholder="Toyota"
+                  />
+
+                  <Field
+                    label="Vehicle Model"
+                    value={formData.vehicleModel || ""}
+                    onChange={(value) => updateField("vehicleModel", value)}
+                    error={getError("vehicleModel")}
+                    placeholder="Camry"
+                  />
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <Field
+                    label="Employer"
+                    value={formData.employer || ""}
+                    onChange={(value) => updateField("employer", value)}
+                    error={getError("employer")}
+                    placeholder="Company Name"
+                  />
+
+                  <Field
+                    label="Job Title"
+                    value={formData.jobTitle || ""}
+                    onChange={(value) => updateField("jobTitle", value)}
+                    error={getError("jobTitle")}
+                    placeholder="Manager"
+                  />
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <Field
+                    label="Down Payment"
+                    value={formData.downPayment || ""}
+                    onChange={(value) => {
+                      const digits = value.replace(/[^0-9]/g, "");
+                      const formatted = digits
+                        ? Number(digits).toLocaleString("en-US")
+                        : "";
+                      updateField("downPayment", formatted);
+                    }}
+                    error={getError("downPayment")}
+                    placeholder="5,000"
+                  />
+
+                  <div>
+                    <label className="bc-label">Income Frequency</label>
+                    <select
+                      value={formData.incomeFrequency || ""}
+                      onChange={(event) =>
+                        updateField("incomeFrequency", event.target.value)
+                      }
+                      className="bc-input w-full"
+                    >
+                      <option value="">Select Frequency</option>
+                      {INCOME_FREQUENCIES.map((frequency) => (
+                        <option key={frequency} value={frequency}>
+                          {frequency}
+                        </option>
+                      ))}
+                    </select>
+                    {getError("incomeFrequency") && (
+                      <p className="mt-2 text-sm text-bc-danger">
+                        {getError("incomeFrequency")}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {errors.length > 0 && (
-                <div
-                  role="alert"
-                  aria-live="polite"
-                  className="rounded-2xl border border-bc-danger bg-bc-danger-light p-4"
-                >
-                  <p className="mb-2 text-sm font-semibold text-bc-danger">
-                    {errors.some((e) => e.field === "submission")
-                      ? "Submission Error"
-                      : "Please correct these fields before submitting:"}
-                  </p>
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-bc-danger">
-                    {errors.map((error, index) => (
-                      <li key={`${error.field}-${index}`}>
-                        {error.field === "submission" ? (
-                          <>{error.message}</>
-                        ) : (
-                          <>
-                            <strong>
-                              {error.field.replace(/([A-Z])/g, " $1")}:
-                            </strong>{" "}
-                            {error.message}
-                          </>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+              <div className="border-t border-bc-border pt-5">
+                <h3 className="text-lg font-semibold text-bc-text-primary mb-3">
+                  Application Summary
+                </h3>
+                <div className="space-y-3">
+                  {summary.map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="flex items-center justify-between gap-4 rounded-2xl bg-bc-surface-light px-5 py-4"
+                    >
+                      <span className="text-sm text-bc-text-tertiary">
+                        {label}
+                      </span>
+                      <span className="text-right text-sm font-semibold text-bc-text-primary">
+                        {value || "Not provided"}
+                      </span>
+                    </div>
+                  ))}
+
+                  <div className="mt-6 rounded-2xl border border-bc-border p-5">
+                    <h3 className="font-semibold text-bc-text-primary">
+                      Contact
+                    </h3>
+                    <p className="mt-2 text-sm text-bc-text-secondary">
+                      {formData.firstName} {formData.lastName}
+                      <br />
+                      {formData.email}
+                      <br />
+                      {formData.phone}
+                    </p>
+                  </div>
+
+                  {errors.length > 0 && (
+                    <div
+                      role="alert"
+                      aria-live="polite"
+                      className="rounded-2xl border border-bc-danger bg-bc-danger-light p-4"
+                    >
+                      <p className="mb-2 text-sm font-semibold text-bc-danger">
+                        {errors.some((e) => e.field === "submission")
+                          ? "Submission Error"
+                          : "Please correct these fields before submitting:"}
+                      </p>
+                      <ul className="list-disc space-y-1 pl-5 text-sm text-bc-danger">
+                        {errors.map((error, index) => (
+                          <li key={`${error.field}-${index}`}>
+                            {error.field === "submission" ? (
+                              <>{error.message}</>
+                            ) : (
+                              <>
+                                <strong>
+                                  {error.field.replace(/([A-Z])/g, " $1")}:
+                                </strong>{" "}
+                                {error.message}
+                              </>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <input
+                    type="text"
+                    name="honeypot"
+                    value={formData.honeypot || ""}
+                    onChange={(event) => updateField("honeypot", event.target.value)}
+                    style={{ display: 'none' }}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                  />
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
+                    <p className="text-sm leading-6 text-slate-500">
+                      I hereby authorize and give consent in reviewing my credit
+                      information for financing purposes.
+                    </p>
+                  </div>
                 </div>
-              )}
-
-              <input
-                type="text"
-                name="honeypot"
-                value={formData.honeypot || ""}
-                onChange={(event) => updateField("honeypot", event.target.value)}
-                style={{ display: 'none' }}
-                tabIndex={-1}
-                autoComplete="off"
-                aria-hidden="true"
-              />
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
-                <p className="text-sm leading-6 text-slate-500">
-                  I hereby authorize and give consent in reviewing my credit
-                  information for financing purposes.
-                </p>
               </div>
             </div>
           </Question>
@@ -792,18 +801,6 @@ export function PreApprovalForm() {
               className="bc-button-primary"
             >
               Continue
-            </button>
-          ) : currentStep === 9 ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (validateStep()) {
-                  setCurrentStep(10);
-                }
-              }}
-              className="bc-button-primary"
-            >
-              Review Application
             </button>
           ) : (
             <button
