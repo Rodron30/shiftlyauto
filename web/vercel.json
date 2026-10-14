@@ -1,3 +1,8 @@
 {
-  "crons": []
+  "crons": [
+    {
+      "path": "/api/cron/inventory-sync",
+      "schedule": "*/15 * * * *"
+    }
+  ]
 }
