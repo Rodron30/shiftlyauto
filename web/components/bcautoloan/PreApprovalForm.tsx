@@ -42,6 +42,7 @@ export function PreApprovalForm() {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Partial<PreApprovalFormData>>({
     hasTrade: false,
+    honeypot: "",
   });
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,6 +50,8 @@ export function PreApprovalForm() {
   const [applicationNumber, setApplicationNumber] = useState<string | null>(
     null
   );
+  const [crmLinked, setCrmLinked] = useState<boolean>(true);
+  const [emailSent, setEmailSent] = useState<boolean>(true);
 
   const updateField = <K extends keyof PreApprovalFormData>(
     field: K,
@@ -290,6 +293,8 @@ export function PreApprovalForm() {
 
       setApplicationNumber(result.applicationNumber);
       setSubmitSuccess(true);
+      setCrmLinked(result.crmLinked ?? false);
+      setEmailSent(result.emailSent ?? false);
     } catch (error) {
       console.error("Submission error:", error);
       // Display submission error at the top of the form
@@ -351,6 +356,14 @@ export function PreApprovalForm() {
             </p>
             <p className="mt-1 text-xl font-bold text-bc-text-primary">
               {applicationNumber}
+            </p>
+          </div>
+        )}
+
+        {(!crmLinked || !emailSent) && (
+          <div className="mt-6 rounded-2xl bg-amber-50 border border-amber-200 p-4">
+            <p className="text-sm text-amber-800">
+              <strong>Note:</strong> Your application was saved successfully, but there may be a delay in processing. Our team will follow up with you.
             </p>
           </div>
         )}
@@ -736,6 +749,17 @@ export function PreApprovalForm() {
                   </ul>
                 </div>
               )}
+
+              <input
+                type="text"
+                name="honeypot"
+                value={formData.honeypot || ""}
+                onChange={(event) => updateField("honeypot", event.target.value)}
+                style={{ display: 'none' }}
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+              />
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
                 <p className="text-sm leading-6 text-slate-500">

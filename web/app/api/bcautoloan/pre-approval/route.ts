@@ -248,6 +248,7 @@ export async function POST(request: NextRequest) {
     // CRM integration failure should not cause the application to fail
     let customerId: string | null = null;
     let leadId: string | null = null;
+    let crmUpdateSuccess = false;
     try {
       const crmResult = await integrateWithCRM(
         dealershipId,
@@ -283,6 +284,8 @@ export async function POST(request: NextRequest) {
             error: crmUpdateError,
           });
           // Don't fail the submission, just log the error
+        } else {
+          crmUpdateSuccess = true;
         }
       } else {
         console.warn("Pre-approval CRM integration incomplete:", {
@@ -305,6 +308,7 @@ export async function POST(request: NextRequest) {
 
     // Send notification email after the application and CRM records are complete.
     // Email failure does not invalidate the saved application.
+    let emailSent = false;
     try {
       const emailResult = await sendPreApprovalNotification({
         applicationNumber,
@@ -317,6 +321,8 @@ export async function POST(request: NextRequest) {
         vehicleModel: sanitizedData.vehicleModel,
         vehicleBudget: sanitizedData.vehicleBudget,
       });
+
+      emailSent = emailResult.success;
 
       if (!emailResult.success) {
         console.warn(
@@ -337,6 +343,8 @@ export async function POST(request: NextRequest) {
         success: true,
         applicationNumber: applicationNumber,
         message: "Application submitted successfully",
+        crmLinked: crmUpdateSuccess,
+        emailSent: emailSent,
       },
       { status: 201 }
     );
