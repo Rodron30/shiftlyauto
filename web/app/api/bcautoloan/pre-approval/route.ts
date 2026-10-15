@@ -75,7 +75,24 @@ export async function POST(request: NextRequest) {
 
     // Rate limiting check
     const clientIdentifier = getClientIdentifier(request);
+
+    if (!clientIdentifier) {
+      console.error("[PreApproval] Unable to determine client identifier for rate limiting");
+      return NextResponse.json(
+        { error: "We couldn't verify your request. Please try again shortly." },
+        { status: 503 }
+      );
+    }
+
     const rateLimitResult = await checkRateLimit(clientIdentifier, "pre-approval");
+
+    if (rateLimitResult.error) {
+      console.error("[PreApproval] Rate limit service unavailable:", rateLimitResult.error);
+      return NextResponse.json(
+        { error: "We couldn't verify your request right now. Please try again shortly." },
+        { status: 503 }
+      );
+    }
 
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
@@ -248,7 +265,7 @@ export async function POST(request: NextRequest) {
     // CRM integration failure should not cause the application to fail
     let customerId: string | null = null;
     let leadId: string | null = null;
-    let crmUpdateSuccess = false;
+    let crmError: string | null = null;
     try {
       const crmResult = await integrateWithCRM(
         dealershipId,
@@ -258,7 +275,8 @@ export async function POST(request: NextRequest) {
         sanitizedData.phone,
         sanitizedData as unknown as Record<string, unknown>,
         sanitizedData.vehicleBudget,
-        "PRE_APPROVAL"
+        "PRE_APPROVAL",
+        applicationNumber
       );
 
       if (!crmResult.error && crmResult.customerId && crmResult.leadId) {
@@ -283,21 +301,26 @@ export async function POST(request: NextRequest) {
             leadId,
             error: crmUpdateError,
           });
+          crmError = "Failed to link CRM records to application";
           // Don't fail the submission, just log the error
-        } else {
-          crmUpdateSuccess = true;
         }
+        // If crmUpdateError is null, CRM integration succeeded (crmError remains null)
       } else {
-        console.warn("Pre-approval CRM integration incomplete:", {
+        // Sanitize error message before returning to client
+        crmError = crmResult.error
+          ? "CRM synchronization failed. Please check server logs for details."
+          : "Missing customer or lead ID from CRM integration";
+        console.error("Pre-approval CRM integration failed:", {
           applicationNumber,
           applicationId: application.id,
           customerId: crmResult.customerId,
           leadId: crmResult.leadId,
-          error: crmResult.error ?? "Missing customer or lead ID",
+          originalError: crmResult.error,
         });
         // Don't fail the submission, just log the error
       }
     } catch (error) {
+      crmError = "CRM synchronization encountered an unexpected error";
       console.error("Pre-approval CRM integration exception:", {
         applicationNumber,
         applicationId: application.id,
@@ -316,6 +339,15 @@ export async function POST(request: NextRequest) {
         lastName: sanitizedData.lastName,
         email: sanitizedData.email,
         phone: sanitizedData.phone,
+        address: sanitizedData.address,
+        city: sanitizedData.city,
+        province: sanitizedData.province,
+        postalCode: sanitizedData.postalCode,
+        employmentStatus: sanitizedData.employmentStatus,
+        employer: sanitizedData.employer,
+        jobTitle: sanitizedData.jobTitle,
+        income: sanitizedData.income,
+        incomeFrequency: sanitizedData.incomeFrequency,
         vehicleType: sanitizedData.vehicleType,
         vehicleMake: sanitizedData.vehicleMake,
         vehicleModel: sanitizedData.vehicleModel,
@@ -343,7 +375,8 @@ export async function POST(request: NextRequest) {
         success: true,
         applicationNumber: applicationNumber,
         message: "Application submitted successfully",
-        crmLinked: crmUpdateSuccess,
+        crmLinked: customerId !== null && leadId !== null && crmError === null,
+        crmError: crmError,
         emailSent: emailSent,
       },
       { status: 201 }
