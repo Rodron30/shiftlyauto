@@ -1,4 +1,4 @@
-﻿import { Header } from "@/components/bcautoloan/Header";
+import { Header } from "@/components/bcautoloan/Header";
 import { Footer } from "@/components/bcautoloan/Footer";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -7,7 +7,7 @@ const domain = process.env.NEXT_PUBLIC_BCAUTOLOAN_DOMAIN;
 
 export const metadata: Metadata = {
   title: "How It Works - BCAutoLoan",
-  description: "Learn how our simple pre-approval process works.",
+  description: "Learn how our simple approval process works.",
   ...(domain && {
     alternates: {
       canonical: `${domain}/bcautoloan/how-it-works`,
@@ -37,7 +37,7 @@ export default function HowItWorksPage() {
                     Complete Your Application
                   </h2>
                   <p className="text-bc-text-secondary">
-                    Fill out our simple online pre-approval form. The process takes just a few minutes and requires basic personal, employment, and vehicle information.
+                    Fill out our simple online approval form. The process takes just a few minutes and requires basic personal, employment, and vehicle information.
                   </p>
                 </div>
               </div>
@@ -66,7 +66,7 @@ export default function HowItWorksPage() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-semibold text-bc-text-primary mb-2">
-                    Get Pre-Approved
+                    Get Approved
                   </h2>
                   <p className="text-bc-text-secondary">
                     Once your application has been reviewed, you can move forward with confidence and explore vehicle options with support from the BCAutoLoan team.

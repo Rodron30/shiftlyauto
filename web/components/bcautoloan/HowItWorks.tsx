@@ -1,8 +1,8 @@
-﻿export function HowItWorks() {
+export function HowItWorks() {
   const steps = [
     {
       number: "1",
-      title: "Start Your Pre-Approval",
+      title: "Start Your Approval",
       description:
         "Complete our simple online application to get started.",
     },
@@ -10,7 +10,7 @@
       number: "2",
       title: "We Contact You",
       description:
-        "BCAutoLoan finance department will reach out to you for your pre-approval application",
+        "BCAutoLoan finance department will reach out to you for your approval application",
     },
     {
       number: "3",

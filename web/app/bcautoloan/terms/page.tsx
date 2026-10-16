@@ -1,4 +1,4 @@
-﻿import { Header } from "@/components/bcautoloan/Header";
+import { Header } from "@/components/bcautoloan/Header";
 import { Footer } from "@/components/bcautoloan/Footer";
 import type { Metadata } from "next";
 
@@ -40,7 +40,7 @@ export default function TermsPage() {
                 Services
               </h2>
               <p className="text-bc-text-secondary leading-relaxed">
-                BCAutoLoan provides pre-approval application and vehicle selling submission services. We help customers take the next step in the vehicle-buying process and connect their requests with the appropriate systems and partners.
+                BCAutoLoan provides approval application and vehicle selling submission services. We help customers take the next step in the vehicle-buying process and connect their requests with the appropriate systems and partners.
               </p>
             </section>
 
@@ -58,7 +58,7 @@ export default function TermsPage() {
                 Accuracy of Information
               </h2>
               <p className="text-bc-text-secondary leading-relaxed">
-                While we strive to provide accurate information, we do not guarantee the completeness, accuracy, or reliability of any information on our website. Pre-approval decisions are made by our partner financial institutions.
+                While we strive to provide accurate information, we do not guarantee the completeness, accuracy, or reliability of any information on our website. Approval decisions are made by our partner financial institutions.
               </p>
             </section>
 

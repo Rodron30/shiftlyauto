@@ -1,4 +1,4 @@
-﻿import { Header } from "@/components/bcautoloan/Header";
+import { Header } from "@/components/bcautoloan/Header";
 import { Footer } from "@/components/bcautoloan/Footer";
 import { PreApprovalForm } from "@/components/bcautoloan/PreApprovalForm";
 import type { Metadata } from "next";
@@ -6,8 +6,8 @@ import type { Metadata } from "next";
 const domain = process.env.NEXT_PUBLIC_BCAUTOLOAN_DOMAIN;
 
 export const metadata: Metadata = {
-  title: "Get Pre-Approved",
-  description: "Complete our simple pre-approval application and take the next step toward finding your vehicle.",
+  title: "Get Approved",
+  description: "Complete our simple approval application and take the next step toward finding your vehicle.",
   ...(domain && {
     alternates: {
       canonical: `${domain}/bcautoloan/pre-approved`,
@@ -24,10 +24,10 @@ export default function PreApprovedPage() {
         <div className="mx-auto max-w-3xl">
           <div className="text-center mb-8">
             <h1 className="text-4xl sm:text-5xl font-bold text-bc-text-primary mb-4">
-              Get Pre-Approved
+              Get Approved
             </h1>
             <p className="text-bc-text-secondary text-lg">
-              Complete our simple pre-approval application to get started.
+              Complete our simple approval application to get started.
             </p>
           </div>
 

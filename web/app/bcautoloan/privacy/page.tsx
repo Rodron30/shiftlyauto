@@ -1,4 +1,4 @@
-﻿import { Header } from "@/components/bcautoloan/Header";
+import { Header } from "@/components/bcautoloan/Header";
 import { Footer } from "@/components/bcautoloan/Footer";
 import type { Metadata } from "next";
 
@@ -40,7 +40,7 @@ export default function PrivacyPage() {
                 How We Use Your Information
               </h2>
               <p className="text-bc-text-secondary leading-relaxed">
-                We use the information you provide to process your pre-approval application, communicate with you about your application, and coordinate the next steps related to your request. We may also use your information to improve our services and comply with legal obligations.
+                We use the information you provide to process your approval application, communicate with you about your application, and coordinate the next steps related to your request. We may also use your information to improve our services and comply with legal obligations.
               </p>
             </section>
 

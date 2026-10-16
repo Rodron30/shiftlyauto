@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 
@@ -7,7 +7,7 @@ export function FAQ() {
 
   const faqs = [
     {
-      question: "How long does the pre-approval process take?",
+      question: "How long does the approval process take?",
       answer: "Most applications are processed within 24-48 hours. You'll receive a response as soon as your application has been reviewed.",
     },
     {
@@ -15,8 +15,8 @@ export function FAQ() {
       answer: "You'll need to provide personal information, address details, employment and income information, and details about the vehicle you're interested in.",
     },
     {
-      question: "Does pre-approval guarantee a vehicle purchase?",
-      answer: "Pre-approval does not guarantee a vehicle purchase. The next steps depend on your application, the vehicle you choose, and the applicable review process.",
+      question: "Does approval guarantee a vehicle purchase?",
+      answer: "Approval does not guarantee a vehicle purchase. The next steps depend on your application, the vehicle you choose, and the applicable review process.",
     },
     {
       question: "Can I sell my car through BCAutoLoan?",

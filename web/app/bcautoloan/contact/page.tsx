@@ -71,7 +71,7 @@ export default function ContactPage() {
                 href="/bcautoloan/pre-approved"
                 className="block text-bc-accent hover:text-bc-accent-hover transition-colors"
               >
-                Get Pre-Approved
+                Get Approved
               </a>
               <a
                 href="/bcautoloan/sell-your-car"

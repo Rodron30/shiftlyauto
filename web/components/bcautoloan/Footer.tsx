@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import Image from "next/image";
 
 export function Footer() {
@@ -23,7 +23,7 @@ export function Footer() {
               <span className="text-xl font-bold text-bc-text-primary">AutoLoan</span>
             </div>
             <p className="text-sm text-bc-text-tertiary">
-              Simple, straightforward pre-approval and car selling services.
+              Simple, straightforward approval and car selling services.
             </p>
           </div>
 
@@ -33,7 +33,7 @@ export function Footer() {
             <ul className="space-y-2">
               <li>
                 <Link href="/bcautoloan/pre-approved" className="text-sm text-bc-text-tertiary hover:text-bc-text-primary transition-colors">
-                  Get Pre-Approved
+                  Get Approved
                 </Link>
               </li>
               <li>

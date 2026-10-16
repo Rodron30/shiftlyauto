@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { decodeVin } from "@/lib/vinDecode";
 import { checkRateLimit, getClientIdentifier } from "@/lib/bcautoloan/rateLimit";
@@ -129,7 +129,28 @@ export async function POST(request: NextRequest) {
   try {
     const identifier = getClientIdentifier(request);
 
+    if (!identifier) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "We couldn't verify your request. Please try again shortly.",
+        },
+        { status: 503 }
+      );
+    }
+
     const rateLimit = await checkRateLimit(identifier, "sell-car");
+
+    if (rateLimit.error) {
+      console.error("[SellCarOffer] Rate limit service unavailable:", rateLimit.error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "The offer service is temporarily unavailable. Please try again shortly.",
+        },
+        { status: 503 }
+      );
+    }
 
     if (!rateLimit.allowed) {
       return NextResponse.json(

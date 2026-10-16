@@ -22,7 +22,7 @@ export function Hero() {
                 href="/bcautoloan/pre-approved"
                 className="bc-button-primary"
               >
-                Get Pre-Approved
+                Get Approved
               </Link>
 
               <Link

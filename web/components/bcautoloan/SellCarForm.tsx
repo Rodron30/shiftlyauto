@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import {
@@ -234,11 +234,20 @@ export function SellCarForm({ initialVehicle }: SellCarFormProps) {
 
       const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || "Submission failed.");
+      if (
+        !response.ok ||
+        result.success !== true ||
+        typeof result.referenceNumber !== "string" ||
+        !/^SC-\d{8}-[A-F0-9]{5}$/.test(result.referenceNumber)
+      ) {
+        throw new Error(
+          typeof result.error === "string"
+            ? result.error
+            : "Submission failed. Please try again."
+        );
       }
 
-      setReferenceNumber(result.referenceNumber || null);
+      setReferenceNumber(result.referenceNumber);
       setSubmitSuccess(true);
     } catch (error) {
       console.error("Sell car CRM submission error:", error);

@@ -1,4 +1,4 @@
-﻿import Image from "next/image";
+import Image from "next/image";
 import { Header } from "@/components/bcautoloan/Header";
 import { Footer } from "@/components/bcautoloan/Footer";
 import { Hero } from "@/components/bcautoloan/Hero";
@@ -97,14 +97,14 @@ export default function BCAutoLoanHomepage() {
         <section className="bc-section bg-bc-surface">
           <div className="mx-auto max-w-7xl text-center">
             <h2 className="text-3xl sm:text-4xl font-bold text-bc-text-primary mb-4">
-              Ready to Get Pre-Approved
+              Ready to Get Approved
             </h2>
             <p className="text-bc-text-secondary mb-8 max-w-2xl mx-auto">
               Start your application today and take the first step toward your
               next vehicle.
             </p>
             <Link href="/bcautoloan/pre-approved" className="bc-button-primary">
-              Get Pre-Approved
+              Get Approved
             </Link>
           </div>
         </section>
@@ -126,7 +126,7 @@ export default function BCAutoLoanHomepage() {
                 href="/bcautoloan/pre-approved"
                 className="bc-button-primary"
               >
-                Get Pre-Approved
+                Get Approved
               </Link>
 
               <Link

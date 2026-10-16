@@ -33,7 +33,7 @@ export function ShopConfidence() {
             <li className="flex gap-3 text-[17px] leading-[1.5] text-slate-700">
               <CheckIcon />
               <span>
-                Start your pre-approval application online with a simple, straightforward process.
+                Start your approval application online with a simple, straightforward process.
               </span>
             </li>
 
@@ -56,7 +56,7 @@ export function ShopConfidence() {
             href="/bcautoloan/pre-approved"
             className="bc-button-primary inline-flex"
           >
-            Get Pre-Approved
+            Get Approved
           </Link>
         </div>
 

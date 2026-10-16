@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   validateSellCarForm,
   sanitizeSellCarData,
@@ -11,16 +11,54 @@ import { sendSellCarNotification } from "@/lib/bcautoloan/email";
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse request body
-    const body = await request.json();
-
-    // Validate payload size (prevent large payloads)
+    // Enforce the 10 KB payload limit before parsing JSON.
+    const MAX_PAYLOAD_BYTES = 10_000;
     const contentLength = request.headers.get("content-length");
-    if (contentLength && parseInt(contentLength) > 10000) {
-      // 10KB limit
+
+    if (contentLength !== null) {
+      const parsedLength = Number(contentLength);
+
+      if (!Number.isFinite(parsedLength) || parsedLength < 0) {
+        return NextResponse.json(
+          { error: "Invalid Content-Length header" },
+          { status: 400 }
+        );
+      }
+
+      if (parsedLength > MAX_PAYLOAD_BYTES) {
+        return NextResponse.json(
+          { error: "Request payload too large" },
+          { status: 413 }
+        );
+      }
+    }
+
+    const rawBody = await request.text();
+
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_PAYLOAD_BYTES) {
       return NextResponse.json(
         { error: "Request payload too large" },
         { status: 413 }
+      );
+    }
+
+    let body: SellCarFormData & { honeypot?: unknown };
+
+    try {
+      const parsed: unknown = JSON.parse(rawBody);
+
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return NextResponse.json(
+          { error: "Invalid request body" },
+          { status: 400 }
+        );
+      }
+
+      body = parsed as SellCarFormData & { honeypot?: unknown };
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON request body" },
+        { status: 400 }
       );
     }
 
@@ -30,7 +68,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: true,
-          referenceNumber: "HONEYPOT-DETECTED",
+          referenceNumber: generateReferenceNumber(),
           message: "Vehicle information submitted successfully",
         },
         { status: 201 }
@@ -39,18 +77,39 @@ export async function POST(request: NextRequest) {
 
     // Rate limiting check
     const clientIdentifier = getClientIdentifier(request);
+
+    if (!clientIdentifier) {
+      return NextResponse.json(
+        { error: "We couldn't verify your request. Please try again shortly." },
+        { status: 503 }
+      );
+    }
     const rateLimitResult = await checkRateLimit(clientIdentifier, "sell-car");
 
+    if (rateLimitResult.error) {
+      console.error("Sell Car rate limit service unavailable");
+
+      return NextResponse.json(
+        { error: "Submission service temporarily unavailable. Please try again later." },
+        { status: 503 }
+      );
+    }
+
     if (!rateLimitResult.allowed) {
+      const retryAfter = rateLimitResult.resetAt
+        ? Math.max(
+            1,
+            Math.ceil(
+              (rateLimitResult.resetAt.getTime() - Date.now()) / 1000
+            )
+          ).toString()
+        : "3600";
+
       return NextResponse.json(
         { error: "Too many requests. Please try again later." },
         {
           status: 429,
-          headers: {
-            "Retry-After": rateLimitResult.resetAt
-              ? Math.ceil((rateLimitResult.resetAt.getTime() - Date.now()) / 1000).toString()
-              : "3600",
-          },
+          headers: { "Retry-After": retryAfter },
         }
       );
     }
@@ -129,10 +188,11 @@ export async function POST(request: NextRequest) {
       sanitizedData.phone,
       vehicleInfo,
       "0", // No budget for sell car submissions
-      "SELL_CAR"
+      "SELL_CAR",
+      referenceNumber
     );
 
-    if (crmResult.error) {
+    if (crmResult.error || !crmResult.customerId || !crmResult.leadId) {
       console.error("CRM integration failed:", crmResult.error);
       return NextResponse.json(
         { error: "Failed to process vehicle information" },

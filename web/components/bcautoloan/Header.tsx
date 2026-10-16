@@ -57,9 +57,9 @@ const navigation: MenuItem[] = [
 
 const preApprovalItems: MenuItem[] = [
   {
-    name: "Get Pre-Approved",
+    name: "Get Approved",
     href: "/bcautoloan/pre-approved",
-    description: "Start your pre-approval application with a simple process.",
+    description: "Start your approval application with a simple process.",
     icon: (
       <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 12.5l4 4L19 6.5" />
@@ -212,7 +212,7 @@ function MegaMenu({
                 onClick={onClose}
                 className="text-xs font-semibold text-bc-primary hover:underline"
               >
-                Get Pre-Approved
+                Get Approved
               </Link>
             </div>
           </div>
@@ -263,7 +263,7 @@ export function Header() {
             </Link>
 
             <MegaMenu
-              label="Get Pre-Approved"
+              label="Get Approved"
               items={preApprovalItems}
               open={openMenu === "pre-approved"}
               onOpen={() =>
@@ -299,7 +299,7 @@ export function Header() {
               href={BCAutoLoanPath("/bcautoloan/pre-approved")}
               className="ml-2 rounded-xl bg-bc-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-bc-primary-dark hover:shadow-md"
             >
-              Get Pre-Approved
+              Get Approved
             </Link>
           </div>
 
@@ -384,7 +384,7 @@ export function Header() {
               className="mt-3 block rounded-xl bg-bc-primary px-4 py-3 text-center text-sm font-semibold text-white"
               onClick={closeMenus}
             >
-              Get Pre-Approved
+              Get Approved
             </Link>
           </div>
         </div>

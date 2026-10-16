@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 const headingFont = "font-[family-name:var(--font-outfit)]";
 const bodyFont = "font-[family-name:var(--font-open-sans)]";
@@ -16,7 +16,7 @@ const steps = [
     text: (
       <>
         The first step is to learn what your budget is. This is done by
-        completing our online pre-approval application{" "}
+        completing our online approval application{" "}
         <Link
           href="/bcautoloan/pre-approved"
           className="font-semibold text-[#0b79b3] hover:underline"

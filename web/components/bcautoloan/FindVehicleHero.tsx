@@ -1,4 +1,4 @@
-﻿import Image from "next/image";
+import Image from "next/image";
 
 
 
@@ -23,7 +23,7 @@ export function FindVehicleHero() {
           </h1>
 
           <p className="m-0 text-[17px] leading-[1.6] text-slate-700">
-            With our simple pre-approval process and partner dealership
+            With our simple approval process and partner dealership
             network, you can shop with greater confidence and focus on
             vehicles that fit your budget.
           </p>
