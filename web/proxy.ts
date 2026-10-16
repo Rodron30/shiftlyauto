@@ -11,8 +11,8 @@ const PUBLIC_PATHS = [
 ];
 
 const PROTECTED_PATHS = [
-  "/",
-  "/vehicles",
+    "/",
+"/vehicles",
   "/reports",
   "/staff",
   "/settings",
@@ -67,6 +67,28 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  if (
+    request.nextUrl.hostname === "bcautoloan.ca" ||
+    request.nextUrl.hostname === "www.bcautoloan.ca"
+  ) {
+    const isBCAssetOrApi =
+      pathname.startsWith("/_next") ||
+      pathname.startsWith("/api") ||
+      pathname.startsWith("/images") ||
+      pathname.startsWith("/favicon");
+
+
+    if (pathname.startsWith("/sell-your-car")) {
+      const targetPath = `/bcautoloan${pathname}`;
+      return NextResponse.rewrite(new URL(targetPath, request.url));
+    }
+
+    if (!isBCAssetOrApi && !pathname.startsWith("/bcautoloan") && pathname !== "/getapproved" && !pathname.startsWith("/getapproved/")) {
+      const targetPath =
+        pathname === "/" ? "/bcautoloan" : `/bcautoloan${pathname}`;
+      return NextResponse.rewrite(new URL(targetPath, request.url));
+    }
+  }
   const isPublicPath = PUBLIC_PATHS.some((path) =>
     matchesPath(pathname, path)
   );

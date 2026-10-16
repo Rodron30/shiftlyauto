@@ -20,7 +20,7 @@ export function Footer() {
                   sizes="40px"
                 />
               </div>
-              <span className="text-xl font-bold text-bc-text-primary">AutoLoan</span>
+              <span className="text-xl font-bold text-bc-text-primary">BCAutoLoan</span>
             </div>
             <p className="text-sm text-bc-text-tertiary">
               Simple, straightforward approval and car selling services.
@@ -32,7 +32,7 @@ export function Footer() {
             <h3 className="text-sm font-semibold text-bc-text-primary mb-4">Quick Links</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/bcautoloan/pre-approved" className="text-sm text-bc-text-tertiary hover:text-bc-text-primary transition-colors">
+                <Link href="/bcautoloan/getapproved" className="text-sm text-bc-text-tertiary hover:text-bc-text-primary transition-colors">
                   Get Approved
                 </Link>
               </li>

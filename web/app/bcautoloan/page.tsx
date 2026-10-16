@@ -103,7 +103,7 @@ export default function BCAutoLoanHomepage() {
               Start your application today and take the first step toward your
               next vehicle.
             </p>
-            <Link href="/bcautoloan/pre-approved" className="bc-button-primary">
+            <Link href="/bcautoloan/getapproved" className="bc-button-primary">
               Get Approved
             </Link>
           </div>
@@ -123,7 +123,7 @@ export default function BCAutoLoanHomepage() {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                href="/bcautoloan/pre-approved"
+                href="/bcautoloan/getapproved"
                 className="bc-button-primary"
               >
                 Get Approved

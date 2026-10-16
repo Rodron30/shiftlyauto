@@ -58,7 +58,7 @@ const navigation: MenuItem[] = [
 const preApprovalItems: MenuItem[] = [
   {
     name: "Get Approved",
-    href: "/bcautoloan/pre-approved",
+    href: "/bcautoloan/getapproved",
     description: "Start your approval application with a simple process.",
     icon: (
       <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -208,7 +208,7 @@ function MegaMenu({
               </span>
 
               <Link
-                href={BCAutoLoanPath("/bcautoloan/pre-approved")}
+                href={BCAutoLoanPath("/bcautoloan/getapproved")}
                 onClick={onClose}
                 className="text-xs font-semibold text-bc-primary hover:underline"
               >
@@ -248,10 +248,6 @@ export function Header() {
                 sizes="40px"
               />
             </div>
-
-            <span className="text-xl font-bold tracking-tight text-bc-text-primary">
-              BCAutoLoan
-            </span>
           </Link>
 
           <div className="hidden items-center gap-1 md:flex">
@@ -265,9 +261,9 @@ export function Header() {
             <MegaMenu
               label="Get Approved"
               items={preApprovalItems}
-              open={openMenu === "pre-approved"}
+              open={openMenu === "Approved"}
               onOpen={() =>
-                setOpenMenu("pre-approved")
+                setOpenMenu("Approved")
               }
               onClose={() => setOpenMenu(null)}
             />
@@ -296,7 +292,7 @@ export function Header() {
             </Link>
 
             <Link
-              href={BCAutoLoanPath("/bcautoloan/pre-approved")}
+              href={BCAutoLoanPath("/bcautoloan/getapproved")}
               className="ml-2 rounded-xl bg-bc-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-bc-primary-dark hover:shadow-md"
             >
               Get Approved
@@ -380,7 +376,7 @@ export function Header() {
             </Link>
 
             <Link
-              href={BCAutoLoanPath("/bcautoloan/pre-approved")}
+              href={BCAutoLoanPath("/bcautoloan/getapproved")}
               className="mt-3 block rounded-xl bg-bc-primary px-4 py-3 text-center text-sm font-semibold text-white"
               onClick={closeMenus}
             >

@@ -93,7 +93,7 @@ export default function HowItWorksPage() {
           </div>
 
           <div className="mt-12 text-center">
-            <Link href="/bcautoloan/pre-approved" className="bc-button-primary">
+            <Link href="/bcautoloan/getapproved" className="bc-button-primary">
               Start Your Application
             </Link>
           </div>

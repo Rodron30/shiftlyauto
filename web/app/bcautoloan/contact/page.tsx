@@ -68,7 +68,7 @@ export default function ContactPage() {
             </h2>
             <div className="space-y-3">
               <a
-                href="/bcautoloan/pre-approved"
+                href="/bcautoloan/getapproved"
                 className="block text-bc-accent hover:text-bc-accent-hover transition-colors"
               >
                 Get Approved

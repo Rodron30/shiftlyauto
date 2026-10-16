@@ -53,7 +53,7 @@ export function ShopConfidence() {
           </ul>
 
           <Link
-            href="/bcautoloan/pre-approved"
+            href="/bcautoloan/getapproved"
             className="bc-button-primary inline-flex"
           >
             Get Approved
