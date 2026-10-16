@@ -901,14 +901,14 @@ export default function LeadsPage() {
                       {lead.customer_phone && (
                         <>
                           {lead.customer_phone}
-                          {" Â· "}
+                          {" · "}
                         </>
                       )}
 
                       {lead.customer_email && (
                         <>
                           {lead.customer_email}
-                          {" Â· "}
+                          {" · "}
                         </>
                       )}
 
