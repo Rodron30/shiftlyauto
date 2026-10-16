@@ -5,6 +5,7 @@ export interface PreApprovalPDFData {
   submissionDate: Date;
   firstName: string;
   lastName: string;
+  dateOfBirth: string;
   email: string;
   phone: string;
   address: string;
@@ -106,6 +107,15 @@ export async function generatePreApprovalPDF(
   y -= 20;
 
   page.drawText(`Name: ${data.firstName} ${data.lastName}`, {
+    x: 50,
+    y,
+    size: 11,
+    font: font,
+    color: rgb(0.3, 0.3, 0.3),
+  });
+  y -= 15;
+
+  page.drawText(`Date of Birth: ${data.dateOfBirth}`, {
     x: 50,
     y,
     size: 11,

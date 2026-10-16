@@ -1,4 +1,4 @@
-import {
+﻿import {
   PreApprovalFormData,
   SellCarFormData,
   CANADIAN_PROVINCES,
@@ -40,7 +40,40 @@ export function validateCurrency(value: string): boolean {
   return currencyRegex.test(value.trim());
 }
 
-export function sanitizeString(input: string): string {
+export function validateDateOfBirth(dateOfBirth: string): boolean {
+  // Validate ISO date format (YYYY-MM-DD)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(dateOfBirth)) {
+    return false;
+  }
+
+  const date = new Date(dateOfBirth);
+  if (isNaN(date.getTime())) {
+    return false;
+  }
+
+  // Check if the date is not in the future
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (date > today) {
+    return false;
+  }
+
+  // Check if the date is reasonable (not more than 120 years ago)
+  const minDate = new Date();
+  minDate.setFullYear(minDate.getFullYear() - 120);
+  if (date < minDate) {
+    return false;
+  }
+
+  return true;
+}
+
+export function sanitizeString(input: unknown): string {
+  if (typeof input !== "string") {
+    return "";
+  }
+
   return input.trim().replace(/<[^>]*>/g, "");
 }
 
@@ -50,7 +83,7 @@ export function validatePreApprovalForm(data: Partial<PreApprovalFormData>): Val
     "vehicleType", "vehicleBudget", "creditRating",
     "employmentStatus", "incomeType", "employer", "jobTitle",
     "income", "incomeFrequency", "vehicleMake", "vehicleModel",
-    "downPayment", "firstName", "lastName", "email", "phone",
+    "downPayment", "firstName", "lastName", "dateOfBirth", "email", "phone",
     "address", "city", "province", "postalCode",
   ] as const;
 
@@ -79,19 +112,23 @@ export function validatePreApprovalForm(data: Partial<PreApprovalFormData>): Val
   }
 
   // Step 1: Personal Information
-  if (!data.firstName || data.firstName.trim().length < 2) {
+  if (typeof data.firstName !== "string" || data.firstName.trim().length < 2) {
     errors.push({ field: "firstName", message: "First name is required" });
   }
 
-  if (!data.lastName || data.lastName.trim().length < 2) {
+  if (typeof data.lastName !== "string" || data.lastName.trim().length < 2) {
     errors.push({ field: "lastName", message: "Last name is required" });
   }
 
-  if (!data.email || !validateEmail(data.email)) {
+  if (typeof data.dateOfBirth !== "string" || !validateDateOfBirth(data.dateOfBirth)) {
+    errors.push({ field: "dateOfBirth", message: "Valid date of birth is required" });
+  }
+
+  if (typeof data.email !== "string" || !validateEmail(data.email)) {
     errors.push({ field: "email", message: "Valid email is required" });
   }
 
-  if (!data.phone || !validatePhone(data.phone)) {
+  if (typeof data.phone !== "string" || !validatePhone(data.phone)) {
     errors.push({ field: "phone", message: "Valid phone number is required" });
   }
 
@@ -169,37 +206,59 @@ export function validateSellCarForm(data: Partial<SellCarFormData>): ValidationE
   const errors: ValidationError[] = [];
 
   // Customer Information
-  if (!data.firstName || data.firstName.trim().length < 2) {
+  if (typeof data.firstName !== "string" || data.firstName.trim().length < 2) {
     errors.push({ field: "firstName", message: "First name is required" });
   }
 
-  if (!data.lastName || data.lastName.trim().length < 2) {
+  if (typeof data.lastName !== "string" || data.lastName.trim().length < 2) {
     errors.push({ field: "lastName", message: "Last name is required" });
   }
 
-  if (!data.phone || !validatePhone(data.phone)) {
+  if (typeof data.phone !== "string" || !validatePhone(data.phone)) {
     errors.push({ field: "phone", message: "Valid phone number is required" });
   }
 
-  if (!data.email || !validateEmail(data.email)) {
+  if (typeof data.email !== "string" || !validateEmail(data.email)) {
     errors.push({ field: "email", message: "Valid email is required" });
   }
 
   // Vehicle Information
-  if (!data.year || data.year.trim().length < 4) {
-    errors.push({ field: "year", message: "Vehicle year is required" });
+  const year = Number(data.year);
+  const currentYear = new Date().getFullYear();
+
+  if (
+    typeof data.year !== "string" ||
+    !/^\d{4}$/.test(data.year.trim()) ||
+    !Number.isInteger(year) ||
+    year < 1886 ||
+    year > currentYear + 1
+  ) {
+    errors.push({
+      field: "year",
+      message: "Please enter a valid vehicle year",
+    });
   }
 
-  if (!data.make || data.make.trim().length < 2) {
+  if (typeof data.make !== "string" || data.make.trim().length < 2) {
     errors.push({ field: "make", message: "Vehicle make is required" });
   }
 
-  if (!data.model || data.model.trim().length < 1) {
+  if (typeof data.model !== "string" || data.model.trim().length < 1) {
     errors.push({ field: "model", message: "Vehicle model is required" });
   }
 
-  if (!data.mileage || data.mileage.trim().length < 1) {
-    errors.push({ field: "mileage", message: "Vehicle mileage is required" });
+  const mileage = typeof data.mileage === "string" ? data.mileage.trim() : "";
+
+  if (
+    !mileage ||
+    !/^\d+$/.test(mileage) ||
+    !Number.isSafeInteger(Number(mileage)) ||
+    Number(mileage) < 0
+  ) {
+    errors.push({
+      field: "mileage",
+      message: "Please enter a valid non-negative mileage",
+    });
   }
 
   if (!data.condition || !VEHICLE_CONDITIONS.includes(data.condition as (typeof VEHICLE_CONDITIONS)[number])) {
@@ -210,7 +269,7 @@ export function validateSellCarForm(data: Partial<SellCarFormData>): ValidationE
     errors.push({ field: "ownershipStatus", message: "Ownership status is required" });
   }
 
-  if (!data.vehicleLocation || data.vehicleLocation.trim().length < 2) {
+  if (typeof data.vehicleLocation !== "string" || data.vehicleLocation.trim().length < 2) {
     errors.push({ field: "vehicleLocation", message: "Vehicle location is required" });
   }
 
@@ -225,6 +284,7 @@ export function sanitizePreApprovalData(data: PreApprovalFormData): PreApprovalF
   return {
     firstName: sanitizeString(data.firstName),
     lastName: sanitizeString(data.lastName),
+    dateOfBirth: sanitizeString(data.dateOfBirth),
     email: sanitizeString(data.email).toLowerCase(),
     phone: sanitizeString(data.phone),
     address: sanitizeString(data.address),

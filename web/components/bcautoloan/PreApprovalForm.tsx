@@ -16,6 +16,7 @@ import {
   validatePreApprovalForm,
   sanitizePreApprovalData,
   ValidationError,
+  validateDateOfBirth,
 } from "@/lib/bcautoloan/validation/validators";
 
 const STEPS = [
@@ -28,8 +29,7 @@ const STEPS = [
   "Income",
   "Personal",
   "Address",
-  "Details",
-  "Review",
+  "Details & Review",
 ];
 
 const OPTION_CLASS =
@@ -40,6 +40,7 @@ const selectedOptionClass =
 
 export function PreApprovalForm() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [showReview, setShowReview] = useState(false);
   const [formData, setFormData] = useState<Partial<PreApprovalFormData>>({
     hasTrade: false,
     honeypot: "",
@@ -67,7 +68,6 @@ export function PreApprovalForm() {
   const getError = (field: string) =>
     errors.find((error) => error.field === field)?.message;
 
-  const progress = (Math.min(currentStep + 1, STEPS.length) / STEPS.length) * 100;
 
   const validateStep = () => {
     const stepErrors: ValidationError[] = [];
@@ -148,6 +148,13 @@ export function PreApprovalForm() {
           stepErrors.push({
             field: "lastName",
             message: "Last name is required.",
+          });
+        }
+
+        if (!formData.dateOfBirth || !validateDateOfBirth(formData.dateOfBirth)) {
+          stepErrors.push({
+            field: "dateOfBirth",
+            message: "Valid date of birth is required.",
           });
         }
 
@@ -253,22 +260,33 @@ export function PreApprovalForm() {
 
   const next = () => {
     if (validateStep()) {
+      if (currentStep === 9) {
+        setShowReview(true);
+        return;
+      }
       setCurrentStep((step) => Math.min(step + 1, STEPS.length - 1));
     }
   };
 
   const back = () => {
     setErrors([]);
+    if (currentStep === 9 && showReview) {
+      setShowReview(false);
+      return;
+    }
     setCurrentStep((step) => Math.max(step - 1, 0));
   };
 
   const submit = async () => {
+    if (isSubmitting) return;
+
     const allErrors = validatePreApprovalForm(formData);
 
     if (allErrors.length > 0) {
       setErrors(allErrors);
       return;
     }
+
     setIsSubmitting(true);
     setErrors([]);
 
@@ -285,30 +303,51 @@ export function PreApprovalForm() {
         body: JSON.stringify(sanitizedData),
       });
 
-      const result = await response.json();
+      const responseText = await response.text();
+      let result: Record<string, unknown>;
 
-      if (!response.ok) {
-        throw new Error(result.error || "Submission failed");
+      try {
+        result = JSON.parse(responseText) as Record<string, unknown>;
+      } catch {
+        throw new Error(
+          `Server returned an invalid response (HTTP ${response.status}). Please try again.`
+        );
+      }
+
+      if (!response.ok || result.success !== true) {
+        const message =
+          typeof result.error === "string"
+            ? result.error
+            : `Application submission failed (HTTP ${response.status}).`;
+
+        throw new Error(message);
+      }
+
+      if (typeof result.applicationNumber !== "string") {
+        throw new Error(
+          "The server did not return an application reference. Please contact support before submitting again."
+        );
       }
 
       setApplicationNumber(result.applicationNumber);
+      setCrmLinked(result.crmLinked === true);
+      setEmailSent(result.emailSent === true);
       setSubmitSuccess(true);
-      setCrmLinked(result.crmLinked ?? false);
-      setEmailSent(result.emailSent ?? false);
     } catch (error) {
-      console.error("Submission error:", error);
-      // Display submission error at the top of the form
+      console.error("[PreApproval] Submission failed:", error);
+
       setErrors([
         {
           field: "submission",
           message:
             error instanceof Error
               ? error.message
-              : "Failed to submit application. Please try again.",
+              : "Unable to submit your application. Please try again.",
         },
       ]);
-      // Stay on the review step to show the error
-      setCurrentStep(10);
+
+      setCurrentStep(9);
+      setShowReview(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -522,6 +561,13 @@ export function PreApprovalForm() {
                 error={getError("lastName")}
               />
               <Field
+                label="Date of Birth"
+                type="date"
+                value={formData.dateOfBirth || ""}
+                onChange={(value) => updateField("dateOfBirth", value)}
+                error={getError("dateOfBirth")}
+              />
+              <Field
                 label="Email"
                 type="email"
                 value={formData.email || ""}
@@ -597,7 +643,7 @@ export function PreApprovalForm() {
           </Question>
         )}
 
-        {currentStep === 9 && (
+        {currentStep === 9 && !showReview && (
           <Question
             title="Tell us about the vehicle you have in mind."
             subtitle="This helps our team understand what you are looking for."
@@ -674,7 +720,7 @@ export function PreApprovalForm() {
           </Question>
         )}
 
-        {currentStep === 10 && (
+        {currentStep === 9 && showReview && (
           <Question title="Review your application">
             <div className="space-y-3">
               {summary.map(([label, value]) => (
@@ -769,25 +815,13 @@ export function PreApprovalForm() {
             <div />
           )}
 
-          {currentStep < 9 ? (
+          {currentStep < 9 || (currentStep === 9 && !showReview) ? (
             <button
               type="button"
               onClick={next}
               className="bc-button-primary"
             >
-              Continue
-            </button>
-          ) : currentStep === 9 ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (validateStep()) {
-                  setCurrentStep(10);
-                }
-              }}
-              className="bc-button-primary"
-            >
-              Review Application
+              {currentStep === 9 ? "Review Application" : "Continue"}
             </button>
           ) : (
             <button
@@ -892,7 +926,3 @@ function Field({
     </div>
   );
 }
-
-
-
-

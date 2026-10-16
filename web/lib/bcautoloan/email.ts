@@ -6,8 +6,21 @@ type PreApprovalNotification = {
   applicationNumber: string;
   firstName: string;
   lastName: string;
+  dateOfBirth: string;
   email: string;
   phone: string;
+  // Address information
+  address: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  // Employment information
+  employmentStatus: string;
+  employer: string;
+  jobTitle: string;
+  income: string;
+  incomeFrequency: string;
+  // Vehicle information
   vehicleType: string;
   vehicleMake: string;
   vehicleModel: string;
@@ -49,11 +62,32 @@ export async function sendPreApprovalNotification(
       text: [
         "A new BCAutoLoan pre-approval application has been received.",
         "",
-        `Application: ${data.applicationNumber}`,
-        `Customer: ${data.firstName} ${data.lastName}`,
+        "Application Information",
+        `Application Number: ${data.applicationNumber}`,
+        "",
+        "Applicant Information",
+        `Name: ${data.firstName} ${data.lastName}`,
+        `Date of Birth: ${data.dateOfBirth}`,
         `Email: ${data.email}`,
         `Phone: ${data.phone}`,
-        `Vehicle: ${data.vehicleType} ${data.vehicleMake} ${data.vehicleModel}`,
+        "",
+        "Residential Address",
+        `Address: ${data.address}`,
+        `City: ${data.city}`,
+        `Province: ${data.province}`,
+        `Postal Code: ${data.postalCode}`,
+        "",
+        "Employment and Income",
+        `Employment Status: ${data.employmentStatus}`,
+        `Employer: ${data.employer}`,
+        `Job Title: ${data.jobTitle}`,
+        `Income: ${data.income}`,
+        `Income Frequency: ${data.incomeFrequency}`,
+        "",
+        "Vehicle Interest",
+        `Vehicle Type: ${data.vehicleType}`,
+        `Vehicle Make: ${data.vehicleMake}`,
+        `Vehicle Model: ${data.vehicleModel}`,
         `Budget: ${data.vehicleBudget}`,
         "",
         "Please open Shiftly CRM to view the complete application.",
