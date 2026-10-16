@@ -1,13 +1,13 @@
-﻿// lib/rateLimit.ts
+// lib/rateLimit.ts
 //
-// Minimum-viable rate limiting (Blueprint Â§44 lists it as a security
-// requirement). This is an in-memory sliding window â€” it only limits
+// Minimum-viable rate limiting (Blueprint Section 44 lists it as a security
+// requirement). This is an in-memory sliding window - it only limits
 // requests hitting the SAME warm serverless instance, so on a
 // multi-instance deployment (Vercel with concurrent invocations, etc.)
 // the effective limit is looser than the configured number. That's an
 // acceptable V1 trade-off to avoid adding an external dependency, but
 // before real production traffic, swap this for Upstash Redis or Vercel
-// KV (both have small `@upstash/ratelimit`-style drop-in replacements â€”
+// KV (both have small @upstash/ratelimit-style drop-in replacements -
 // same `checkRateLimit(key, limit, windowMs)` signature would work).
 
 const buckets = new Map<string, number[]>();

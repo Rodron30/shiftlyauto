@@ -1,4 +1,4 @@
-import { createSupabaseAdminClient } from "@/lib/supabaseAdmin";
+﻿import { createSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export type SubmissionType = "PRE_APPROVAL" | "SELL_CAR";
 
@@ -9,7 +9,7 @@ export interface CRMIntegrationResult {
 }
 
 /**
- * Integrates BCAutoLoan pre-approval or sell-car submissions with the existing Shiftly CRM.
+ * Integrates BCAutoLoan approval or sell-car submissions with the existing Shiftly CRM.
  * This function uses the admin client to bypass authentication and directly
  * creates customers and leads on behalf of the public-facing BCAutoLoan website.
  *
@@ -109,7 +109,7 @@ export async function integrateWithCRM(
     const customerName = `${firstName} ${lastName}`;
 
     // Check for duplicate lead by application number to prevent creating multiple leads
-    // for the same pre-approval submission (e.g., from page refresh or retry)
+    // for the same approval submission (e.g., from page refresh or retry)
     // Uses exact match pattern with newline delimiter to avoid partial number collisions
     if (applicationNumber && submissionType === "PRE_APPROVAL") {
       const { data: existingLead, error: leadCheckError } = await supabase
@@ -191,7 +191,7 @@ export async function integrateWithCRM(
     // Create lead
     const interestNote =
       submissionType === "PRE_APPROVAL"
-        ? "BCAutoLoan Pre-Approval Application"
+        ? "BCAutoLoan Approval Application"
         : "Sell Your Car submission";
 
     let customerNotes: string;
@@ -201,7 +201,7 @@ export async function integrateWithCRM(
       );
 
       customerNotes =
-        `BCAutoLoan Pre-Approval Application - ${new Date().toLocaleDateString()}\n` +
+        `BCAutoLoan Approval Application - ${new Date().toLocaleDateString()}\n` +
         (applicationNumber ? `Application Number: ${applicationNumber}\n` : "") +
         `Selected vehicle budget: ${selectedBudget}`;
     } else {
@@ -213,7 +213,7 @@ export async function integrateWithCRM(
     }
 
     const financingPreference =
-      submissionType === "PRE_APPROVAL" ? "Pre-Approval" : null;
+      submissionType === "PRE_APPROVAL" ? "Approval" : null;
 
     const budgetNumber =
       submissionType === "PRE_APPROVAL"
@@ -262,3 +262,4 @@ export async function integrateWithCRM(
     };
   }
 }
+

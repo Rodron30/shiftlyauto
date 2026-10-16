@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+﻿import { Resend } from "resend";
 
 
 
@@ -58,9 +58,9 @@ export async function sendPreApprovalNotification(
     const result = await resend.emails.send({
       from: `BCAutoLoan <${fromEmail}>`,
       to: [notificationEmail],
-      subject: `New BCAutoLoan Pre-Approval Application — ${data.applicationNumber}`,
+      subject: `New BCAutoLoan Approval Application â€” ${data.applicationNumber}`,
       text: [
-        "A new BCAutoLoan pre-approval application has been received.",
+        "A new BCAutoLoan approval application has been received.",
         "",
         "Application Information",
         `Application Number: ${data.applicationNumber}`,
@@ -96,7 +96,7 @@ export async function sendPreApprovalNotification(
 
     if (result.error) {
       // Log detailed error for debugging without exposing sensitive data
-      console.error("Pre-approval notification email failed:", {
+      console.error("Approval notification email failed:", {
         statusCode: result.error.statusCode,
         message: result.error.message,
         name: result.error.name,
@@ -106,7 +106,7 @@ export async function sendPreApprovalNotification(
 
     return { success: true, id: result.data?.id };
   } catch (error) {
-    console.error("Pre-approval notification email error:", error instanceof Error ? error.message : "Unknown email error");
+    console.error("Approval notification email error:", error instanceof Error ? error.message : "Unknown email error");
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown email error",
@@ -132,7 +132,7 @@ export async function sendSellCarNotification(
     const result = await resend.emails.send({
       from: `BCAutoLoan <${fromEmail}>`,
       to: [notificationEmail],
-      subject: `New BCAutoLoan Sell Your Car Inquiry — ${data.referenceNumber}`,
+      subject: `New BCAutoLoan Sell Your Car Inquiry â€” ${data.referenceNumber}`,
       text: [
         "A new BCAutoLoan Sell Your Car inquiry has been received.",
         "",
@@ -171,3 +171,4 @@ export async function sendSellCarNotification(
     };
   }
 }
+

@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+﻿import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 export interface PreApprovalPDFData {
   applicationNumber: string;
@@ -47,7 +47,7 @@ export async function generatePreApprovalPDF(
   });
   y -= 30;
 
-  page.drawText("Pre-Approval Application", {
+  page.drawText("Approval Application", {
     x: 50,
     y,
     size: 18,
@@ -312,3 +312,4 @@ export async function generatePreApprovalPDF(
 
   return pdfBytes;
 }
+
