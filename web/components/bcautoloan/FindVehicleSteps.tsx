@@ -10,7 +10,7 @@ const steps = [
       <>
         Get
         <br />
-        Pre-Approved
+        Get Approved
       </>
     ),
     text: (
@@ -18,7 +18,7 @@ const steps = [
         The first step is to learn what your budget is. This is done by
         completing our online approval application{" "}
         <Link
-          href="/bcautoloan/pre-approved"
+          href="/bcautoloan/getapproved"
           className="font-semibold text-[#0b79b3] hover:underline"
         >
           here

@@ -19,7 +19,7 @@ export function Hero() {
 
             <div className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:flex-row lg:mx-0">
               <Link
-                href="/bcautoloan/pre-approved"
+                href="/bcautoloan/getapproved"
                 className="bc-button-primary"
               >
                 Get Approved

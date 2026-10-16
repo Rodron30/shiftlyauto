@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: "Complete our simple approval application and take the next step toward finding your vehicle.",
   ...(domain && {
     alternates: {
-      canonical: `${domain}/bcautoloan/pre-approved`,
+      canonical: `${domain}/bcautoloan/getapproved`,
     },
   }),
 };
