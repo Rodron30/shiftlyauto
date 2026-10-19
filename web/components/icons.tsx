@@ -145,3 +145,73 @@ export const ChevronDownIcon = (props: IconProps) => (
     <path d="m6.5 9.5 5.5 5.5 5.5-5.5" />
   </Icon>
 );
+
+export const BackIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M18.5 12H5.8m4.3-4.3-4.3 4.3 4.3 4.3" />
+  </Icon>
+);
+
+export const XIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M6 6l12 12M18 6 6 18" />
+  </Icon>
+);
+
+export const SaveIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M18.5 6.5v10a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-14a2 2 0 0 1 2-2h7" />
+    <path d="M15.5 6.5v3h3" />
+  </Icon>
+);
+
+export const EditIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </Icon>
+);
+
+export const PlusIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M12 5v14M5 12h14" />
+  </Icon>
+);
+
+export const RefreshIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M21 12a9 9 0 0 0-9-9 9.8 9.8 0 0 0-7.7 4.1M3 12a9 9 0 0 0 9 9 9.8 9.8 0 0 0 7.7-4.1M21 3v6h-6M3 21v-6h6" />
+  </Icon>
+);
+
+export const CheckIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M20 6 9 17l-5-5" />
+  </Icon>
+);
+
+export const TrashIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </Icon>
+);
+
+export const ClockIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 6v6l4 2" />
+  </Icon>
+);
+
+export const UserIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="12" cy="8" r="3.4" />
+    <path d="M5.5 19.5a6.5 6.5 0 0 1 13 0" />
+  </Icon>
+);
+
+export const SecurityIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </Icon>
+);

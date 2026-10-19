@@ -8,6 +8,7 @@ import {
   PlatformIcon,
   ReportsIcon,
   SaasIcon,
+  SecurityIcon,
   SettingsIcon,
   StaffIcon,
   TradeInsIcon,
@@ -41,6 +42,7 @@ export const MANAGEMENT_NAV: NavItem[] = [
   { href: "/staff", label: "Staff", icon: StaffIcon },
   { href: "/saas", label: "SaaS", icon: SaasIcon },
   { href: "/settings", label: "Settings", icon: SettingsIcon },
+  { href: "/settings/security", label: "Security", icon: SecurityIcon },
 ];
 
 export const PLATFORM_NAV: NavItem = {
