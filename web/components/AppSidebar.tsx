@@ -105,11 +105,11 @@ export function AppSidebar() {
 
   const renderSection = (title: string, items: NavItem[]) => (
     <div>
-      <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+      <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-300">
         {title}
       </p>
 
-      <ul className="mt-2 space-y-0.5">
+      <ul className="mt-2 space-y-1">
         {items.map((item) => {
           const active = isActive(pathname, item.href);
           const ItemIcon = item.icon;
@@ -120,23 +120,17 @@ export function AppSidebar() {
                 href={item.href}
                 onClick={closeMobile}
                 aria-current={active ? "page" : undefined}
-                className={`group relative flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors ${
+                className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors duration-200 ${
                   active
-                    ? "bg-white/[0.07] font-medium text-white"
-                    : "text-neutral-400 hover:bg-white/[0.04] hover:text-neutral-100"
+                    ? "bg-[#DCEEFF] text-[#102A56] font-semibold shadow-[inset_2px_2px_5px_rgba(55,65,81,0.16),inset_-2px_-2px_5px_rgba(255,255,255,0.18)]"
+                    : "text-white/85 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <span
-                  className={`absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-amber-400 transition-opacity ${
-                    active ? "opacity-100" : "opacity-0"
-                  }`}
-                />
-
                 <ItemIcon
-                  className={`h-[16px] w-[16px] shrink-0 ${
+                  className={`h-4 w-4 shrink-0 ${
                     active
-                      ? "text-amber-400"
-                      : "text-neutral-500 group-hover:text-neutral-300"
+                      ? "text-[#1677FF]"
+                      : "text-white/60 group-hover:text-[#B9DDFF]"
                   }`}
                 />
 
@@ -150,14 +144,14 @@ export function AppSidebar() {
   );
 
   const sidebarContent = (
-    <div className="flex h-full flex-col bg-neutral-950 text-neutral-200">
-      <div className="flex h-14 shrink-0 items-center gap-3 border-b border-white/10 px-4">
+    <div className="flex h-full flex-col bg-[#4B5563] text-white shadow-[inset_-1px_0_0_rgba(255,255,255,0.08)]">
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 bg-[#374151] px-4 sm:px-5">
         <Link
           href="/"
           onClick={closeMobile}
           className="flex min-w-0 items-center gap-3"
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/[0.06] text-xs font-semibold tracking-tight text-white">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#DCEEFF] text-xs font-bold tracking-tight text-[#1677FF] shadow-[4px_4px_10px_rgba(0,0,0,0.18),-3px_-3px_8px_rgba(255,255,255,0.08)]">
             SA
           </span>
 
@@ -166,21 +160,21 @@ export function AppSidebar() {
               Shiftly Auto
             </span>
 
-            <span className="block truncate text-[10px] uppercase tracking-[0.14em] text-neutral-500">
-              Vehicle Intelligence
+            <span className="block truncate text-[10px] text-gray-300">
+              Drive Your Success
             </span>
           </span>
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5 sm:px-4">
         {renderSection("Main", mainNav)}
         {profile?.role !== "customer" && renderSection("Management", managementNav)}
       </nav>
 
-      <div className="shrink-0 border-t border-white/10 p-3">
-        <div className="flex items-center gap-2 rounded-md px-2 py-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.07] text-xs font-semibold text-neutral-200">
+      <div className="shrink-0 space-y-3 border-t border-white/10 p-3 sm:p-4">
+        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#374151] px-3 py-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#DCEEFF] text-xs font-bold text-[#1677FF] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.06),inset_-2px_-2px_4px_rgba(255,255,255,0.7)]">
             {initialsFor(userLabel)}
           </span>
 
@@ -189,7 +183,7 @@ export function AppSidebar() {
               {dealershipName ?? "---"}
             </p>
 
-            <p className="truncate text-[10px] capitalize text-neutral-500">
+            <p className="truncate text-[10px] capitalize text-gray-300">
               {userLabel}
             </p>
           </div>
@@ -199,9 +193,9 @@ export function AppSidebar() {
           type="button"
           onClick={handleLogout}
           disabled={loggingOut}
-          className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-neutral-400 transition-colors hover:bg-white/[0.04] hover:text-neutral-100 disabled:opacity-50"
+          className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium text-[#64748B] transition-colors hover:bg-[#F1F6FC] hover:text-white disabled:opacity-50"
         >
-          <LogoutIcon className="h-[16px] w-[16px] shrink-0" />
+          <LogoutIcon className="h-4 w-4 shrink-0" />
           {loggingOut ? "Signing out..." : "Logout"}
         </button>
       </div>
@@ -227,17 +221,17 @@ export function AppSidebar() {
             type="button"
             aria-label="Close navigation"
             onClick={closeMobile}
-            className="absolute inset-0 h-full w-full bg-black/60"
+            className="absolute inset-0 h-full w-full bg-black/50 backdrop-blur-sm"
           />
 
-          <div className="absolute inset-y-0 left-0 w-60 max-w-[85vw] border-r border-white/10 shadow-2xl">
+          <div className="absolute inset-y-0 left-0 w-[20rem] max-w-[90vw] border-r border-white/10 bg-[#4B5563] shadow-2xl">
             <button
               type="button"
               onClick={closeMobile}
               aria-label="Close navigation"
-              className="absolute right-3 top-4 z-10 rounded-md p-2 text-neutral-400 transition-colors hover:bg-white/[0.06] hover:text-white"
+              className="absolute right-4 top-4 z-10 rounded-lg p-2 text-gray-300 transition-colors hover:bg-[#E8F0FA] hover:text-white"
             >
-              <CloseIcon className="h-4 w-4" />
+              <CloseIcon className="h-5 w-5" />
             </button>
 
             {sidebarContent}
@@ -245,7 +239,7 @@ export function AppSidebar() {
         </div>
       ) : null}
 
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-white/10 lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[15rem] border-r border-white/10 bg-[#4B5563] lg:block">
         {sidebarContent}
       </aside>
     </>
