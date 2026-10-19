@@ -27,7 +27,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <>
       <AppSidebar />
 
-      <main className="min-h-screen bg-neutral-50 lg:pl-[15rem]">
+      <main className="min-h-screen bg-neutral-50 lg:pl-60">
         {children}
       </main>
     </>
