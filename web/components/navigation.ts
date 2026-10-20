@@ -8,7 +8,6 @@ import {
   PlatformIcon,
   ReportsIcon,
   SaasIcon,
-  SecurityIcon,
   SettingsIcon,
   StaffIcon,
   TradeInsIcon,
@@ -24,7 +23,6 @@ export type NavItem = {
 export const MAIN_NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: DashboardIcon },
   { href: "/vehicles", label: "Vehicles", icon: VehiclesIcon },
-  { href: "/customers", label: "Customers", icon: CrmIcon },
   { href: "/trade-appraisals", label: "Trade-Ins", icon: TradeInsIcon },
   { href: "/leads", label: "Leads", icon: LeadsIcon },
   { href: "/crm", label: "CRM", icon: CrmIcon },
@@ -43,7 +41,6 @@ export const MANAGEMENT_NAV: NavItem[] = [
   { href: "/staff", label: "Staff", icon: StaffIcon },
   { href: "/saas", label: "SaaS", icon: SaasIcon },
   { href: "/settings", label: "Settings", icon: SettingsIcon },
-  { href: "/settings/security", label: "Security", icon: SecurityIcon },
 ];
 
 export const PLATFORM_NAV: NavItem = {
@@ -61,13 +58,6 @@ const EXTRA_SEGMENT_LABELS: Record<string, string> = {
 
 export function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
-
-  // Settings uses exact match only (Security is a separate nav item)
-  if (href === "/settings") {
-    return pathname === "/settings";
-  }
-
-  // Other nav items use prefix match
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
