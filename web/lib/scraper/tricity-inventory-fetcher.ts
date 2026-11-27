@@ -1,4 +1,4 @@
-import type { TriCityFeedTransport } from "./tricitymits-feed";
+﻿import type { TriCityFeedTransport } from "./tricitymits-feed";
 import { fetchTriCityInventoryPage } from "./tricity-inventory-client";
 
 export type TriCityInventoryPageFetcher = (
@@ -9,6 +9,7 @@ export type TriCityInventoryPageFetcher = (
 export type TriCityCollectedInventory = {
   results: unknown[];
   totalVehicles: number | null;
+  totalPages: number | null;
   pagesFetched: number;
   complete: boolean;
   invalidRecordCount: number;
@@ -51,7 +52,7 @@ export async function fetchAllTriCityInventory(
   let complete = false;
   let page = 1;
 
-  while (uniqueVehicles.size < maxVehicles) {
+  while (true) {
     const endpoint = buildEndpoint(page, pageSize);
 
     let pageResult;
@@ -88,6 +89,7 @@ export async function fetchAllTriCityInventory(
       return {
         results: [...uniqueVehicles.values()],
         totalVehicles,
+        totalPages,
         pagesFetched,
         complete: false,
         invalidRecordCount,
@@ -145,12 +147,19 @@ export async function fetchAllTriCityInventory(
       break;
     }
 
+    // Stop at the configured cap, but never call a partial scan complete.
+    if (uniqueVehicles.size >= maxVehicles) {
+      complete = false;
+      break;
+    }
+
     page += 1;
   }
 
   return {
     results: [...uniqueVehicles.values()],
     totalVehicles,
+    totalPages,
     pagesFetched,
     complete,
     invalidRecordCount,
