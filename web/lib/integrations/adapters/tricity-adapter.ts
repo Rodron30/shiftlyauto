@@ -80,7 +80,7 @@ export class TriCityAdapter {
         return url.toString();
       };
 
-      const collected = await fetchAllTriCityInventory(
+      const collected: TriCityCollectedInventory = await fetchAllTriCityInventory(
         buildEndpoint,
         config.pageSize,
         config.maxVehicles,
