@@ -54,7 +54,7 @@ export async function syncIntegration(
           typeof rawMaxVehicles !== "number" ||
           !Number.isInteger(rawMaxVehicles) ||
           rawMaxVehicles < 1 ||
-          rawMaxVehicles > 5000
+          rawMaxVehicles > 500
         ) {
           return {
             status: "FAILED",
@@ -62,7 +62,7 @@ export async function syncIntegration(
             recordsCreated: 0,
             recordsUpdated: 0,
             recordsFailed: 1,
-            errorMessage: "Tri-City max_vehicles must be an integer from 1 to 5000.",
+            errorMessage: "Tri-City max_vehicles must be an integer from 1 to 500.",
           };
         }
 
