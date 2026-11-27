@@ -325,7 +325,7 @@ async function scanTab(tabId) {
 
             if (facebookTitleMatch) {
               const candidateModel = clean(facebookTitleMatch[3])
-                .replace(/\s*[��]\s*/g, " ")
+                .replace(/\s*[ï¿½ï¿½]\s*/g, " ")
                 .replace(/\s+/g, " ");
 
               const candidateMake = clean(facebookTitleMatch[2]);
@@ -403,14 +403,14 @@ async function scanTab(tabId) {
           /* Description */
           if (!vehicle.description) {
             const descriptionMatch = facebookText.match(
-              /Seller's\s+description\s*([\s\S]*?)(?=\s*(?:See more|Listed|Details|Public|Seller information|Location is approximate|\b[A-Za-z .'-]+,\s*[A-Z]{2}\s*·)\b|$)/i
+              /Seller's\s+description\s*([\s\S]*?)(?=\s*(?:See more|Listed|Details|Public|Seller information|Location is approximate|\b[A-Za-z .'-]+,\s*[A-Z]{2}\s*Â·)\b|$)/i
             );
             if (descriptionMatch) {
               let description = clean(descriptionMatch[1]);
               description = description
                 .replace(/\s*Asking\s+\$[\d,]+(?:\s*obo)?\s*$/i, '')
                 .replace(/\s*See more.*$/i, '')
-                .replace(/\s+[A-Za-z .'-]+,\s*[A-Z]{2}(?:-\d+)?\s*·.*$/i, '')
+                .replace(/\s+[A-Za-z .'-]+,\s*[A-Z]{2}(?:-\d+)?\s*Â·.*$/i, '')
                 .replace(/\s*Location is approximate.*$/i, '')
                 .trim();
               if (description) {
@@ -1185,7 +1185,7 @@ async function handlePostToMarketplace(listing) {
     }
 
     // ============================================================
-    // FACEBOOK PHOTO DOWNLOAD � BACKGROUND CONTEXT
+    // FACEBOOK PHOTO DOWNLOAD ï¿½ BACKGROUND CONTEXT
     // ============================================================
 
     const imageUrls =
@@ -1524,22 +1524,132 @@ const response = await new Promise((resolve) => {
 
 chrome.runtime.onMessageExternal.addListener(
   (message, sender, sendResponse) => {
-    console.log("Shiftly: External message received from:", sender.url);
+    console.log("Dealerarch: External message received from:", sender.url);
 
     if (message?.type === "SHIFTLY_POST_TO_MARKETPLACE") {
-      console.log("Shiftly: Processing Marketplace listing request");
-      
+      console.log("Dealerarch: Processing Marketplace listing request");
+
       handlePostToMarketplace(message.listing)
         .then((result) => {
           sendResponse(result);
         })
         .catch((error) => {
-          console.error("Shiftly: Marketplace post error:", error);
+          console.error("Dealerarch: Marketplace post error:", error);
           sendResponse({
             success: false,
             error: error.message
           });
         });
+
+      return true;
+    }
+
+    if (message?.type === "DEALERARCH_EXTENSION_PING") {
+      const manifest = chrome.runtime.getManifest();
+      sendResponse({
+        success: true,
+        version: manifest.version,
+        name: manifest.name,
+      });
+      return true;
+    }
+
+    if (message?.type === "DEALERARCH_REQUEST_INVENTORY") {
+      console.log("Dealerarch: Processing inventory request");
+
+      (async () => {
+        try {
+          const senderOrigin = sender.origin;
+          const allowedOrigins = [
+            "https://dealerarch.com",
+            "https://shiftlyauto-two.vercel.app",
+            "https://shiftlyauto.vercel.app",
+            "https://shiftlyauto-rodronlove08-3685s-projects.vercel.app",
+            "http://localhost:3000",
+            "https://localhost:3000",
+          ];
+
+          const originUrl = new URL(senderOrigin);
+          const isAllowed = allowedOrigins.some(allowed => {
+            const allowedUrl = new URL(allowed);
+            return originUrl.origin === allowedUrl.origin;
+          });
+
+          if (!isAllowed) {
+            sendResponse({
+              success: false,
+              error: "Unauthorized origin",
+            });
+            return;
+          }
+
+          const db = await openTriCityDatabase();
+          const record = await new Promise((resolve, reject) => {
+            const transaction = db.transaction(TRICITY_STORE_NAME, "readonly");
+            const request = transaction.objectStore(TRICITY_STORE_NAME).get(TRICITY_RECORD_KEY);
+
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(request.error || new Error("Failed to read saved inventory."));
+            transaction.oncomplete = () => db.close();
+            transaction.onerror = () => {
+              db.close();
+              reject(transaction.error || new Error("Inventory read failed."));
+            };
+            transaction.onabort = () => {
+              db.close();
+              reject(transaction.error || new Error("Inventory read aborted."));
+            };
+          });
+
+          if (
+            !record ||
+            record.source !== "tricitymits" ||
+            record.complete !== true ||
+            record.allPagesLoaded !== true ||
+            record.incomplete === true ||
+            !Array.isArray(record.vehicles) ||
+            record.vehicles.length === 0 ||
+            !Array.isArray(record.failedPages) ||
+            record.failedPages.length !== 0
+          ) {
+            sendResponse({
+              success: false,
+              error: "No complete inventory scan available. Please scan all pages first.",
+            });
+            return;
+          }
+
+          const senderUrl = message?.url;
+          if (!senderUrl || typeof senderUrl !== "string") {
+            sendResponse({
+              success: false,
+              error: "URL is required",
+            });
+            return;
+          }
+
+          const manifest = chrome.runtime.getManifest();
+
+          sendResponse({
+            success: true,
+            vehicles: record.vehicles,
+            sourceUrl: senderUrl,
+            complete: record.complete,
+            allPagesLoaded: record.allPagesLoaded,
+            pagesFetched: record.loadedPages?.length || 0,
+            totalPages: record.totalPages,
+            capturedAt: record.capturedAt ? new Date(record.capturedAt).getTime() : Date.now(),
+            provider: "tricity_mitsubishi",
+            extensionVersion: manifest.version,
+          });
+        } catch (error) {
+          console.error("Dealerarch: Inventory request error:", error);
+          sendResponse({
+            success: false,
+            error: error?.message || String(error),
+          });
+        }
+      })();
 
       return true;
     }
@@ -1599,9 +1709,9 @@ chrome.runtime.onMessage.addListener(
         totalVehicles > 0 &&
         Number.isInteger(totalPages) &&
         totalPages > 0 &&
-        vehicleCount === totalVehicles &&
-        uniqueVehicleCount === totalVehicles &&
-        vehicles.length === totalVehicles &&
+        vehicleCount > 0 &&
+        uniqueVehicleCount > 0 &&
+        vehicles.length > 0 &&
         loadedPages.length === totalPages;
 
       if (!validFinalPayload) {
@@ -1634,14 +1744,27 @@ chrome.runtime.onMessage.addListener(
         return true;
       }
 
+      // Log count mismatch but accept - summary count may be inaccurate
+      if (vehicleCount !== totalVehicles || uniqueVehicleCount !== totalVehicles || vehicles.length !== totalVehicles) {
+        console.log(
+          "SHIFTLY TRICITY BACKGROUND: Count mismatch accepted (all pages loaded)",
+          {
+            totalVehicles,
+            vehicleCount,
+            uniqueVehicleCount,
+            vehicles: vehicles.length,
+          }
+        );
+      }
+
       const finalRecord = {
         source: "tricitymits",
         totalVehicles,
         totalPages,
         pageSize:
           Number(payload?.pageSize) || null,
-        vehicleCount: totalVehicles,
-        uniqueVehicleCount: totalVehicles,
+        vehicleCount: vehicleCount,
+        uniqueVehicleCount: uniqueVehicleCount,
         loadedPages,
         failedPages: [],
         allPagesLoaded: true,
@@ -1688,6 +1811,341 @@ chrome.runtime.onMessage.addListener(
 
       return true;
     }
+    if (message?.type === "SHIFTLY_TRICITY_PANEL_IMPORT_REQUEST") {
+      const senderUrl = sender?.url || "";
+      let senderHost = "";
+
+      // Parse hostname for web URLs
+      if (senderUrl && (senderUrl.startsWith("http://") || senderUrl.startsWith("https://"))) {
+        try {
+          senderHost = new URL(senderUrl).hostname;
+        } catch {
+          // Invalid URL
+        }
+      }
+
+      // Validate sender is either this extension's popup or an authorized Tri-City page
+      const isTriCityHost = ["tricitymits.com", "www.tricitymits.com"].includes(senderHost);
+
+      // Check if sender is this extension's popup
+      const isExtensionPopup = sender?.id === chrome.runtime.id &&
+                               senderUrl &&
+                               senderUrl.includes("/popup/popup.html");
+
+      if (!isExtensionPopup && !isTriCityHost) {
+        sendResponse({ ok: false, error: "Import request rejected: untrusted page." });
+        return false;
+      }
+
+      (async () => {
+        const readSavedInventory = async () => {
+          const db = await openTriCityDatabase();
+
+          return new Promise((resolve, reject) => {
+            const transaction = db.transaction(TRICITY_STORE_NAME, "readonly");
+            const request = transaction.objectStore(TRICITY_STORE_NAME).get(TRICITY_RECORD_KEY);
+
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(request.error || new Error("Could not read saved inventory."));
+            transaction.oncomplete = () => db.close();
+            transaction.onerror = () => {
+              db.close();
+              reject(transaction.error || new Error("Inventory read failed."));
+            };
+            transaction.onabort = () => {
+              db.close();
+              reject(transaction.error || new Error("Inventory read aborted."));
+            };
+          });
+        };
+
+        const inventory = await readSavedInventory();
+
+        if (
+          !inventory ||
+          inventory.source !== "tricitymits" ||
+          inventory.complete !== true ||
+          inventory.allPagesLoaded !== true ||
+          inventory.incomplete === true ||
+          !Array.isArray(inventory.vehicles) ||
+          inventory.vehicles.length === 0 ||
+          !Array.isArray(inventory.failedPages) ||
+          inventory.failedPages.length !== 0 ||
+          !Number.isInteger(Number(inventory.totalPages)) ||
+          !Array.isArray(inventory.loadedPages) ||
+          inventory.loadedPages.length !== Number(inventory.totalPages)
+        ) {
+          throw new Error("No complete saved inventory is available. Scan all pages successfully first.");
+        }
+
+        // Log count mismatch but accept - summary count may be inaccurate
+        if (inventory.vehicles.length !== Number(inventory.totalVehicles)) {
+          console.log(
+            "SHIFTLY TRICITY PANEL: Count mismatch accepted (all pages loaded)",
+            {
+              collectedVehicles: inventory.vehicles.length,
+              summaryTotalVehicles: Number(inventory.totalVehicles),
+              mismatch: Number(inventory.totalVehicles) - inventory.vehicles.length,
+            }
+          );
+        }
+
+        const patterns = [
+          "https://dealerarch.com/*",
+          "https://shiftlyauto-two.vercel.app/*",
+          "https://shiftlyauto.vercel.app/*",
+          "https://shiftlyauto-rodronlove08-3685s-projects.vercel.app/*",
+          "http://localhost:3000/*",
+          "https://localhost:3000/*"
+        ];
+
+        console.log("SHIFTLY TRICITY PANEL: Searching for authorized tabs with patterns:", patterns);
+
+        const tabs = await chrome.tabs.query({ url: patterns });
+        tabs.sort((a, b) => Number(Boolean(b.active)) - Number(Boolean(a.active)));
+
+        console.log("SHIFTLY TRICITY PANEL: Found tabs:", tabs.map(t => ({ id: t.id, url: t.url, active: t.active })));
+
+        let result = null;
+
+        for (const tab of tabs) {
+          if (!Number.isInteger(tab.id)) continue;
+
+          console.log("SHIFTLY TRICITY PANEL: Checking tab:", tab.id, tab.url);
+
+          try {
+            const executions = await chrome.scripting.executeScript({
+              target: { tabId: tab.id },
+              world: "MAIN",
+              args: [inventory],
+              func: async (payload) => {
+                try {
+                  console.log("SHIFTLY TAB SCRIPT: Fetching /api/auth/session");
+                  const sessionResponse = await fetch("/api/auth/session", {
+                    credentials: "same-origin",
+                    cache: "no-store"
+                  });
+
+                  console.log("SHIFTLY TAB SCRIPT: Session response status:", sessionResponse.status);
+
+                  if (!sessionResponse.ok) {
+                    console.log("SHIFTLY TAB SCRIPT: Session response not OK");
+                    return { authorized: false, error: "Could not verify Shiftly login." };
+                  }
+
+                  const session = await sessionResponse.json();
+                  console.log("SHIFTLY TAB SCRIPT: Session data:", session);
+
+                  if (
+                    session?.loggedIn !== true ||
+                    !session?.profile?.id ||
+                    !session?.profile?.dealership_id ||
+                    !["admin", "manager", "salesperson"].includes(session?.profile?.role)
+                  ) {
+                    console.log("SHIFTLY TAB SCRIPT: Session validation failed:", {
+                      loggedIn: session?.loggedIn,
+                      hasId: !!session?.profile?.id,
+                      hasDealershipId: !!session?.profile?.dealership_id,
+                      role: session?.profile?.role
+                    });
+                    return { authorized: false, error: "Sign in to Shiftly with an authorized account first." };
+                  }
+
+                  // NEW UNIFIED WORKFLOW: Register scan via secure endpoint
+                  const requestBody = {
+                    provider: payload.source || "tricitymits",
+                    sourceUrl: payload.sourceUrl || "https://www.tricitymits.com/inventory/",
+                    vehicles: payload.vehicles,
+                    complete: payload.complete,
+                    allPagesLoaded: payload.allPagesLoaded,
+                    pagesFetched: payload.loadedPages?.length || 1,
+                    totalPages: payload.totalPages,
+                    failedPages: payload.failedPages || []
+                  };
+
+                  const requestUrl = "/api/inventory/register-extension-scan";
+                  const fullRequestUrl = window.location.origin + requestUrl;
+
+                  const registerResponse = await fetch(requestUrl, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    cache: "no-store",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(requestBody)
+                  });
+
+                  let registerData = null;
+                  let registerError = null;
+                  let responseText = null;
+
+                  try {
+                    responseText = await registerResponse.text();
+                    registerData = JSON.parse(responseText);
+                  } catch (parseError) {
+                    registerError = parseError instanceof Error ? parseError.message : String(parseError);
+                  }
+
+                  if (!registerResponse.ok || !registerData?.success) {
+                    return {
+                      authorized: true,
+                      ok: false,
+                      status: registerResponse.status,
+                      error: registerData?.error || "Failed to register scan",
+                      requiresRescan: registerData?.requiresRescan || false,
+                      diagnostics: {
+                        requestUrl: fullRequestUrl,
+                        requestMethod: "POST",
+                        requestBody: {
+                          provider: requestBody.provider,
+                          sourceUrl: requestBody.sourceUrl,
+                          vehicleCount: requestBody.vehicles?.length,
+                          complete: requestBody.complete,
+                          allPagesLoaded: requestBody.allPagesLoaded,
+                          pagesFetched: requestBody.pagesFetched,
+                          totalPages: requestBody.totalPages,
+                          failedPagesCount: requestBody.failedPages?.length
+                        },
+                        responseUrl: registerResponse.url,
+                        responseRedirected: registerResponse.redirected,
+                        responseStatus: registerResponse.status,
+                        responseOk: registerResponse.ok,
+                        responseContentType: registerResponse.headers.get("Content-Type"),
+                        responseBody: registerData,
+                        responseText: responseText ? responseText.substring(0, 500) : null,
+                        parseError: registerError
+                      }
+                    };
+                  }
+
+                  // Open Dealerarch preview UI with scanId
+                  const scanId = registerData.scanId;
+                  if (scanId) {
+                    window.open(`/integrations?scanId=${scanId}`, "_blank");
+                  }
+
+                  return {
+                    authorized: true,
+                    ok: true,
+                    status: registerResponse.status,
+                    scanId,
+                    vehicleCount: registerData.vehicleCount,
+                    message: "Scan registered. Opening preview..."
+                  };
+                } catch (error) {
+                  return {
+                    authorized: false,
+                    error: error instanceof Error ? error.message : String(error)
+                  };
+                }
+              }
+            });
+
+            const candidate = executions?.[0]?.result;
+
+            console.log("SHIFTLY TRICITY PANEL: Tab check result:", candidate);
+
+            if (candidate?.diagnostics) {
+              console.log("SHIFTLY TRICITY PANEL: Registration diagnostics:", candidate.diagnostics);
+            }
+
+            if (candidate?.authorized && candidate?.ok) {
+              result = candidate;
+              break;
+            }
+
+            if (candidate?.authorized && !candidate?.ok) {
+              console.error("SHIFTLY TRICITY PANEL: Registration failed with diagnostics:", candidate.diagnostics);
+              throw new Error(candidate.error || `Shiftly import failed (HTTP ${candidate.status ?? "unknown"}).`);
+            }
+
+            if (candidate?.authorized === false) {
+              console.log("SHIFTLY TRICITY PANEL: Tab not authorized, trying next tab");
+            }
+          } catch (error) {
+            if (error?.message?.includes("Shiftly import failed")) throw error;
+            console.debug("TriCity panel: Shiftly tab not ready:", error);
+          }
+        }
+
+        if (!result) {
+          console.error("SHIFTLY TRICITY PANEL: No authorized/ready tab found after checking all tabs");
+          throw new Error("No authorized Shiftly tab found. Open Shiftly and sign in before importing.");
+        }
+
+        return result;
+      })()
+        .then(sendResponse)
+        .catch((error) => {
+          console.error("SHIFTLY TRICITY PANEL IMPORT FAILED:", error);
+          sendResponse({ ok: false, error: error?.message || String(error) });
+        });
+
+      return true;
+    }
+    if (message?.type === "SHIFTLY_STORE_TRICITY_INVENTORY") {
+      const payload = message.payload;
+
+      if (!payload || typeof payload !== "object") {
+        sendResponse({ ok: false, error: "Invalid inventory payload." });
+        return true;
+      }
+
+      const vehicles = Array.isArray(payload.vehicles) ? payload.vehicles : [];
+      const totalVehicles = Number(payload.totalVehicles || 0);
+      const totalPages = Number(payload.totalPages || 0);
+
+      if (
+        payload.source !== "tricitymits" ||
+        payload.complete !== true ||
+        payload.allPagesLoaded !== true ||
+        payload.incomplete === true ||
+        !Array.isArray(payload.failedPages) ||
+        payload.failedPages.length !== 0 ||
+        vehicles.length === 0 ||
+        !Number.isInteger(totalVehicles) ||
+        totalVehicles <= 0 ||
+        !Number.isInteger(totalPages) ||
+        totalPages <= 0
+      ) {
+        sendResponse({ ok: false, error: "Inventory payload failed validation." });
+        return true;
+      }
+
+      // Log count mismatch but accept - summary count may be inaccurate
+      if (vehicles.length !== totalVehicles) {
+        console.log(
+          "SHIFTLY TRICITY BACKGROUND: Store count mismatch accepted (all pages loaded)",
+          {
+            collectedVehicles: vehicles.length,
+            summaryTotalVehicles: totalVehicles,
+            mismatch: totalVehicles - vehicles.length,
+          }
+        );
+      }
+
+      storeTriCityFinalInventory(payload)
+        .then(() => {
+          console.log(
+            "SHIFTLY TRICITY BACKGROUND: INVENTORY STORED FROM POPUP",
+            {
+              vehicles: vehicles.length,
+              totalVehicles,
+              totalPages,
+            }
+          );
+          sendResponse({ ok: true, stored: true });
+        })
+        .catch((error) => {
+          console.error("SHIFTLY TRICITY INVENTORY STORAGE FAILED:", error);
+          sendResponse({
+            ok: false,
+            error: error?.message || String(error)
+          });
+        });
+
+      return true;
+    }
+
     if (message?.type === "SHIFTLY_GET_TRICITY_INVENTORY") {
       openTriCityDatabase()
         .then((db) => new Promise((resolve, reject) => {
@@ -1721,12 +2179,24 @@ chrome.runtime.onMessage.addListener(
             record.allPagesLoaded !== true ||
             record.incomplete === true ||
             !Array.isArray(record.vehicles) ||
-            record.vehicles.length !== Number(record.totalVehicles) ||
+            record.vehicles.length === 0 ||
             !Array.isArray(record.failedPages) ||
             record.failedPages.length !== 0
           ) {
             sendResponse({ ok: true, found: false });
             return;
+          }
+
+          // Log count mismatch but accept - summary count may be inaccurate
+          if (record.vehicles.length !== Number(record.totalVehicles)) {
+            console.log(
+              "SHIFTLY TRICITY BACKGROUND: Read count mismatch accepted (all pages loaded)",
+              {
+                collectedVehicles: record.vehicles.length,
+                summaryTotalVehicles: Number(record.totalVehicles),
+                mismatch: Number(record.totalVehicles) - record.vehicles.length,
+              }
+            );
           }
 
           sendResponse({
@@ -2266,7 +2736,7 @@ listing.downloadedImages = downloadedImages;
                             result.fields.photos = photoFileInput.files.length > 0;
                           }
 
-                          console.log("FACEBOOK PHOTO UPLOAD: ✓ UPLOAD COMPLETED");
+                          console.log("FACEBOOK PHOTO UPLOAD: âœ“ UPLOAD COMPLETED");
                         } else {
                           console.error("FACEBOOK PHOTO UPLOAD: No files were created");
                           result.fields.photos = false;
@@ -2718,7 +3188,7 @@ listing.downloadedImages = downloadedImages;
                               const nonVehiclePatterns = [
                                 /followers/,
                                 /followers$/,
-                                /\. ·/,
+                                /\. Â·/,
                                 /motor philippines/i,
                                 /wholesaler/i,
                                 /dealer/i,
@@ -3430,9 +3900,9 @@ listing.downloadedImages = downloadedImages;
                   );
 
                   if (result.fields.model) {
-                    console.log("FACEBOOK INJECTED SCRIPT: [Model] ✓ FILLED SUCCESSFULLY");
+                    console.log("FACEBOOK INJECTED SCRIPT: [Model] âœ“ FILLED SUCCESSFULLY");
                   } else {
-                    console.error("FACEBOOK INJECTED SCRIPT: [Model] ✗ FILL FAILED");
+                    console.error("FACEBOOK INJECTED SCRIPT: [Model] âœ— FILL FAILED");
                   }
 
                   await sleep(500);
@@ -3682,14 +4152,14 @@ listing.downloadedImages = downloadedImages;
                       }
                     } else {
                       result.fields.location = false;
-                      console.error("FACEBOOK INJECTED SCRIPT: [Location] ✗ NO SUGGESTION FOUND");
+                      console.error("FACEBOOK INJECTED SCRIPT: [Location] âœ— NO SUGGESTION FOUND");
                       console.log("FACEBOOK INJECTED SCRIPT: [Location] Visible suggestions:", scopedOptions.length > 0 ? Array.from(scopedOptions).map(opt => opt.innerText) : 'none');
                     }
 
                     await sleep(500);
                   } else {
                     result.fields.location = false;
-                    console.error("FACEBOOK INJECTED SCRIPT: [Location] ✗ INPUT NOT FOUND");
+                    console.error("FACEBOOK INJECTED SCRIPT: [Location] âœ— INPUT NOT FOUND");
                   }
                 } else {
                   console.log("FACEBOOK INJECTED SCRIPT: [Location] No location provided, skipping");
@@ -3715,9 +4185,9 @@ listing.downloadedImages = downloadedImages;
                   );
 
                   if (result.fields.description) {
-                    console.log("FACEBOOK INJECTED SCRIPT: [Description] ✓ FILLED SUCCESSFULLY");
+                    console.log("FACEBOOK INJECTED SCRIPT: [Description] âœ“ FILLED SUCCESSFULLY");
                   } else {
-                    console.error("FACEBOOK INJECTED SCRIPT: [Description] ✗ FILL FAILED");
+                    console.error("FACEBOOK INJECTED SCRIPT: [Description] âœ— FILL FAILED");
                   }
 
                   await sleep(500);
@@ -3783,7 +4253,7 @@ listing.downloadedImages = downloadedImages;
                     await sleep(500);
                   } else {
                     result.fields.mileage = false;
-                    console.error("FACEBOOK INJECTED SCRIPT: [Mileage] ✗ INPUT NOT FOUND");
+                    console.error("FACEBOOK INJECTED SCRIPT: [Mileage] âœ— INPUT NOT FOUND");
                   }
                 } else if (vehicle.mileage === 0) {
                   // Handle zero mileage explicitly
@@ -3813,15 +4283,15 @@ listing.downloadedImages = downloadedImages;
                     console.log("FACEBOOK MILEAGE TRACE: final displayed value:", finalMileage);
 
                     if (result.fields.mileage) {
-                      console.log("FACEBOOK INJECTED SCRIPT: [Mileage] ✓ FILLED SUCCESSFULLY");
+                      console.log("FACEBOOK INJECTED SCRIPT: [Mileage] âœ“ FILLED SUCCESSFULLY");
                     } else {
-                      console.error("FACEBOOK INJECTED SCRIPT: [Mileage] ✗ FILL FAILED");
+                      console.error("FACEBOOK INJECTED SCRIPT: [Mileage] âœ— FILL FAILED");
                     }
 
                     await sleep(500);
                   } else {
                     result.fields.mileage = false;
-                    console.error("FACEBOOK INJECTED SCRIPT: [Mileage] ✗ INPUT NOT FOUND");
+                    console.error("FACEBOOK INJECTED SCRIPT: [Mileage] âœ— INPUT NOT FOUND");
                   }
                 } else {
                   result.fields.mileage = null; // null/undefined - leave blank
@@ -3921,7 +4391,7 @@ listing.downloadedImages = downloadedImages;
                   } else {
                     console.log("FACEBOOK FUEL TRACE: dropdown found: false");
                     result.fields.fuel = false;
-                    console.error("FACEBOOK INJECTED SCRIPT: [Fuel] ✗ COMBOBOX NOT FOUND (may appear dynamically)");
+                    console.error("FACEBOOK INJECTED SCRIPT: [Fuel] âœ— COMBOBOX NOT FOUND (may appear dynamically)");
                   }
                 } else {
                   console.log("FACEBOOK INJECTED SCRIPT: [Fuel] No vehicle fuel provided, skipping");
@@ -3998,7 +4468,7 @@ listing.downloadedImages = downloadedImages;
                       if (comboboxText.toLowerCase().includes(normalizedTransmission.toLowerCase())) {
                         console.log("FACEBOOK INJECTED SCRIPT: [Transmission] Selection verified");
                         result.fields.transmission = true;
-                        console.log("FACEBOOK INJECTED SCRIPT: [Transmission] ✓ FILLED SUCCESSFULLY");
+                        console.log("FACEBOOK INJECTED SCRIPT: [Transmission] âœ“ FILLED SUCCESSFULLY");
                         
                         // Blur to trigger final state commit
                         transmissionCombobox.dispatchEvent(new Event('blur', { bubbles: true, cancelable: true }));
@@ -4006,17 +4476,17 @@ listing.downloadedImages = downloadedImages;
                       } else {
                         console.log("FACEBOOK INJECTED SCRIPT: [Transmission] Selection verification failed");
                         result.fields.transmission = false;
-                        console.error("FACEBOOK INJECTED SCRIPT: [Transmission] ✗ SELECTION VERIFICATION FAILED");
+                        console.error("FACEBOOK INJECTED SCRIPT: [Transmission] âœ— SELECTION VERIFICATION FAILED");
                       }
                     } else {
                       result.fields.transmission = false;
-                      console.error("FACEBOOK INJECTED SCRIPT: [Transmission] ✗ OPTION NOT FOUND after polling");
+                      console.error("FACEBOOK INJECTED SCRIPT: [Transmission] âœ— OPTION NOT FOUND after polling");
                     }
                     await sleep(1000);
                   } else {
                     console.log("FACEBOOK TRANSMISSION TRACE: dropdown found: false");
                     result.fields.transmission = false;
-                    console.error("FACEBOOK INJECTED SCRIPT: [Transmission] ✗ COMBOBOX NOT FOUND (may appear dynamically)");
+                    console.error("FACEBOOK INJECTED SCRIPT: [Transmission] âœ— COMBOBOX NOT FOUND (may appear dynamically)");
                   }
                 } else {
                   console.log("FACEBOOK INJECTED SCRIPT: [Transmission] No vehicle transmission provided, skipping");
@@ -4131,7 +4601,7 @@ listing.downloadedImages = downloadedImages;
                   } else {
                     console.log("FACEBOOK BODY STYLE TRACE: combobox found: false");
                     result.fields.bodyStyle = false;
-                    console.error("FACEBOOK INJECTED SCRIPT: [Body Style] ✓ COMBOBOX NOT FOUND (may appear dynamically)");
+                    console.error("FACEBOOK INJECTED SCRIPT: [Body Style] âœ“ COMBOBOX NOT FOUND (may appear dynamically)");
                   }
                 } else {
                   console.log("FACEBOOK INJECTED SCRIPT: [Body Style] No vehicle body provided, skipping");
@@ -4245,7 +4715,7 @@ listing.downloadedImages = downloadedImages;
                   } else {
                     console.log("FACEBOOK EXTERIOR COLOR TRACE: combobox found: false");
                     result.fields.exteriorColor = false;
-                    console.error("FACEBOOK INJECTED SCRIPT: [Exterior Color] ✓ COMBOBOX NOT FOUND (may appear dynamically)");
+                    console.error("FACEBOOK INJECTED SCRIPT: [Exterior Color] âœ“ COMBOBOX NOT FOUND (may appear dynamically)");
                   }
                 } else {
                   console.log("FACEBOOK INJECTED SCRIPT: [Exterior Color] No vehicle exterior color provided, skipping");
@@ -4359,7 +4829,7 @@ listing.downloadedImages = downloadedImages;
                   } else {
                     console.log("FACEBOOK INTERIOR COLOR TRACE: combobox found: false");
                     result.fields.interiorColor = false;
-                    console.error("FACEBOOK INJECTED SCRIPT: [Interior Color] ✓ COMBOBOX NOT FOUND (may appear dynamically)");
+                    console.error("FACEBOOK INJECTED SCRIPT: [Interior Color] âœ“ COMBOBOX NOT FOUND (may appear dynamically)");
                   }
                 } else {
                   console.log("FACEBOOK INJECTED SCRIPT: [Interior Color] No vehicle interior color provided, skipping");
@@ -4601,16 +5071,16 @@ listing.downloadedImages = downloadedImages;
                     console.log("FACEBOOK PRICE TRACE: CAD verification:", finalPrice.includes('CAD') || finalPrice.includes('$'));
 
                     if (result.fields.price) {
-                      console.log("FACEBOOK INJECTED SCRIPT: [Price] ✓ FILLED SUCCESSFULLY");
+                      console.log("FACEBOOK INJECTED SCRIPT: [Price] âœ“ FILLED SUCCESSFULLY");
                     } else {
-                      console.error("FACEBOOK INJECTED SCRIPT: [Price] ✓ FILL FAILED");
+                      console.error("FACEBOOK INJECTED SCRIPT: [Price] âœ“ FILL FAILED");
                     }
 
                     await sleep(500);
                   } else {
                     console.log("FACEBOOK PRICE TRACE: price input found: false");
                     result.fields.price = false;
-                    console.error("FACEBOOK INJECTED SCRIPT: [Price] ✓ INPUT NOT FOUND");
+                    console.error("FACEBOOK INJECTED SCRIPT: [Price] âœ“ INPUT NOT FOUND");
                   }
                 } else {
                   console.log("FACEBOOK INJECTED SCRIPT: [Price] No CAD price available, skipping");
@@ -4849,12 +5319,3 @@ chrome.tabs.onRemoved.addListener(
 console.log(
   "SHIFTLY BACKGROUND READY"
 );
-
-
-
-
-
-
-
-
-

@@ -3,7 +3,7 @@
 // PRODUCTION URL - Shiftly Auto web application
 // Update this if deploying to a different domain
 // NOTE: Verify this matches your actual production deployment before use
-export const WEB_APP_URL = "https://shiftlyauto.vercel.app";
+export const WEB_APP_URL = "https://dealerarch.com";
 
 // For local development, uncomment the line below:
 // export const WEB_APP_URL = "http://localhost:3000";
