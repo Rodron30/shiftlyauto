@@ -1,9 +1,21 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
+import { BackButton } from "@/components/ui/BackButton";
+import {
+  XIcon,
+  SaveIcon,
+  CarIcon,
+  CalendarIcon,
+  CheckIcon,
+  DollarSignIcon,
+  FileTextIcon,
+  VehiclesIcon,
+  BuildingIcon,
+} from "@/components/icons";
 
 type VehicleForm = {
   vin: string;
@@ -36,10 +48,8 @@ function formatNumberInput(value: string) {
 
   const firstDotIndex = cleaned.indexOf(".");
 
-  let integerPart =
-    firstDotIndex === -1
-      ? cleaned
-      : cleaned.slice(0, firstDotIndex);
+  const integerPart =
+    firstDotIndex === -1 ? cleaned : cleaned.slice(0, firstDotIndex);
 
   const decimalPart =
     firstDotIndex === -1
@@ -63,7 +73,7 @@ export default function NewVehiclePage() {
       try {
         const response = await fetch("/api/auth/session");
         const result = await response.json();
-        
+
         if (result.profile?.role === "customer") {
           setAccessDenied(true);
           return;
@@ -72,7 +82,7 @@ export default function NewVehiclePage() {
         console.error("Failed to check user role:", err);
       }
     }
-    
+
     checkAccess();
   }, []);
 
@@ -116,38 +126,42 @@ export default function NewVehiclePage() {
       if (params.get("trim")) defaultForm.trim = params.get("trim") || "";
       if (params.get("body")) defaultForm.body = params.get("body") || "";
       if (params.get("engine")) defaultForm.engine = params.get("engine") || "";
-      if (params.get("drivetrain")) defaultForm.drivetrain = params.get("drivetrain") || "";
-      if (params.get("transmission")) defaultForm.transmission = params.get("transmission") || "";
+      if (params.get("drivetrain"))
+        defaultForm.drivetrain = params.get("drivetrain") || "";
+      if (params.get("transmission"))
+        defaultForm.transmission = params.get("transmission") || "";
       if (params.get("fuel")) defaultForm.fuel = params.get("fuel") || "";
       if (params.get("price")) defaultForm.price = params.get("price") || "";
-      if (params.get("mileage")) defaultForm.mileage = params.get("mileage") || "";
-      if (params.get("description")) defaultForm.description = params.get("description") || "";
-      if (params.get("location")) defaultForm.location = params.get("location") || "";
+      if (params.get("mileage"))
+        defaultForm.mileage = params.get("mileage") || "";
+      if (params.get("description"))
+        defaultForm.description = params.get("description") || "";
+      if (params.get("location"))
+        defaultForm.location = params.get("location") || "";
 
-if (params.get("primary_image")) {
-  defaultForm.primary_image = params.get("primary_image") || "";
-}
+      if (params.get("primary_image")) {
+        defaultForm.primary_image = params.get("primary_image") || "";
+      }
 
-const imagesParam = params.get("images");
+      const imagesParam = params.get("images");
 
-if (imagesParam) {
-  try {
-    const parsedImages = JSON.parse(imagesParam);
+      if (imagesParam) {
+        try {
+          const parsedImages = JSON.parse(imagesParam);
 
-    if (Array.isArray(parsedImages)) {
-      defaultForm.images = parsedImages.filter(
-        (image) => typeof image === "string" && image.trim()
-      );
-    }
-  } catch (error) {
-    console.error("Failed to parse vehicle images:", error);
-  }
-}
+          if (Array.isArray(parsedImages)) {
+            defaultForm.images = parsedImages.filter(
+              (image) => typeof image === "string" && image.trim(),
+            );
+          }
+        } catch (error) {
+          console.error("Failed to parse vehicle images:", error);
+        }
+      }
     }
 
     return defaultForm;
   });
-
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -164,7 +178,7 @@ if (imagesParam) {
         if (Array.isArray(parsed)) {
           parsedImages = parsed.filter(
             (image): image is string =>
-              typeof image === "string" && image.trim().length > 0
+              typeof image === "string" && image.trim().length > 0,
           );
         }
       } catch (error) {
@@ -173,11 +187,13 @@ if (imagesParam) {
     }
 
     if (parsedImages.length > 0 || primaryImageParam) {
-      setForm((current) => ({
-        ...current,
-        primary_image: primaryImageParam || current.primary_image,
-        images: parsedImages.length > 0 ? parsedImages : current.images,
-      }));
+      setTimeout(() => {
+        setForm((current) => ({
+          ...current,
+          primary_image: primaryImageParam || current.primary_image,
+          images: parsedImages.length > 0 ? parsedImages : current.images,
+        }));
+      }, 0);
     }
   }, []);
 
@@ -186,11 +202,14 @@ if (imagesParam) {
 
   if (accessDenied) {
     return (
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
-          <h1 className="text-lg font-semibold text-amber-900 mb-2">Access Denied</h1>
-          <p className="text-amber-700 mb-4">
-            Customers do not have access to create vehicles. Redirecting to Leads...
+      <div className="px-4 sm:px-6 py-6">
+        <div className="rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] p-4 shadow-sm">
+          <h1 className="text-xs sm:text-sm font-semibold text-[#102A56] mb-2">
+            Access Denied
+          </h1>
+          <p className="text-[10px] sm:text-xs text-[#1E3A5F] mb-3">
+            Customers do not have access to create vehicles. Redirecting to
+            Leads...
           </p>
         </div>
       </div>
@@ -203,12 +222,6 @@ if (imagesParam) {
     setError("");
 
     try {
-      console.log("?? Vehicle submit image check:", {
-        primary_image: form.primary_image,
-        images_count: Array.isArray(form.images) ? form.images.length : -1,
-        first_images: Array.isArray(form.images) ? form.images.slice(0, 3) : [],
-      });
-
       const response = await fetch("/api/vehicles", {
         method: "POST",
         headers: {
@@ -254,9 +267,7 @@ if (imagesParam) {
     } catch (err) {
       console.error("Create vehicle error:", err);
       setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to create vehicle."
+        err instanceof Error ? err.message : "Failed to create vehicle.",
       );
     } finally {
       setLoading(false);
@@ -264,270 +275,335 @@ if (imagesParam) {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Add Vehicle</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Add a new vehicle to your inventory.
-        </p>
+    <div className="mx-auto w-full max-w-[1400px] px-3 pb-6 sm:px-4 lg:px-5">
+      <div className="mb-5">
+        <BackButton href="/vehicles" label="Back to Vehicles" />
+      </div>
+
+      <div className="mb-5">
+        <div className="rounded-2xl border border-[#DCE8F5] bg-white p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+              <CarIcon className="h-5 w-5" />
+            </div>
+
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]">
+                Vehicle Intelligence
+              </p>
+
+              <h1 className="mt-2 text-2xl font-bold tracking-tight text-[#102A56] sm:text-3xl">
+                Add Vehicle
+              </h1>
+
+              <p className="mt-1.5 text-sm text-[#64748B]">
+                Add a new vehicle to your inventory.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-200 bg-white px-4 py-3">
+          <XIcon className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+          <p className="text-sm font-medium text-red-700">{error}</p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              VIN
-            </label>
-            <input
-              type="text"
-              value={form.vin}
-              onChange={(e) => setForm({ ...form, vin: e.target.value.toUpperCase() })}
-              placeholder="Vehicle Identification Number"
-              maxLength={17}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <section className="rounded-2xl border border-[#DCE8F5] bg-white">
+          <div className="flex items-center gap-2.5 border-b border-[#EDF2F7] px-4 py-3 sm:px-5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F5F9FD] text-[#1677FF]">
+              <CarIcon className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-[#102A56]">
+                Vehicle Information
+              </h2>
+              <p className="text-xs text-[#64748B]">
+                Enter the vehicle specifications and inventory details.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Year
-            </label>
-            <input
-              type="number"
-              value={form.year}
-              onChange={(e) => setForm({ ...form, year: e.target.value })}
-              placeholder="2024"
-              min="1900"
-              max="2099"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
+          <div className="grid grid-cols-1 gap-x-5 gap-y-4 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3">
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <CarIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                VIN
+              </label>
+              <input
+                type="text"
+                value={form.vin}
+                onChange={(e) =>
+                  setForm({ ...form, vin: e.target.value.toUpperCase() })
+                }
+                placeholder="17-character VIN"
+                maxLength={17}
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <CalendarIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Year
+              </label>
+              <input
+                type="number"
+                value={form.year}
+                onChange={(e) => setForm({ ...form, year: e.target.value })}
+                placeholder="2024"
+                min="1900"
+                max="2099"
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <VehiclesIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Make
+                <span className="text-red-600">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.make}
+                onChange={(e) => setForm({ ...form, make: e.target.value })}
+                placeholder="Toyota"
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <VehiclesIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Model
+                <span className="text-red-600">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.model}
+                onChange={(e) => setForm({ ...form, model: e.target.value })}
+                placeholder="Camry"
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <VehiclesIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Trim
+              </label>
+              <input
+                type="text"
+                value={form.trim}
+                onChange={(e) => setForm({ ...form, trim: e.target.value })}
+                placeholder="LE"
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <VehiclesIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Body Style
+              </label>
+              <input
+                type="text"
+                value={form.body}
+                onChange={(e) => setForm({ ...form, body: e.target.value })}
+                placeholder="Sedan"
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <DollarSignIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                $ Price (CAD)
+              </label>
+              <input
+                type="text"
+                value={form.price}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    price: formatNumberInput(e.target.value),
+                  })
+                }
+                placeholder="25,000"
+                inputMode="decimal"
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div><div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <VehiclesIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Mileage (KM)
+              </label>
+              <input
+                type="text"
+                value={form.mileage}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    mileage: formatNumberInput(e.target.value),
+                  })
+                }
+                placeholder="50,000"
+                inputMode="decimal"
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div><div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <VehiclesIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Fuel Type
+              </label>
+              <input
+                type="text"
+                value={form.fuel}
+                onChange={(e) => setForm({ ...form, fuel: e.target.value })}
+                placeholder="Gasoline"
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <VehiclesIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Transmission
+              </label>
+              <input
+                type="text"
+                value={form.transmission}
+                onChange={(e) =>
+                  setForm({ ...form, transmission: e.target.value })
+                }
+                placeholder="Automatic"
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <VehiclesIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Drivetrain
+              </label>
+              <input
+                type="text"
+                value={form.drivetrain}
+                onChange={(e) =>
+                  setForm({ ...form, drivetrain: e.target.value })
+                }
+                placeholder="FWD"
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <VehiclesIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Engine
+              </label>
+              <input
+                type="text"
+                value={form.engine}
+                onChange={(e) => setForm({ ...form, engine: e.target.value })}
+                placeholder="2.5L"
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <CheckIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Status
+              </label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                className="h-11 w-full appearance-none rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10"
+              >
+                <option value="AVAILABLE">Available</option>
+                <option value="DRAFT">Draft</option>
+                <option value="SOLD">Sold</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-[#DCE8F5] bg-white">
+          <div className="flex items-center gap-2.5 border-b border-[#EDF2F7] px-4 py-3 sm:px-5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F5F9FD] text-[#1677FF]">
+              <FileTextIcon className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-[#102A56]">
+                Additional Details
+              </h2>
+              <p className="text-xs text-[#64748B]">
+                Add listing information and vehicle location.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Make
-            </label>
-            <input
-              type="text"
-              value={form.make}
-              onChange={(e) => setForm({ ...form, make: e.target.value })}
-              placeholder="Toyota"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
+          <div className="grid grid-cols-1 gap-4 p-4 sm:p-5 lg:grid-cols-[1fr_320px]">
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <FileTextIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Description
+              </label>
+              <textarea
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+                placeholder="Add vehicle description, features, condition, and notes..."
+                rows={5}
+                className="w-full resize-y rounded-xl border border-[#DCE8F5] bg-white px-3.5 py-2.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#334155]">
+                <BuildingIcon className="h-3.5 w-3.5 text-[#64748B]" />
+                Location
+              </label>
+              <input
+                type="text"
+                value={form.location}
+                onChange={(e) => setForm({ ...form, location: e.target.value })}
+                placeholder="Toronto, ON"
+                className="h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10 placeholder:text-[#94A3B8]"
+              />
+            </div>
           </div>
+        </section>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Model
-            </label>
-            <input
-              type="text"
-              value={form.model}
-              onChange={(e) => setForm({ ...form, model: e.target.value })}
-              placeholder="Camry"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
+        <div className="flex flex-col-reverse gap-2 border-t border-[#DCE8F5] pt-4 sm:flex-row sm:justify-end">
+          <Link
+            href="/vehicles"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#DCE8F5] bg-white px-4 text-sm font-semibold text-[#475569] transition hover:border-[#BFD8F2] hover:bg-[#F8FBFF]"
+          >
+            <XIcon className="h-4 w-4" />
+            Cancel
+          </Link>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Trim
-            </label>
-            <input
-              type="text"
-              value={form.trim}
-              onChange={(e) => setForm({ ...form, trim: e.target.value })}
-              placeholder="LE"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Body Style
-            </label>
-            <input
-              type="text"
-              value={form.body}
-              onChange={(e) => setForm({ ...form, body: e.target.value })}
-              placeholder="Sedan"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Price
-            </label>
-            <input
-              type="text"
-              value={form.price}
-              onChange={(e) => setForm({ ...form, price: formatNumberInput(e.target.value) })}
-              placeholder="25,000"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Currency
-            </label>
-            <select
-              value={form.currency}
-              onChange={(e) => setForm({ ...form, currency: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            >
-              <option value="CAD">CAD</option>
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-              <option value="GBP">GBP</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mileage
-            </label>
-            <input
-              type="text"
-              value={form.mileage}
-              onChange={(e) => setForm({ ...form, mileage: formatNumberInput(e.target.value) })}
-              placeholder="50,000"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mileage Unit
-            </label>
-            <select
-              value={form.mileageUnit}
-              onChange={(e) => setForm({ ...form, mileageUnit: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            >
-              <option value="KM">KM</option>
-              <option value="MI">MI</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Fuel Type
-            </label>
-            <input
-              type="text"
-              value={form.fuel}
-              onChange={(e) => setForm({ ...form, fuel: e.target.value })}
-              placeholder="Gasoline"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Transmission
-            </label>
-            <input
-              type="text"
-              value={form.transmission}
-              onChange={(e) => setForm({ ...form, transmission: e.target.value })}
-              placeholder="Automatic"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Drivetrain
-            </label>
-            <input
-              type="text"
-              value={form.drivetrain}
-              onChange={(e) => setForm({ ...form, drivetrain: e.target.value })}
-              placeholder="FWD"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Engine
-            </label>
-            <input
-              type="text"
-              value={form.engine}
-              onChange={(e) => setForm({ ...form, engine: e.target.value })}
-              placeholder="2.5L"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            >
-              <option value="AVAILABLE">Available</option>
-              <option value="DRAFT">Draft</option>
-              <option value="SOLD">Sold</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Description
-          </label>
-          <textarea
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="Vehicle description..."
-            rows={4}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Location
-          </label>
-          <input
-            type="text"
-            value={form.location}
-            onChange={(e) => setForm({ ...form, location: e.target.value })}
-            placeholder="Toronto, ON"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div className="flex items-center gap-4">
           <button
             type="submit"
             disabled={loading}
-            className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#1677FF] bg-[#1677FF] px-5 text-sm font-semibold text-white transition hover:border-[#0F67E8] hover:bg-[#0F67E8] disabled:cursor-not-allowed disabled:border-[#CBD5E1] disabled:bg-[#CBD5E1]"
           >
+            <SaveIcon className="h-4 w-4" />
             {loading ? "Creating..." : "Create Vehicle"}
           </button>
-
-          <Link
-            href="/vehicles"
-            className="rounded-lg border border-gray-300 px-6 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-          >
-            Cancel
-          </Link>
         </div>
       </form>
     </div>
   );
 }
+
+
+
+

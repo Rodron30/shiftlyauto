@@ -8,6 +8,7 @@ import {
 
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import type { CustomerReportPayload } from "@/lib/reportTypes";
+import { isShareTokenExpired } from "@/lib/shareToken";
 
 type RouteContext = {
   params: Promise<{ token: string }>;
@@ -131,6 +132,21 @@ export async function GET(
         "Report not found.",
         {
           status: 404,
+          headers: {
+            "Content-Type":
+              "text/plain; charset=utf-8",
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    }
+
+    // Check if share token has expired (30 days default)
+    if (isShareTokenExpired(data.created_at)) {
+      return new Response(
+        "Report share link has expired. Please request a new share link from the dealership.",
+        {
+          status: 410,
           headers: {
             "Content-Type":
               "text/plain; charset=utf-8",
@@ -490,8 +506,6 @@ export async function GET(
       // Otherwise assume historical values are already in KM
       return `${odometer.toLocaleString("en-US")} KM`;
     };
-
-    const mileageUnit = "KM";
 
     ensureSpace(16);
 

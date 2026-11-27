@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import {
   createSupabaseServerClient,
   getCurrentUserProfile,
@@ -22,12 +22,10 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  console.log("🚀 ACTUAL SYNC ROUTE REACHED - Route handler entry");
   try {
     const profile = await getCurrentUserProfile();
 
     if (!profile?.id || !profile.dealership_id) {
-      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Unauthorized");
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -38,7 +36,6 @@ export async function POST(
       profile.role !== "admin" &&
       profile.role !== "manager"
     ) {
-      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Forbidden");
       return NextResponse.json(
         { error: "Only managers and admins can sync integrations" },
         { status: 403 }
@@ -48,7 +45,6 @@ export async function POST(
     const saasAccess = await requireSaasAccess();
 
     if (!saasAccess.ok) {
-      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - SaaS Access Failed");
       return NextResponse.json(
         {
           error: saasAccess.error,
@@ -56,8 +52,6 @@ export async function POST(
         { status: saasAccess.status }
       );
     }
-
-    console.log("🚀 ACTUAL SYNC ROUTE REACHED - After requireSaasAccess");
 
     const { id } = await context.params;
 
@@ -79,7 +73,6 @@ export async function POST(
         requestedSyncType as SyncType
       )
     ) {
-      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Invalid sync type");
       return NextResponse.json(
         { error: "Invalid sync type" },
         { status: 400 }
@@ -101,8 +94,6 @@ export async function POST(
         "POST /api/integrations/[id]/sync lookup:",
         integrationError
       );
-      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Integration lookup error");
-
       return NextResponse.json(
         { error: "Unable to load integration" },
         { status: 500 }
@@ -110,7 +101,6 @@ export async function POST(
     }
 
     if (!integration) {
-      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Integration not found");
       return NextResponse.json(
         { error: "Integration not found" },
         { status: 404 }
@@ -118,7 +108,6 @@ export async function POST(
     }
 
     if (integration.status === "DISABLED") {
-      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Integration disabled");
       return NextResponse.json(
         { error: "Integration is disabled" },
         { status: 400 }
@@ -126,6 +115,34 @@ export async function POST(
     }
 
     const startedAt = new Date().toISOString();
+
+    const { data: claimed, error: claimError } = await supabase
+      .from("integrations")
+      .update({
+        status: "SYNCING",
+        last_error: null,
+        updated_at: startedAt,
+      })
+      .eq("id", integration.id)
+      .eq("dealership_id", profile.dealership_id)
+      .in("status", ["CONNECTED", "ERROR"])
+      .select("id")
+      .maybeSingle();
+
+    if (claimError) {
+      console.error("Manual sync claim failed:", claimError);
+      return NextResponse.json(
+        { error: "Unable to claim integration for sync" },
+        { status: 500 }
+      );
+    }
+
+    if (!claimed) {
+      return NextResponse.json(
+        { error: "Integration is already syncing or is no longer eligible." },
+        { status: 409 }
+      );
+    }
 
     const { data: log, error: logError } = await supabase
       .from("integration_sync_logs")
@@ -144,52 +161,34 @@ export async function POST(
         "POST /api/integrations/[id]/sync log:",
         logError
       );
-      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Sync log creation error");
+
+      const { error: releaseError } = await supabase
+        .from("integrations")
+        .update({
+          status: integration.status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", integration.id)
+        .eq("dealership_id", profile.dealership_id)
+        .eq("status", "SYNCING");
+
+      if (releaseError) {
+        console.error("Manual sync claim release failed:", releaseError);
+      }
 
       return NextResponse.json(
         { error: "Unable to create sync log" },
         { status: 500 }
       );
     }
-
-    await supabase
-      .from("integrations")
-      .update({
-        status: "SYNCING",
-        last_error: null,
-        updated_at: startedAt,
-      })
-      .eq("id", integration.id)
-      .eq("dealership_id", profile.dealership_id);
-
-    console.log("🚀 ACTUAL SYNC ROUTE REACHED - About to call syncIntegration");
-
     try {
-      console.log(`🚀 SYNC START: Integration ID ${integration.id}, Type ${integration.integration_type}`);
-      console.log(`📋 Integration Config:`, {
-        id: integration.id,
-        type: integration.integration_type,
-        status: integration.status,
-        dealership_id: integration.dealership_id,
-        config: integration.config
-      });
-
       const result = await syncIntegration(
         integration as Integration
       );
 
-      console.log(`✅ SYNC COMPLETE: Integration ID ${integration.id}`, {
-        status: result.status,
-        recordsProcessed: result.recordsProcessed,
-        recordsCreated: result.recordsCreated,
-        recordsUpdated: result.recordsUpdated,
-        recordsFailed: result.recordsFailed,
-        errorMessage: result.errorMessage
-      });
-
       const completedAt = new Date().toISOString();
 
-      await supabase
+      const { error: syncLogUpdateError } = await supabase
         .from("integration_sync_logs")
         .update({
           status: result.status,
@@ -203,21 +202,46 @@ export async function POST(
         .eq("id", log.id)
         .eq("dealership_id", profile.dealership_id);
 
-      await supabase
-        .from("integrations")
-        .update({
-          status:
-            result.status === "FAILED"
-              ? "ERROR"
-              : "CONNECTED",
-          last_sync_at: completedAt,
-          last_error: result.errorMessage ?? null,
-          updated_at: completedAt,
-        })
-        .eq("id", integration.id)
-        .eq("dealership_id", profile.dealership_id);
+      if (syncLogUpdateError) {
+        throw new Error(
+          `Unable to save sync log: ${syncLogUpdateError.message}`
+        );
+      }
 
-      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Success");
+      let nextScheduledAt: string | null = null;
+
+      if (integration.schedule_enabled) {
+        nextScheduledAt = calculateNextScheduledAt(integration);
+      }
+
+      const { data: finalized, error: integrationUpdateError } =
+        await supabase
+          .from("integrations")
+          .update({
+            status: result.status === "SUCCESS" ? "CONNECTED" : "ERROR",
+            last_sync_at: completedAt,
+            last_error: result.errorMessage ?? null,
+            next_scheduled_at: nextScheduledAt,
+            updated_at: completedAt,
+          })
+          .eq("id", integration.id)
+          .eq("dealership_id", profile.dealership_id)
+          .eq("status", "SYNCING")
+          .select("id")
+          .maybeSingle();
+
+      if (integrationUpdateError) {
+        throw new Error(
+          `Unable to finalize integration: ${integrationUpdateError.message}`
+        );
+      }
+
+      if (!finalized) {
+        throw new Error(
+          "Integration status changed before sync finalization."
+        );
+      }
+
       return NextResponse.json({
         integration_id: integration.id,
         sync_log_id: log.id,
@@ -231,7 +255,7 @@ export async function POST(
           ? syncError.message
           : "Integration sync failed";
 
-      await supabase
+      const { error: syncLogFailureError } = await supabase
         .from("integration_sync_logs")
         .update({
           status: "FAILED",
@@ -242,18 +266,39 @@ export async function POST(
         .eq("id", log.id)
         .eq("dealership_id", profile.dealership_id);
 
-      await supabase
-        .from("integrations")
-        .update({
-          status: "ERROR",
-          last_sync_at: completedAt,
-          last_error: errorMessage,
-          updated_at: completedAt,
-        })
-        .eq("id", integration.id)
-        .eq("dealership_id", profile.dealership_id);
+      if (syncLogFailureError) {
+        console.error(
+          "Manual sync failure log update failed:",
+          syncLogFailureError
+        );
+      }
 
-      console.log("🏁 ACTUAL SYNC ROUTE RETURNING - Error");
+      const { data: failedIntegration, error: integrationFailureError } =
+        await supabase
+          .from("integrations")
+          .update({
+            status: "ERROR",
+            last_sync_at: completedAt,
+            last_error: errorMessage,
+            updated_at: completedAt,
+          })
+          .eq("id", integration.id)
+          .eq("dealership_id", profile.dealership_id)
+          .eq("status", "SYNCING")
+          .select("id")
+          .maybeSingle();
+
+      if (integrationFailureError) {
+        console.error(
+          "Manual sync integration failure update failed:",
+          integrationFailureError
+        );
+      } else if (!failedIntegration) {
+        console.warn(
+          `Integration ${integration.id} was not changed to ERROR because it is no longer SYNCING.`
+        );
+      }
+
       return NextResponse.json(
         {
           error: "Integration sync failed",
@@ -274,4 +319,66 @@ export async function POST(
     );
   }
 }
+
+/**
+ * Calculates the next scheduled execution time based on integration configuration.
+ */
+type IntegrationScheduleConfig = {
+  schedule_interval?: string | null;
+  schedule_hour?: number | null;
+  schedule_day?: number | null;
+};
+
+function calculateNextScheduledAt(
+  integration: IntegrationScheduleConfig
+): string {
+  const now = new Date();
+  const interval = integration.schedule_interval || "DAILY";
+  const hour = integration.schedule_hour || 0;
+  const day = integration.schedule_day || 1; // Monday
+
+  const nextScheduled = new Date(now);
+
+  switch (interval) {
+    case "HOURLY":
+      nextScheduled.setHours(nextScheduled.getHours() + 1);
+      break;
+
+    case "DAILY":
+      nextScheduled.setHours(hour, 0, 0, 0);
+      if (nextScheduled <= now) {
+        nextScheduled.setDate(nextScheduled.getDate() + 1);
+      }
+      break;
+
+    case "WEEKLY":
+      nextScheduled.setHours(hour, 0, 0, 0);
+      const currentDay = nextScheduled.getDay(); // 0=Sunday, 1=Monday
+      const targetDay = day === 7 ? 0 : day; // Convert 7 (Sunday) to 0
+      const daysUntilTarget = (targetDay - currentDay + 7) % 7;
+      nextScheduled.setDate(nextScheduled.getDate() + (daysUntilTarget || 7));
+      if (nextScheduled <= now) {
+        nextScheduled.setDate(nextScheduled.getDate() + 7);
+      }
+      break;
+
+    case "MONTHLY":
+      nextScheduled.setHours(hour, 0, 0, 0);
+      nextScheduled.setDate(1); // First of the month
+      if (nextScheduled <= now) {
+        nextScheduled.setMonth(nextScheduled.getMonth() + 1);
+      }
+      break;
+
+    default:
+      // Default to daily
+      nextScheduled.setHours(hour, 0, 0, 0);
+      if (nextScheduled <= now) {
+        nextScheduled.setDate(nextScheduled.getDate() + 1);
+      }
+  }
+
+  return nextScheduled.toISOString();
+}
+
 

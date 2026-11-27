@@ -178,17 +178,6 @@ function normalizeForComparison(
     .trim();
 }
 
-/**
- * Escape regex special characters.
- */
-function escapeRegExp(
-  value: string
-): string {
-  return value.replace(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&"
-  );
-}
 
 /**
  * Extract only facts that actually exist in the input.
@@ -729,8 +718,7 @@ function findUnsupportedFacts(
 
     const isVehicleYear =
       bodyYearIs(
-        numericValue,
-        sourceFacts
+        numericValue
       );
 
     if (
@@ -752,9 +740,6 @@ function findUnsupportedFacts(
  */
 function bodyYearIs(
   value: number,
-  _sourceFacts: ReturnType<
-    typeof buildSourceFacts
-  >
 ): boolean {
   return (
     value >= 1900 &&

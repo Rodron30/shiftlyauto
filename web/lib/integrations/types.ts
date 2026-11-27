@@ -1,4 +1,4 @@
-﻿export type IntegrationType =
+export type IntegrationType =
   | "DMS"
   | "CRM"
   | "INVENTORY"
@@ -44,6 +44,11 @@ export type Integration = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  schedule_enabled: boolean;
+  schedule_interval: "HOURLY" | "DAILY" | "WEEKLY" | "MONTHLY" | null;
+  schedule_day: number | null;
+  schedule_hour: number | null;
+  next_scheduled_at: string | null;
 };
 
 export type IntegrationSyncLog = {

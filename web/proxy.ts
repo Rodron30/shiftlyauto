@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+﻿import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = [
@@ -35,6 +35,78 @@ export async function proxy(request: NextRequest) {
     request,
   });
 
+  const { pathname } = request.nextUrl;
+
+  const hostname = (
+    request.headers.get("host") ?? request.nextUrl.hostname
+  )
+    .split(":")[0]
+    .toLowerCase();
+
+  if (
+    hostname === "bcautoloan.ca" ||
+    hostname === "www.bcautoloan.ca"
+  ) {
+    const isBCAssetOrApi =
+      pathname.startsWith("/_next") ||
+      pathname.startsWith("/api") ||
+      pathname.startsWith("/images") ||
+      pathname.startsWith("/favicon");
+
+    if (isBCAssetOrApi) {
+      return response;
+    }
+
+    // Keep the existing internal icon and sitemap routes available.
+    if (pathname === "/bcautoloan/icon.png" ||
+        pathname === "/bcautoloan/sitemap.xml") {
+      return response;
+    }
+
+    if (pathname === "/icon.png") {
+      return NextResponse.rewrite(new URL("/bcautoloan/icon.png", request.url));
+    }
+
+    if (pathname === "/sitemap.xml") {
+      return NextResponse.rewrite(new URL("/bcautoloan/sitemap.xml", request.url));
+    }
+
+    if (pathname === "/robots.txt") {
+      return response;
+    }
+
+    // Redirect legacy public URLs to their clean equivalents.
+    if (pathname === "/bcautoloan" || pathname === "/bcautoloan/") {
+      return NextResponse.redirect(new URL("/", request.url), 308);
+    }
+
+    if (pathname.startsWith("/bcautoloan/")) {
+      const legacyPath = pathname.slice("/bcautoloan".length);
+      let cleanPath = legacyPath;
+
+      if (
+        legacyPath === "/pre-approved" ||
+        legacyPath === "/getapproved"
+      ) {
+        cleanPath = "/getapproved";
+      }
+
+      return NextResponse.redirect(
+        new URL(`${cleanPath}${request.nextUrl.search}`, request.url),
+        308
+      );
+    }
+
+    // /getapproved is already a real top-level route.
+    // Rewrite the other clean public paths to their internal pages.
+    if (pathname !== "/getapproved" &&
+        !pathname.startsWith("/getapproved/")) {
+      const targetPath =
+        pathname === "/" ? "/bcautoloan" : `/bcautoloan${pathname}`;
+
+      return NextResponse.rewrite(new URL(targetPath, request.url));
+    }
+  }
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -65,30 +137,6 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
-
-  if (
-    request.nextUrl.hostname === "bcautoloan.ca" ||
-    request.nextUrl.hostname === "www.bcautoloan.ca"
-  ) {
-    const isBCAssetOrApi =
-      pathname.startsWith("/_next") ||
-      pathname.startsWith("/api") ||
-      pathname.startsWith("/images") ||
-      pathname.startsWith("/favicon");
-
-
-    if (pathname.startsWith("/sell-your-car")) {
-      const targetPath = `/bcautoloan${pathname}`;
-      return NextResponse.rewrite(new URL(targetPath, request.url));
-    }
-
-    if (!isBCAssetOrApi && !pathname.startsWith("/bcautoloan") && pathname !== "/getapproved" && !pathname.startsWith("/getapproved/")) {
-      const targetPath =
-        pathname === "/" ? "/bcautoloan" : `/bcautoloan${pathname}`;
-      return NextResponse.rewrite(new URL(targetPath, request.url));
-    }
-  }
   const isPublicPath = PUBLIC_PATHS.some((path) =>
     matchesPath(pathname, path)
   );

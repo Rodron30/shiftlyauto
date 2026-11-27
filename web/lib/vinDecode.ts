@@ -1,10 +1,10 @@
-﻿// lib/vinDecode.ts
+// lib/vinDecode.ts
 //
-// Vehicle decode step (Blueprint Â§8, Â§9, Â§34).
+// Vehicle decode step (Blueprint Sections 8, 9, 34).
 // Uses NHTSA's free vPIC API (no key required) as the V1 decode source.
-// Only fields the provider actually returns are surfaced â€” the blueprint
+// Only fields the provider actually returns are surfaced - the blueprint
 // is explicit that unverified fields must never be displayed as fact
-// (Â§9 "Only information actually returned by the data source should be
+// (Section 9 "Only information actually returned by the data source should be
 // displayed as verified vehicle data.")
 
 export type DecodedVehicle = {
@@ -46,7 +46,7 @@ function buildEngineSummary(results: NhtsaResult[]): string | null {
   const displacementL = lookup("DisplacementL");
   const cylinders = lookup("EngineCylinders");
 
-  // Fuel type is now surfaced as its own field (Blueprint Â§9) â€” kept out
+// Fuel type is now surfaced as its own field (Blueprint Section 9) - kept out
   // of this string so it isn't duplicated between Engine and Fuel.
   const parts: string[] = [];
   if (displacementL) parts.push(`${displacementL}L`);
@@ -58,7 +58,7 @@ function buildEngineSummary(results: NhtsaResult[]): string | null {
 /**
  * Decodes a 17-character VIN using NHTSA's public vPIC API.
  * Returns null on any network/parse failure so callers can surface a
- * "decode unavailable" state instead of a false result (Blueprint Â§40).
+* "decode unavailable" state instead of a false result (Blueprint Section 40).
  */
 export async function decodeVin(
   vin: string

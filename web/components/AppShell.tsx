@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
+import { MobileNav } from "@/components/MobileNav";
 
 const PUBLIC_PREFIXES = [
   "/login",
@@ -10,6 +11,7 @@ const PUBLIC_PREFIXES = [
   "/auth",
   "/reset-password",
   "/report",
+  "/bcautoloan",
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -27,9 +29,30 @@ export function AppShell({ children }: { children: ReactNode }) {
     <>
       <AppSidebar />
 
-      <main className="min-h-screen bg-neutral-50 lg:pl-60">
-        {children}
+      <main
+        className="
+          min-h-screen
+          bg-[#F8FAFC]
+          pt-8
+          pb-20
+          lg:ml-[15rem]
+          lg:pb-6
+        "
+      >
+        <div className="min-h-[calc(100vh-4rem)]">
+          {children}
+        </div>
       </main>
+
+      <MobileNav />
     </>
   );
 }
+
+
+
+
+
+
+
+

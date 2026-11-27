@@ -38,6 +38,7 @@ export async function GET(request: Request) {
     const supabase = await createSupabaseServerClient();
 
     // Get dealership-wide notifications + user-specific notifications
+    // Note: profile.id comes from authenticated user, not user input, so interpolation is safe here
     const { data, error } = await supabase
       .from("notifications")
       .select(NOTIFICATION_SELECT)

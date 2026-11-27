@@ -26,3 +26,25 @@ export function generateShareToken(length = 8): string {
 export function generateInviteToken(): string {
   return randomBytes(24).toString("base64url");
 }
+
+/**
+ * Check if a share token has expired based on report creation date
+ * Default expiration: 30 days
+ */
+export function isShareTokenExpired(createdAt: string | Date, maxAgeDays = 30): boolean {
+  const created = new Date(createdAt);
+  const now = new Date();
+  const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+  const ageMs = now.getTime() - created.getTime();
+
+  return ageMs > maxAgeMs;
+}
+
+/**
+ * Get the expiration date for a share token
+ */
+export function getShareTokenExpirationDate(createdAt: string | Date, maxAgeDays = 30): Date {
+  const created = new Date(createdAt);
+  const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+  return new Date(created.getTime() + maxAgeMs);
+}

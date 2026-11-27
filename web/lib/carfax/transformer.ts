@@ -151,6 +151,7 @@ export class CarfaxTransformerPlaceholder implements ICarfaxTransformer {
   async transformToNormalizedEvents(
     _carfaxResponse: CarfaxFetchResponse
   ): Promise<CarfaxTransformationResult> {
+    void _carfaxResponse;
     return {
       normalizedEvents: [],
       skippedEvents: [],
@@ -168,6 +169,8 @@ export class CarfaxTransformerPlaceholder implements ICarfaxTransformer {
     _carfaxRecord: Record<string, unknown>,
     _eventType: keyof typeof CARFAX_EVENT_TYPES
   ): Promise<NormalizedCarfaxEvent | CarfaxIntegrationError> {
+    void _carfaxRecord;
+    void _eventType;
     return {
       code: "CONFIGURATION_ERROR",
       message: "CARFAX transformation is not yet implemented. Requires CARFAX API documentation.",
@@ -207,6 +210,7 @@ export class CarfaxTransformerPlaceholder implements ICarfaxTransformer {
   }
 
   extractEventDate(_carfaxRecord: Record<string, unknown>): string | null {
+    void _carfaxRecord;
     // Placeholder - requires CARFAX date format knowledge
     return null;
   }
@@ -215,16 +219,20 @@ export class CarfaxTransformerPlaceholder implements ICarfaxTransformer {
     _carfaxRecord: Record<string, unknown>,
     _eventType: keyof typeof CARFAX_EVENT_TYPES
   ): string | null {
+    void _carfaxRecord;
+    void _eventType;
     // Placeholder - requires CARFAX field mapping knowledge
     return null;
   }
 
   extractLocation(_carfaxRecord: Record<string, unknown>): string | null {
+    void _carfaxRecord;
     // Placeholder - requires CARFAX location field knowledge
     return null;
   }
 
   extractOdometer(_carfaxRecord: Record<string, unknown>): number | null {
+    void _carfaxRecord;
     // Placeholder - requires CARFAX odometer field knowledge
     return null;
   }

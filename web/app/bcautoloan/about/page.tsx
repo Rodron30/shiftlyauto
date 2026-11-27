@@ -1,4 +1,4 @@
-﻿import { Header } from "@/components/bcautoloan/Header";
+import { Header } from "@/components/bcautoloan/Header";
 import { Footer } from "@/components/bcautoloan/Footer";
 import type { Metadata } from "next";
 

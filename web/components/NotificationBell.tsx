@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BellIcon } from "./icons";
 import { Button } from "./ui/Button";
@@ -20,10 +20,10 @@ type Notification = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  INFO: "bg-blue-100 text-blue-700",
-  SUCCESS: "bg-green-100 text-green-700",
-  WARNING: "bg-amber-100 text-amber-700",
-  ERROR: "bg-red-100 text-red-700",
+  INFO: "bg-gray-100 text-gray-700",
+  SUCCESS: "bg-gray-100 text-gray-700",
+  WARNING: "bg-gray-100 text-gray-700",
+  ERROR: "bg-gray-100 text-gray-700",
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -60,30 +60,12 @@ export function NotificationBell() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [open]);
-
-  // Load notifications when panel opens
-  useEffect(() => {
-    if (open) {
-      loadNotifications();
-    }
-  }, [open]);
-
-  // Load unread count periodically
-  useEffect(() => {
-    loadUnreadCount();
-
-    const interval = setInterval(loadUnreadCount, 30000); // Every 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
       const response = await fetch("/api/notifications?limit=20");
-
       const result = await response.json();
 
       if (!response.ok || !result.success) {
@@ -92,16 +74,17 @@ export function NotificationBell() {
 
       setNotifications(result.notifications || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load notifications");
+      setError(
+        err instanceof Error ? err.message : "Failed to load notifications",
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadUnreadCount = async () => {
+  const loadUnreadCount = useCallback(async () => {
     try {
       const response = await fetch("/api/notifications/unread-count");
-
       const result = await response.json();
 
       if (response.ok && result.success) {
@@ -110,7 +93,36 @@ export function NotificationBell() {
     } catch {
       // Silent failure for unread count
     }
-  };
+  }, []);
+
+  // Load notifications when panel opens
+  useEffect(() => {
+    if (!open) return;
+
+    const task = queueMicrotask(() => {
+      void loadNotifications();
+    });
+
+    return () => {
+      void task;
+    };
+  }, [open, loadNotifications]);
+
+  // Load unread count periodically
+  useEffect(() => {
+    const task = queueMicrotask(() => {
+      void loadUnreadCount();
+    });
+
+    const interval = setInterval(() => {
+      void loadUnreadCount();
+    }, 30000);
+
+    return () => {
+      void task;
+      clearInterval(interval);
+    };
+  }, [loadUnreadCount]);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -176,12 +188,12 @@ export function NotificationBell() {
         onClick={() => setOpen((prev) => !prev)}
         aria-label="Notifications"
         title="Notifications"
-        className="relative rounded-md p-2 text-neutral-400 transition-colors hover:bg-white/[0.06] hover:text-white"
+        className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
       >
-        <BellIcon className="h-5 w-5" />
+        <BellIcon className="h-6 w-6" />
 
         {unreadCount > 0 && (
-          <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-semibold text-white">
+          <span className="absolute right-0 top-0 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gray-900 text-[9px] font-semibold text-white">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -196,90 +208,92 @@ export function NotificationBell() {
             className="fixed inset-0 z-40 cursor-default"
           />
 
-          <Card className="absolute right-0 z-50 mt-2 w-80 max-h-[500px] overflow-hidden border border-neutral-200 bg-white shadow-xl">
-            <div className="border-b border-neutral-200 p-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-neutral-900">Notifications</h3>
+          <Card className="absolute right-0 top-full z-[60] mt-1.5 min-w-[260px] w-[calc(100vw-16px)] sm:w-72 max-h-[calc(100vh-64px)] overflow-hidden border border-gray-200 bg-white shadow-[0_4px_16px_0_rgba(0,0,0,0.08),0_0_0_1px_rgba(255,255,255,0.5)]">
+            <div className="flex max-h-[calc(100vh-64px)] flex-col">
+              <div className="shrink-0 border-b border-gray-200 p-2">
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                  <h3 className="shrink-0 whitespace-nowrap text-[10px] font-semibold text-gray-900">Notifications</h3>
 
-                {unreadCount > 0 && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={markAllAsRead}
-                    className="!border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50 text-[10px]"
-                  >
-                    Mark all read
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="overflow-y-auto max-h-[400px]">
-              {loading ? (
-                <div className="p-4 text-center">
-                  <p className="text-xs text-neutral-500">Loading...</p>
-                </div>
-              ) : error ? (
-                <div className="p-4 text-center">
-                  <p className="text-xs text-red-400">{error}</p>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={loadNotifications}
-                    className="mt-2"
-                  >
-                    Retry
-                  </Button>
-                </div>
-              ) : notifications.length === 0 ? (
-                <div className="p-6 text-center">
-                  <p className="text-xs text-neutral-500">No notifications</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-neutral-100">
-                  {notifications.map((notification) => (
-                    <div
-                      onClick={() => handleNotificationClick(notification)}
-                      role="button"
-                      tabIndex={0}
-                      key={notification.id}
-                      className={`cursor-pointer p-3 transition-colors hover:bg-white/[0.08] ${
-                        !notification.read_at ? "bg-neutral-50" : ""
-                      }`}
+                  {unreadCount > 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={markAllAsRead}
+                      className="shrink-0 text-[10px]"
                     >
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge
-                              variant="secondary"
-                              className={`text-[10px] ${TYPE_COLORS[notification.type] || TYPE_COLORS.INFO}`}
-                            >
-                              {CATEGORY_LABELS[notification.category] || notification.category}
-                            </Badge>
+                      Mark all read
+                    </Button>
+                    )}
+                  </div>
+              </div>
 
-                            {!notification.read_at && (
-                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                            )}
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {loading ? (
+                  <div className="p-3 text-center">
+                    <p className="text-[10px] text-gray-500">Loading...</p>
+                  </div>
+                ) : error ? (
+                  <div className="p-3 text-center">
+                    <p className="text-[10px] text-gray-700">{error}</p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={loadNotifications}
+                      className="mt-2"
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="p-4 text-center">
+                    <p className="text-[10px] text-gray-500">No notifications</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {notifications.map((notification) => (
+                      <div
+                        onClick={() => handleNotificationClick(notification)}
+                        role="button"
+                        tabIndex={0}
+                        key={notification.id}
+                        className={`cursor-pointer p-2 transition-colors hover:bg-gray-50 ${
+                          !notification.read_at ? "bg-gray-50" : ""
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <Badge
+                                variant="subtle"
+                                className={`text-[10px] ${TYPE_COLORS[notification.type] || TYPE_COLORS.INFO}`}
+                              >
+                                {CATEGORY_LABELS[notification.category] || notification.category}
+                              </Badge>
+
+                              {!notification.read_at && (
+                                <span className="h-1 w-1 rounded-full bg-gray-900" />
+                              )}
+                            </div>
+
+                            <p className="text-[10px] font-medium text-gray-900 truncate">
+                              {notification.title}
+                            </p>
+
+                            <p className="mt-0.5 text-[10px] text-gray-600">
+                              {notification.message}
+                            </p>
+
+                            <p className="mt-1 text-[10px] text-gray-400">
+                              {formatDate(notification.created_at)}
+                            </p>
                           </div>
 
-                          <p className="text-xs font-medium text-neutral-900 truncate">
-                            {notification.title}
-                          </p>
-
-                          <p className="mt-0.5 text-[10px] text-neutral-600 line-clamp-2">
-                            {notification.message}
-                          </p>
-
-                          <p className="mt-1 text-[10px] text-neutral-400">
-                            {formatDate(notification.created_at)}
-                          </p>
                         </div>
-
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </Card>
         </>
@@ -287,3 +301,8 @@ export function NotificationBell() {
     </div>
   );
 }
+
+
+
+
+

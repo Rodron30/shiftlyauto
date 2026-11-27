@@ -1,87 +1,105 @@
-{
-  "manifest_version": 3,
-  "name": "Shiftly Auto - Vehicle Intelligence",
-  "version": "0.5.1",
-  "description": "Shiftly Auto dealership vehicle intelligence and Facebook Marketplace listing assistant.",
-
-  "action": {
-    "default_popup": "popup/popup.html",
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-    }
-  },
-
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  },
-
-  "background": {
-    "service_worker": "src/background.js",
-    "type": "module"
-  },
-
-  "options_page": "options/options.html",
-
-  "permissions": [
-    "storage",
-    "scripting",
-    "activeTab",
-    "tabs"
-  ],
-
-  "externally_connectable": {
-    "matches": [
-      "http://localhost:3000/*",
-      "https://localhost:3000/*",
-      "https://shiftlyauto.vercel.app/*",
-      "https://*.shiftly.ai/*",
-      "https://shiftly.ai/*",
-      "https://*.shiftly.app/*",
-      "https://shiftly.app/*",
-      "https://*.shiftly.com/*",
-      "https://shiftly.com/*"
-    ]
-  },
-
-  "host_permissions": [
-    "http://localhost:3000/*",
-    "https://shiftlyauto.vercel.app/*",
-    "https://www.facebook.com/*",
-    "https://www.hyundaidemo.dealerinspire.com/*",
-    "https://vehicle-images.carscommerce.inc/*"
-  ],
-
-  "content_scripts": [
-    {
-      "matches": [
-        "http://localhost:3000/*",
-        "https://localhost:3000/*",
-        "https://shiftlyauto.vercel.app/*",
-        "https://*.shiftly.ai/*",
-        "https://shiftly.ai/*",
-        "https://*.shiftly.app/*",
-        "https://shiftly.app/*",
-        "https://*.shiftly.com/*",
-        "https://shiftly.com/*"
-      ],
-      "js": [
-        "src/webapp-injector.js"
-      ],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": [
-        "https://www.facebook.com/marketplace/*"
-      ],
-      "js": [
-        "src/facebook-marketplace.js",
-        "src/marketplace-filler.js"
-      ],
-      "run_at": "document_idle"
-    }
-  ]
+﻿{
+    "manifest_version":  3,
+    "name":  "Shiftly Auto - Vehicle Intelligence",
+    "version":  "0.5.1",
+    "description":  "Shiftly Auto dealership vehicle intelligence and Facebook Marketplace listing assistant.",
+    "action":  {
+                   "default_icon":  {
+                                        "16":  "icons/icon16.png",
+                                        "48":  "icons/icon48.png",
+                                        "128":  "icons/icon128.png"
+                                    },
+                   "default_popup":  "popup/popup.html"
+               },
+    "icons":  {
+                  "16":  "icons/icon16.png",
+                  "48":  "icons/icon48.png",
+                  "128":  "icons/icon128.png"
+              },
+    "background":  {
+                       "service_worker":  "src/background.js",
+                       "type":  "module"
+                   },
+    "options_page":  "options/options.html",
+    "permissions":  [
+                        "storage",
+                        "scripting",
+                        "activeTab",
+                        "tabs"
+                    ],
+    "externally_connectable":  {
+                                   "matches":  [
+                                                   "http://localhost:3000/*",
+                                                   "https://localhost:3000/*",
+                                                   "https://shiftlyauto.vercel.app/*"
+                                               ]
+                               },
+    "host_permissions":  [
+                             "http://localhost:3000/*",
+                             "https://localhost:3000/*",
+                             "https://shiftlyauto.vercel.app/*",
+                             "https://www.facebook.com/*",
+                             "https://*.dealerinspire.com/*",
+                             "https://vehicle-images.carscommerce.inc/*",
+                             "https://tricitymits.com/*",
+                             "https://www.tricitymits.com/*"
+                         ],
+    "content_security_policy":  {
+                               "extension_pages":  "script-src 'self'; object-src 'self';"
+                           },
+    "content_scripts":  [
+                            {
+                                "matches":  [
+                                                "http://localhost:3000/*",
+                                                "https://localhost:3000/*",
+                                                "https://shiftlyauto.vercel.app/*"
+                                            ],
+                                "js":  [
+                                           "src/webapp-injector.js"
+                                       ],
+                                "run_at":  "document_idle"
+                            },
+                            {
+                                "matches":  [
+                                                "https://www.facebook.com/marketplace/*"
+                                            ],
+                                "js":  [
+                                           "src/facebook-marketplace.js",
+                                           "src/marketplace-filler.js"
+                                       ],
+                                "run_at":  "document_idle"
+                            },
+                            {
+                                "matches":  [
+                                                "https://*.dealerinspire.com/*"
+                                            ],
+                                "js":  [
+                                           "src/dealerinspire-injector.js"
+                                       ],
+                                "run_at":  "document_idle"
+                            },
+                            {
+                                "matches":  [
+                                                "https://tricitymits.com/*",
+                                                "https://www.tricitymits.com/*"
+                                            ],
+                                "js":  [
+                                           "src/tricitymitsubishi-bridge.js"
+                                       ],
+                                "run_at":  "document_start",
+                                "world":  "ISOLATED"
+                            },
+                            {
+                                "matches":  [
+                                                "https://tricitymits.com/*",
+                                                "https://www.tricitymits.com/*"
+                                            ],
+                                "js":  [
+                                           "src/tricitymitsubishi-injector.js"
+                                       ],
+                                "run_at":  "document_start",
+                                "world":  "MAIN"
+                            }
+                        ]
 }
+

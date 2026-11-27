@@ -1,17 +1,35 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 
 type CardProps = {
   children: ReactNode;
   className?: string;
   noPadding?: boolean;
+  compact?: boolean;
+  elevated?: boolean;
 };
 
-export function Card({ children, className = "", noPadding = false }: CardProps) {
+export function Card({
+  children,
+  className = "",
+  noPadding = false,
+  compact = false,
+  elevated = false,
+}: CardProps) {
+  const paddingClass = noPadding ? "" : compact ? "p-3" : "p-4";
+
+  const shadowClass = elevated
+    ? "shadow-[8px_8px_18px_rgba(71,85,105,0.10),-8px_-8px_18px_rgba(255,255,255,0.95)]"
+    : "shadow-[5px_5px_12px_rgba(71,85,105,0.07),-5px_-5px_12px_rgba(255,255,255,0.9)]";
+
   return (
     <div
-      className={`rounded-lg border border-neutral-200 bg-white shadow-sm ${
-        noPadding ? "" : "p-4"
-      } ${className}`}
+      className={[
+        "rounded-2xl border border-[#D7E3EF] bg-white",
+        shadowClass,
+        "transition-all duration-200",
+        paddingClass,
+        className,
+      ].join(" ")}
     >
       {children}
     </div>
@@ -21,10 +39,19 @@ export function Card({ children, className = "", noPadding = false }: CardProps)
 type CardHeaderProps = {
   children: ReactNode;
   className?: string;
+  compact?: boolean;
 };
 
-export function CardHeader({ children, className = "" }: CardHeaderProps) {
-  return <div className={`mb-3 ${className}`}>{children}</div>;
+export function CardHeader({
+  children,
+  className = "",
+  compact = false,
+}: CardHeaderProps) {
+  return (
+    <div className={`mb-3 ${compact ? "mb-2" : ""} ${className}`}>
+      {children}
+    </div>
+  );
 }
 
 type CardTitleProps = {
@@ -33,7 +60,11 @@ type CardTitleProps = {
 };
 
 export function CardTitle({ children, className = "" }: CardTitleProps) {
-  return <h3 className={`text-base font-semibold text-neutral-900 ${className}`}>{children}</h3>;
+  return (
+    <h3 className={`text-sm font-semibold text-[#102A56] ${className}`}>
+      {children}
+    </h3>
+  );
 }
 
 type CardContentProps = {

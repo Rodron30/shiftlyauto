@@ -12,9 +12,8 @@ import type {
   CarfaxFetchRequest,
   CarfaxFetchResponse,
   CarfaxIntegrationResult,
-  CarfaxSyncResult,
 } from "./types";
-import { CARFAX_SOURCE, CARFAX_INTEGRATION_STATUS } from "./constants";
+import { CARFAX_INTEGRATION_STATUS } from "./constants";
 
 /**
  * CARFAX Integration Service Interface
@@ -91,6 +90,7 @@ export class CarfaxServicePlaceholder implements ICarfaxService {
   async fetchCarfaxData(
     _request: CarfaxFetchRequest
   ): Promise<CarfaxIntegrationResult<CarfaxFetchResponse>> {
+    void _request;
     return {
       success: false,
       error: {
@@ -108,6 +108,7 @@ export class CarfaxServicePlaceholder implements ICarfaxService {
   async validateConfiguration(
     _config: CarfaxConfiguration
   ): Promise<{ valid: boolean; errors: string[] }> {
+    void _config;
     return {
       valid: false,
       errors: [
@@ -132,6 +133,7 @@ export class CarfaxServicePlaceholder implements ICarfaxService {
 export function createCarfaxService(
   config?: CarfaxConfiguration
 ): ICarfaxService {
+  void config;
   // When CARFAX documentation is available, replace this with
   // actual CARFAX service instantiation logic
   return new CarfaxServicePlaceholder();

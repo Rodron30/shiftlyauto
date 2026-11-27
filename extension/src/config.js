@@ -1,27 +1,12 @@
 // src/config.js
 
-// Shiftly Auto web app URL.
-// Automatically detects environment based on extension runtime.
-export const WEB_APP_URL = (() => {
-  // If not in extension environment (e.g., Node.js testing), default to localhost
-  if (typeof chrome === 'undefined' || !chrome.runtime) {
-    return "http://localhost:3000";
-  }
-  
-  // Check if running in development/localhost environment
-  if (chrome.runtime.id && chrome.runtime.getManifest().name.includes('Dev')) {
-    return "http://localhost:3000";
-  }
-  
-  // Check if the extension is loaded from a local file system (development)
-  const manifest = chrome.runtime.getManifest();
-  if (manifest.version.includes('dev') || manifest.version.includes('beta')) {
-    return "http://localhost:3000";
-  }
-  
-  // Production environment
-  return "https://shiftlyauto.vercel.app";
-})();
+// PRODUCTION URL - Shiftly Auto web application
+// Update this if deploying to a different domain
+// NOTE: Verify this matches your actual production deployment before use
+export const WEB_APP_URL = "https://shiftlyauto.vercel.app";
+
+// For local development, uncomment the line below:
+// export const WEB_APP_URL = "http://localhost:3000";
 
 // Excludes I, O, Q per the VIN standard.
 const VIN_PATTERN = /\b[A-HJ-NPR-Z0-9]{17}\b/g;

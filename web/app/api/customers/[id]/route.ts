@@ -1,9 +1,10 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import {
   createSupabaseServerClient,
   getCurrentUserProfile,
 } from "@/lib/supabaseServer";
 import { requireSaasAccess } from "@/lib/saas";
+import { createSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -296,7 +297,7 @@ export async function DELETE(
 
     const { id } = await context.params;
 
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
 
     const { data: existing, error: existingError } = await supabase
       .from("customers")
@@ -324,18 +325,40 @@ export async function DELETE(
       );
     }
 
-    const { error } = await supabase
+    
+    const { data: deletedCustomer, error: deleteError } = await supabase
       .from("customers")
       .delete()
       .eq("id", id)
-      .eq("dealership_id", profile.dealership_id);
+      .eq("dealership_id", profile.dealership_id)
+      .select("id")
+      .maybeSingle();
 
-    if (error) {
-      console.error("DELETE /api/customers/[id] error:", error);
+    if (deleteError) {
+      console.error("DELETE /api/customers/[id] error:", {
+        code: deleteError.code,
+        message: deleteError.message,
+        details: deleteError.details,
+        hint: deleteError.hint,
+      });
+
+      if (deleteError.code === "23503") {
+        return NextResponse.json(
+          { error: "This customer is linked to other records and cannot be deleted yet." },
+          { status: 409 }
+        );
+      }
 
       return NextResponse.json(
         { error: "Unable to delete customer" },
         { status: 500 }
+      );
+    }
+
+    if (!deletedCustomer) {
+      return NextResponse.json(
+        { error: "Customer not found or already deleted" },
+        { status: 404 }
       );
     }
 
@@ -349,3 +372,4 @@ export async function DELETE(
     );
   }
 }
+

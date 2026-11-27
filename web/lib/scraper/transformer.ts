@@ -31,6 +31,7 @@ export interface ShiftlyVehicle {
   status?: string;
   primary_image?: string | null;
   images?: string[];
+  source_url?: string | null;
   created_by: string;
 }
 

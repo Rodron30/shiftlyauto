@@ -248,6 +248,7 @@ export function Header() {
                 sizes="40px"
               />
             </div>
+            <span className="whitespace-nowrap text-lg font-extrabold tracking-tight text-bc-text-primary">BCAutoLoan</span>
           </Link>
 
           <div className="hidden items-center gap-1 md:flex">

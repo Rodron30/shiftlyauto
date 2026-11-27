@@ -1,14 +1,19 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 
 type TableProps = {
   children: ReactNode;
   className?: string;
+  compact?: boolean;
 };
 
-export function Table({ children, className = "" }: TableProps) {
+export function Table({
+  children,
+  className = "",
+  compact = false,
+}: TableProps) {
   return (
-    <div className="overflow-x-auto">
-      <table className={`w-full text-sm ${className}`}>
+    <div className="overflow-x-auto rounded-xl border border-[#D7E3EF] bg-white shadow-[4px_4px_10px_rgba(71,85,105,0.06),-4px_-4px_10px_rgba(255,255,255,0.9)]">
+      <table className={`w-full ${compact ? "text-xs" : "text-sm"} ${className}`}>
         {children}
       </table>
     </div>
@@ -20,8 +25,17 @@ type TableHeaderProps = {
   className?: string;
 };
 
-export function TableHeader({ children, className = "" }: TableHeaderProps) {
-  return <thead className={`bg-gray-50 ${className}`}>{children}</thead>;
+export function TableHeader({
+  children,
+  className = "",
+}: TableHeaderProps) {
+  return (
+    <thead
+      className={`border-b border-[#D7E3EF] bg-[#F4F8FC] ${className}`}
+    >
+      {children}
+    </thead>
+  );
 }
 
 type TableBodyProps = {
@@ -29,8 +43,15 @@ type TableBodyProps = {
   className?: string;
 };
 
-export function TableBody({ children, className = "" }: TableBodyProps) {
-  return <tbody className={`divide-y divide-gray-200 ${className}`}>{children}</tbody>;
+export function TableBody({
+  children,
+  className = "",
+}: TableBodyProps) {
+  return (
+    <tbody className={`divide-y divide-[#E5EDF5] ${className}`}>
+      {children}
+    </tbody>
+  );
 }
 
 type TableRowProps = {
@@ -39,10 +60,16 @@ type TableRowProps = {
   onClick?: () => void;
 };
 
-export function TableRow({ children, className = "", onClick }: TableRowProps) {
+export function TableRow({
+  children,
+  className = "",
+  onClick,
+}: TableRowProps) {
   return (
     <tr
-      className={`hover:bg-gray-50 ${onClick ? "cursor-pointer" : ""} ${className}`}
+      className={`transition-colors duration-150 hover:bg-[#F8FBFF] ${
+        onClick ? "cursor-pointer" : ""
+      } ${className}`}
       onClick={onClick}
     >
       {children}
@@ -54,11 +81,22 @@ type TableCellProps = {
   children: ReactNode;
   className?: string;
   colSpan?: number;
+  compact?: boolean;
 };
 
-export function TableCell({ children, className = "", colSpan }: TableCellProps) {
+export function TableCell({
+  children,
+  className = "",
+  colSpan,
+  compact = false,
+}: TableCellProps) {
+  const paddingClass = compact ? "px-3 py-2" : "px-4 py-3";
+
   return (
-    <td className={`px-4 py-3 text-gray-900 ${className}`} colSpan={colSpan}>
+    <td
+      className={`${paddingClass} text-[#102A56] ${className}`}
+      colSpan={colSpan}
+    >
       {children}
     </td>
   );
@@ -67,11 +105,20 @@ export function TableCell({ children, className = "", colSpan }: TableCellProps)
 type TableHeadProps = {
   children: ReactNode;
   className?: string;
+  compact?: boolean;
 };
 
-export function TableHead({ children, className = "" }: TableHeadProps) {
+export function TableHead({
+  children,
+  className = "",
+  compact = false,
+}: TableHeadProps) {
+  const paddingClass = compact ? "px-3 py-2" : "px-4 py-3";
+
   return (
-    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 ${className}`}>
+    <th
+      className={`${paddingClass} text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748B] ${className}`}
+    >
       {children}
     </th>
   );

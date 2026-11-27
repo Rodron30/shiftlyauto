@@ -288,8 +288,8 @@ export default function PlatformPage() {
   }, []);
 
   useEffect(() => {
-    loadOverview();
-    loadAuditLogs(0);
+    setTimeout(() => { void loadOverview(); }, 0);
+    setTimeout(() => { void loadAuditLogs(0); }, 0);
   }, [loadOverview, loadAuditLogs]);
 
   const usage = data?.summary.usage_totals;
@@ -437,9 +437,9 @@ export default function PlatformPage() {
     return (
       <>
 
-        <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
+        <main className="min-h-screen bg-slate-950 px-2 py-3 text-white">
           <div className="mx-auto max-w-7xl">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
+            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
               Loading Central Platform...
             </div>
           </div>
@@ -452,14 +452,14 @@ export default function PlatformPage() {
     return (
       <>
 
-        <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
+        <main className="min-h-screen bg-slate-950 px-2 py-3 text-white">
           <div className="mx-auto max-w-7xl">
-            <div className="rounded-2xl border border-red-400/20 bg-red-400/5 p-8">
-              <h1 className="text-xl font-semibold">
+            <div className="rounded-lg border border-red-400/20 bg-red-400/5 p-3">
+              <h1 className="text-xs font-semibold">
                 Central Platform
               </h1>
 
-              <p className="mt-3 text-red-300">{error}</p>
+              <p className="mt-1 text-red-300">{error}</p>
             </div>
           </div>
         </main>
@@ -474,33 +474,33 @@ export default function PlatformPage() {
   return (
     <>
 
-      <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <main className="min-h-screen bg-slate-950 px-2 py-3 text-white">
+        <div className="mx-auto max-w-7xl space-y-2">
           <section>
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-sky-300">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-sky-300">
                   Shiftly Auto SaaS
                 </p>
 
-                <h1 className="mt-2 text-3xl font-bold">
+                <h1 className="mt-1 text-lg font-bold">
                   Central Platform
                 </h1>
 
-                <p className="mt-2 max-w-2xl text-sm text-white/60">
+                <p className="mt-0.5 max-w-2xl text-[10px] text-white/60">
                   Central administration for all dealership accounts,
                   subscriptions, platform usage, and audit activity.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm">
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-[10px]">
                 <span className="text-white/50">Access:</span>{" "}
                 <span className="font-medium text-white">
                   {data.platform_admin.role}
                 </span>
 
                 {!isPlatformAdmin && (
-                  <p className="mt-1 text-xs text-amber-300">
+                  <p className="mt-0.5 text-[10px] text-amber-300">
                     Read-only access
                   </p>
                 )}
@@ -508,7 +508,7 @@ export default function PlatformPage() {
             </div>
 
             {error && (
-              <div className="mt-5 rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3 text-sm text-red-300">
+              <div className="mt-2 rounded-lg border border-red-400/20 bg-red-400/5 px-2 py-1.5 text-[10px] text-red-300">
                 {error}
               </div>
             )}

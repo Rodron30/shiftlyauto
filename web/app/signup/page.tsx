@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
 import { PasswordField } from "@/components/PasswordField";
+import AuthShell, { AuthIcons, authCls } from "@/components/auth/AuthShell";
 
 type InviteInfo = {
   email: string;
@@ -28,6 +29,29 @@ export default function SignupPage() {
   );
 }
 
+/* UI helper: card para sa mga status screen (check email, checking, error) */
+function StatusCard({
+  title,
+  children,
+  action,
+}: {
+  title: string;
+  children?: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className={authCls.card}>
+      <h1 className={authCls.title}>{title}</h1>
+      {children && (
+        <div className="mt-2 space-y-2 text-xs sm:text-sm text-[#6B7C93]">
+          {children}
+        </div>
+      )}
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -40,7 +64,8 @@ function SignupForm() {
   const [inviteError, setInviteError] = useState("");
 
   const [dealership, setDealership] = useState<DealershipInfo | null>(null);
-  const [dealershipChecked, setDealershipChecked] = useState(!dealershipSignupCode);
+  const [dealershipChecked, setDealershipChecked] =
+    useState(!dealershipSignupCode);
   const [dealershipError, setDealershipError] = useState("");
 
   const [dealershipName, setDealershipName] = useState("");
@@ -55,13 +80,15 @@ function SignupForm() {
 
   // Clear form state on mount to prevent autofill from previous session
   useEffect(() => {
-    setDealershipName("");
-    setFullName("");
-    setEmail("");
-    setPassword("");
-    setConfirmPassword("");
-    setError("");
-    setCheckEmail(false);
+    setTimeout(() => {
+      setDealershipName("");
+      setFullName("");
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      setError("");
+      setCheckEmail(false);
+    }, 0);
   }, [inviteToken, dealershipSignupCode]);
 
   useEffect(() => {
@@ -86,7 +113,7 @@ function SignupForm() {
             headers: {
               "Cache-Control": "no-cache",
             },
-          }
+          },
         );
 
         const customerResult = await customerResponse.json();
@@ -103,8 +130,9 @@ function SignupForm() {
           setInvite({
             email: inviteEmail,
             role: "customer",
-            dealershipName:
-              String(customerResult.dealership_name ?? "your dealership").trim(),
+            dealershipName: String(
+              customerResult.dealership_name ?? "your dealership",
+            ).trim(),
             customerName: customerResult.customer_name,
             isCustomerInvite: true,
           });
@@ -124,15 +152,14 @@ function SignupForm() {
             headers: {
               "Cache-Control": "no-cache",
             },
-          }
+          },
         );
 
         const result = await response.json();
 
         if (!response.ok || !result.success) {
           throw new Error(
-            result.error ||
-              "This invite is invalid or has expired."
+            result.error || "This invite is invalid or has expired.",
           );
         }
 
@@ -147,8 +174,9 @@ function SignupForm() {
         setInvite({
           email: inviteEmail,
           role: String(result.role ?? "salesperson"),
-          dealershipName:
-            String(result.dealershipName ?? "your dealership").trim(),
+          dealershipName: String(
+            result.dealershipName ?? "your dealership",
+          ).trim(),
           isCustomerInvite: false,
         });
 
@@ -163,7 +191,7 @@ function SignupForm() {
         setInviteError(
           err instanceof Error
             ? err.message
-            : "This invite is invalid or has expired."
+            : "This invite is invalid or has expired.",
         );
       } finally {
         if (!cancelled) {
@@ -184,12 +212,69 @@ function SignupForm() {
       return;
     }
 
-    // DISABLED: Public customer signup via dealership codes is no longer supported
-    // Customers must be invited by admin through the new customer invitation system
-    setDealershipError(
-      "Public customer registration is no longer supported. Please contact your dealership administrator for an invitation."
-    );
-    setDealershipChecked(true);
+    // Validate dealership signup code
+    const activeCode = dealershipSignupCode;
+    let cancelled = false;
+
+    async function loadDealership() {
+      try {
+        setDealershipError("");
+        setDealershipChecked(false);
+
+        const response = await fetch(
+          `/api/dealership/validate-signup?code=${encodeURIComponent(
+            activeCode,
+          )}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              "Cache-Control": "no-cache",
+            },
+          },
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || "Invalid dealership signup code.");
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setDealership({
+          id: result.dealership.id,
+          name: result.dealership.name || "Your Dealership",
+          signupCode: activeCode,
+        });
+
+        setDealershipChecked(true);
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        setDealership(null);
+
+        setDealershipError(
+          err instanceof Error
+            ? err.message
+            : "Invalid dealership signup code.",
+        );
+      } finally {
+        if (!cancelled) {
+          setDealershipChecked(true);
+        }
+      }
+    }
+
+    loadDealership();
+
+    return () => {
+      cancelled = true;
+    };
   }, [dealershipSignupCode]);
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -212,8 +297,7 @@ function SignupForm() {
     }
 
     // Basic browser-independent email validation.
-    const emailPattern =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailPattern.test(normalizedEmail)) {
       setError("Please enter a valid email address.");
@@ -258,28 +342,27 @@ function SignupForm() {
             full_name: normalizedFullName,
           }
         : dealership
-        ? {
-            dealership_signup_code: dealership.signupCode,
-            full_name: normalizedFullName,
-          }
-        : {
-            dealership_name: normalizedDealershipName,
-            full_name: normalizedFullName,
-          };
+          ? {
+              dealership_signup_code: dealership.signupCode,
+              full_name: normalizedFullName,
+            }
+          : {
+              dealership_name: normalizedDealershipName,
+              full_name: normalizedFullName,
+            };
 
-      const { data, error: signUpError } =
-        await supabase.auth.signUp({
-          email: normalizedEmail,
-          password,
-          options: {
-            data: metadata,
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+        options: {
+          data: metadata,
 
-            emailRedirectTo:
-              typeof window !== "undefined"
-                ? `${window.location.origin}/auth/callback`
-                : undefined,
-          },
-        });
+          emailRedirectTo:
+            typeof window !== "undefined"
+              ? `${window.location.origin}/auth/callback`
+              : undefined,
+        },
+      });
 
       if (signUpError) {
         console.error("Signup error:", signUpError);
@@ -302,217 +385,214 @@ function SignupForm() {
       setError(
         err instanceof Error
           ? err.message
-          : "Something went wrong while creating your account."
+          : "Something went wrong while creating your account.",
       );
     } finally {
       setLoading(false);
     }
   };
 
+  /* ------------------------- UI ------------------------- */
+
+  const shellProps = {};
+
   if (checkEmail) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-100 px-4">
-        <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
-          <h1 className="text-xl font-bold text-neutral-900">
-            Check your email
-          </h1>
-
-          <p className="mt-3 text-sm text-neutral-600">
+      <AuthShell {...shellProps}>
+        <StatusCard
+          title="Check your email"
+          action={
+            <Link
+              href="/login"
+              className={`${authCls.primary} inline-flex items-center justify-center`}
+            >
+              Back to Sign In
+            </Link>
+          }
+        >
+          <p>
             We sent a confirmation link to{" "}
-            <strong>{email}</strong>. Click it to activate
-            your account.
+            <strong className="text-[#102A56]">{email}</strong>. Click it to
+            activate your account.
           </p>
-
-          <Link
-            href="/login"
-            className="mt-6 inline-flex text-sm font-semibold text-neutral-900 hover:underline"
-          >
-            Back to sign in
-          </Link>
-        </div>
-      </main>
+        </StatusCard>
+      </AuthShell>
     );
   }
 
   if (inviteToken && !inviteChecked) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-100 px-4">
-        <p className="text-sm text-neutral-500">
-          Checking invite...
-        </p>
-      </main>
+      <AuthShell {...shellProps}>
+        <StatusCard title="Shiftly Auto">
+          <p>Checking invite...</p>
+        </StatusCard>
+      </AuthShell>
     );
   }
 
   if (dealershipSignupCode && !dealershipChecked) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-100 px-4">
-        <p className="text-sm text-neutral-500">
-          Checking dealership...
-        </p>
-      </main>
+      <AuthShell {...shellProps}>
+        <StatusCard title="Shiftly Auto">
+          <p>Checking dealership...</p>
+        </StatusCard>
+      </AuthShell>
     );
   }
 
   if (inviteToken && inviteError) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-100 px-4">
-        <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm font-medium text-red-600">
-            {inviteError}
+      <AuthShell {...shellProps}>
+        <StatusCard
+          title="Invalid Invite"
+          action={
+            <Link href="/signup" className={`${authCls.secondary} inline-flex`}>
+              Set up a new dealership instead
+            </Link>
+          }
+        >
+          <p>{inviteError}</p>
+          <p className="text-xs">
+            Ask your dealership admin to send a new invite, or set up a new
+            dealership below.
           </p>
-
-          <p className="mt-2 text-sm text-neutral-500">
-            Ask your dealership admin to send a new invite,
-            or set up a new dealership below.
-          </p>
-
-          <Link
-            href="/signup"
-            className="mt-4 inline-flex text-sm font-semibold text-neutral-900 hover:underline"
-          >
-            Set up a new dealership instead
-          </Link>
-        </div>
-      </main>
+        </StatusCard>
+      </AuthShell>
     );
   }
 
   if (dealershipSignupCode && dealershipError) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-100 px-4">
-        <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm font-medium text-red-600">
-            {dealershipError}
+      <AuthShell {...shellProps}>
+        <StatusCard
+          title="Registration Restricted"
+          action={
+            <Link href="/login" className={`${authCls.secondary} inline-flex`}>
+              Back to Sign In
+            </Link>
+          }
+        >
+          <p>{dealershipError}</p>
+          <p className="text-xs">
+            Public customer registration is no longer supported. Please contact
+            your dealership administrator for an invitation.
           </p>
-
-          <p className="mt-2 text-sm text-neutral-500">
-            Public customer registration is no longer supported.
-            Please contact your dealership administrator for an invitation.
-          </p>
-
-          <Link
-            href="/login"
-            className="mt-4 inline-flex text-sm font-semibold text-neutral-900 hover:underline"
-          >
-            Back to sign in
-          </Link>
-        </div>
-      </main>
+        </StatusCard>
+      </AuthShell>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-100 px-4 py-10">
-      <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-8 shadow-sm">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-neutral-900">
-            {invite?.isCustomerInvite
-              ? "Complete Your Customer Account"
-              : invite
+    <AuthShell {...shellProps}>
+      <div className={authCls.card}>
+        <h1 className={authCls.title}>
+          {invite?.isCustomerInvite
+            ? "Complete Your Customer Account"
+            : invite
               ? "Join Your Dealership"
               : dealership
-              ? "Create Customer Account"
-              : "Set Up Your Dealership"}
-          </h1>
-
-          <p className="mt-1 text-sm text-neutral-500">
-            {invite?.isCustomerInvite
-              ? `You've been invited to ${invite.dealershipName} as a customer.`
-              : invite
+                ? "Create Customer Account"
+                : "Create Your Account"}
+        </h1>
+        <p className={authCls.sub}>
+          {invite?.isCustomerInvite
+            ? `You've been invited to ${invite.dealershipName} as a customer.`
+            : invite
               ? `You're joining ${invite.dealershipName} as a ${invite.role}.`
               : dealership
-              ? `Create your customer account for ${dealership.name}.`
-              : "Create your dealership's Shiftly Auto account."}
-          </p>
-        </div>
+                ? `Create your customer account for ${dealership.name}.`
+                : "Get started with Shiftly Auto today"}
+        </p>
 
         <form
           key={`${inviteToken}-${dealershipSignupCode}`}
           onSubmit={handleSignUp}
-          className="mt-8 space-y-4"
+          className="mt-3 space-y-3"
         >
-          {!invite && !dealership && (
-            <div>
-              <label
-                htmlFor="dealershipName"
-                className="block text-sm font-medium text-neutral-700"
-              >
-                Dealership Name
-              </label>
-
-              <input
-                id="dealershipName"
-                name="dealershipName"
-                type="text"
-                required
-                autoComplete="organization"
-                value={dealershipName}
-                onChange={(e) =>
-                  setDealershipName(e.target.value)
-                }
-                placeholder="e.g. Downtown Motors"
-                className="mt-1 w-full rounded-lg border border-neutral-300 px-4 py-2.5 text-neutral-900 outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
-              />
-            </div>
-          )}
-
           {dealership && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-              <p className="font-medium">Public customer registration is no longer supported</p>
-              <p className="mt-1">Please contact your dealership administrator for an invitation.</p>
+            <div className="rounded-xl border border-[#B8D0EB] bg-[#F5F9FD] p-3 text-xs text-[#6B7C93]">
+              <p className="font-medium text-[#102A56]">
+                Public customer registration is no longer supported
+              </p>
+              <p className="mt-1">
+                Please contact your dealership administrator for an invitation.
+              </p>
             </div>
           )}
 
           {!dealership && (
             <>
               <div>
-                <label
-                  htmlFor="fullName"
-                  className="block text-sm font-medium text-neutral-700"
-                >
-                  Your Full Name
+                <label htmlFor="fullName" className={authCls.label}>
+                  Full Name
                 </label>
-
-                <input
-                  id="fullName"
-                  name="fullName"
-                  type="text"
-                  required
-                  autoComplete="name"
-                  placeholder="e.g. John Smith"
-                  value={fullName}
-                  onChange={(e) =>
-                    setFullName(e.target.value)
-                  }
-                  className="mt-1 w-full rounded-lg border border-neutral-300 px-4 py-2.5 text-neutral-900 outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
-                />
+                <div className="relative">
+                  <span className={authCls.iconLeft}>
+                    <AuthIcons.user className="h-4 w-4" />
+                  </span>
+                  <input
+                    id="fullName"
+                    name="fullName"
+                    type="text"
+                    required
+                    autoComplete="name"
+                    placeholder="Enter your full name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className={`${authCls.input} pl-10`}
+                  />
+                </div>
               </div>
 
               <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-neutral-700"
-                >
-                  Email
+                <label htmlFor="email" className={authCls.label}>
+                  Email Address
                 </label>
-
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  readOnly={Boolean(invite)}
-                  value={email}
-                  onChange={(e) =>
-                    setEmail(e.target.value)
-                  }
-                  className="mt-1 w-full rounded-lg border border-neutral-300 px-4 py-2.5 text-neutral-900 outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 read-only:bg-neutral-50 read-only:text-neutral-500"
-                />
+                <div className="relative">
+                  <span className={authCls.iconLeft}>
+                    <AuthIcons.mail className="h-4 w-4" />
+                  </span>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    readOnly={Boolean(invite)}
+                    placeholder="Enter your email address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={`${authCls.input} pl-10 read-only:bg-[#E8F0FA] read-only:text-[#8B9DB3]`}
+                  />
+                </div>
               </div>
 
+              {!invite && (
+                <div>
+                  <label htmlFor="dealershipName" className={authCls.label}>
+                    Dealership / Organization
+                  </label>
+                  <div className="relative">
+                    <span className={authCls.iconLeft}>
+                      <AuthIcons.building className="h-4 w-4" />
+                    </span>
+                    <input
+                      id="dealershipName"
+                      name="dealershipName"
+                      type="text"
+                      required
+                      autoComplete="organization"
+                      value={dealershipName}
+                      onChange={(e) => setDealershipName(e.target.value)}
+                      placeholder="Enter your dealership name"
+                      className={`${authCls.input} pl-10`}
+                    />
+                  </div>
+                </div>
+              )}
+
               <PasswordField
+                variant="auth"
                 label="Password"
                 id="password"
                 name="password"
@@ -520,11 +600,12 @@ function SignupForm() {
                 autoComplete="new-password"
                 value={password}
                 onChange={setPassword}
-                placeholder="Create a password"
+                placeholder="Create a password (min. 8 characters)"
                 minLength={8}
               />
 
               <PasswordField
+                variant="auth"
                 label="Confirm Password"
                 id="confirmPassword"
                 name="confirmPassword"
@@ -534,51 +615,45 @@ function SignupForm() {
                 onChange={setConfirmPassword}
                 placeholder="Confirm your password"
                 minLength={8}
-                error={confirmPassword && password !== confirmPassword ? "Passwords do not match." : undefined}
+                error={
+                  confirmPassword && password !== confirmPassword
+                    ? "Passwords do not match."
+                    : undefined
+                }
               />
 
-              {error && (
-                <p className="text-sm text-red-600">{error}</p>
-              )}
+              {error && <p className={authCls.error}>{error}</p>}
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg bg-black px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                className={`${authCls.primary} flex items-center justify-center gap-2`}
               >
-                {loading ? "Creating account..." : "Create Account"}
+                <AuthIcons.userPlus className="h-4 w-4" />
+                {loading
+                  ? "Creating account..."
+                  : invite?.isCustomerInvite
+                    ? "Complete Customer Account"
+                    : invite
+                      ? "Join Dealership"
+                      : dealership
+                        ? "Create Customer Account"
+                        : "Create Account"}
               </button>
             </>
           )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-black py-2.5 font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
-          >
-            {loading
-              ? "Creating account..."
-              : invite?.isCustomerInvite
-                ? "Complete Customer Account"
-                : invite
-                ? "Join Dealership"
-                : dealership
-                ? "Create Customer Account"
-                : "Create Dealership Account"}
-          </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-neutral-500">
+        <p className="mt-4 text-center text-xs text-[#8B9DB3]">
           Already have an account?{" "}
-
           <Link
             href="/login"
-            className="font-semibold text-neutral-900 hover:underline"
+            className="font-semibold text-[#1677FF] transition-colors hover:underline"
           >
             Sign in
           </Link>
         </p>
       </div>
-    </main>
+    </AuthShell>
   );
 }

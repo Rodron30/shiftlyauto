@@ -1,25 +1,29 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 
 type BadgeProps = {
   children: ReactNode;
-  variant?: "default" | "success" | "warning" | "danger" | "info" | "secondary" | "dark";
+  variant?: "default" | "primary" | "success" | "warning" | "danger" | "outline" | "subtle";
   className?: string;
 };
 
-export function Badge({ children, variant = "default", className = "" }: BadgeProps) {
+export function Badge({
+  children,
+  variant = "default",
+  className = "",
+}: BadgeProps) {
   const variantStyles = {
-    default: "bg-gray-100 text-gray-700",
-    success: "bg-green-100 text-green-700",
-    warning: "bg-amber-100 text-amber-700",
-    danger: "bg-red-100 text-red-700",
-    info: "bg-blue-100 text-blue-700",
-    secondary: "bg-white text-gray-500 ring-1 ring-gray-200",
-    dark: "bg-amber-400/10 text-amber-300 border border-amber-400/30",
+    default: "border border-[#D7E3EF] bg-[#F8FAFC] text-[#64748B]",
+    primary: "border border-[#BFD7FF] bg-[#EAF5FF] text-[#1677FF]",
+    success: "border border-emerald-200 bg-emerald-50 text-emerald-700",
+    warning: "border border-amber-200 bg-amber-50 text-amber-700",
+    danger: "border border-red-200 bg-red-50 text-red-600",
+    outline: "border border-[#D7E3EF] bg-white text-[#64748B]",
+    subtle: "border border-[#E8EEF5] bg-[#F8FAFC] text-[#8B9DB3]",
   };
-  
+
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${variantStyles[variant]} ${className}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${variantStyles[variant]} ${className}`}
     >
       {children}
     </span>

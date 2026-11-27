@@ -1,7 +1,22 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import {
+  BackIcon,
+  CrmIcon,
+  RefreshIcon,
+  XIcon,
+  UserPlusIcon,
+  PlusIcon,
+  CalendarCheckIcon,
+  ClockIcon,
+  UserIcon,
+  CarIcon,
+  FileTextIcon,
+  BellIcon,
+  ExternalLinkIcon,
+} from "@/components/icons";
 
 type Customer = {
   id: string;
@@ -114,27 +129,27 @@ function formatDateTime(value: string) {
 function vehicleName(vehicle: Vehicle | null | undefined) {
   if (!vehicle) return "No vehicle";
 
-  return [vehicle.year, vehicle.make, vehicle.model, vehicle.trim]
-    .filter(Boolean)
-    .join(" ") || "Vehicle";
+  return (
+    [vehicle.year, vehicle.make, vehicle.model, vehicle.trim]
+      .filter(Boolean)
+      .join(" ") || "Vehicle"
+  );
 }
 
 function statusClasses(status: string | null) {
   switch ((status ?? "").toUpperCase()) {
     case "NEW":
-      return "bg-blue-50 text-blue-700";
+      return "border border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]";
     case "CONTACTED":
-      return "bg-purple-50 text-purple-700";
-case "WON":
-
-  return "bg-green-50 text-green-700";
-
-case "NEGOTIATING":
-      return "bg-amber-50 text-amber-700";
-case "LOST":
-      return "bg-red-50 text-red-700";
-default:
-      return "bg-gray-100 text-gray-600";
+      return "border border-[#E9D5FF] bg-[#FAF5FF] text-[#7C3AED]";
+    case "WON":
+      return "border border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]";
+    case "NEGOTIATING":
+      return "border border-[#FED7AA] bg-[#FFFBEB] text-[#92400E]";
+    case "LOST":
+      return "border border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]";
+    default:
+      return "border border-[#CFE2F5] bg-[#F5F9FD] text-[#475569]";
   }
 }
 
@@ -149,35 +164,12 @@ function isOverdue(date: string | null) {
   const todayDate = new Date(
     today.getFullYear(),
     today.getMonth(),
-    today.getDate()
+    today.getDate(),
   );
 
   const followUp = new Date(`${date}T00:00:00`);
 
   return followUp < todayDate;
-}
-
-function StatCard({
-  label,
-  value,
-  detail,
-  href,
-}: {
-  label: string;
-  value: number;
-  detail: string;
-  href: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-    >
-      <p className="text-sm font-medium text-neutral-500">{label}</p>
-      <p className="mt-2 text-3xl font-bold text-neutral-900">{value}</p>
-      <p className="mt-1 text-xs text-neutral-500">{detail}</p>
-    </Link>
-  );
 }
 
 export default function CrmDashboardPage() {
@@ -199,9 +191,7 @@ export default function CrmDashboardPage() {
         const result = await response.json();
 
         if (!response.ok || !result.success) {
-          setError(
-            result.error || "Failed to load CRM dashboard."
-          );
+          setError(result.error || "Failed to load CRM dashboard.");
           return;
         }
 
@@ -245,532 +235,749 @@ export default function CrmDashboardPage() {
   }, [dashboard]);
 
   return (
-    <div className="p-6 lg:p-8">
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-neutral-500">
-            Customer Relationship Management
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-neutral-900">
-            CRM Dashboard
-          </h1>
-          <p className="mt-1 text-sm text-neutral-600">
-            Manage customers, leads, follow-ups, activities, and reports.
-          </p>
-        </div>
+    <div className="mx-auto w-full max-w-[1400px] px-3 pb-6 sm:px-4 lg:px-5">
+      <div className="mb-5">
+        <Link
+          href="/"
+          className="group mb-3 inline-flex items-center gap-2 rounded-xl border border-[#DCE8F5] bg-white px-3.5 py-2 text-sm font-semibold text-[#475569] transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF] hover:text-[#1677FF]"
+        >
+          <BackIcon className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" />
+          <span>Back to Dashboard</span>
+        </Link>
 
-        {userRole !== null && (
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/customers"
-              className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
-            >
-              Add Customer
-            </Link>
-            <Link
-              href="/leads"
-              className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
-            >
-              Add Lead
-            </Link>
-            {userRole !== "customer" && (
-              <Link
-                href="/activities"
-                className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
-              >
-                Log Activity
-              </Link>
+        <div className="rounded-2xl border border-[#DCE8F5] bg-white p-5 sm:p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                  <CrmIcon className="h-4 w-4" />
+                </span>
+
+                <h1 className="text-2xl font-bold tracking-tight text-[#102A56] sm:text-3xl">
+                  CRM
+                </h1>
+              </div>
+
+              <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[#64748B]">
+                Manage customers, leads, follow-ups, activities, and reports.
+              </p>
+            </div>
+
+            {userRole !== null && (
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
+                <Link
+                  href="/customers"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#DCE8F5] bg-white px-4 text-sm font-semibold text-[#475569] transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF]"
+                >
+                  <UserPlusIcon className="h-4 w-4" />
+                  Add Customer
+                </Link>
+                <Link
+                  href="/leads"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#1677FF] bg-[#1677FF] px-4 text-sm font-semibold text-white transition-colors hover:border-[#0F67E8] hover:bg-[#0F67E8]"
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  Add Lead
+                </Link>
+                {userRole !== "customer" && (
+                  <Link
+                    href="/activities"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#DCE8F5] bg-white px-4 text-sm font-semibold text-[#475569] transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF]"
+                  >
+                    <CalendarCheckIcon className="h-4 w-4" />
+                    Log Activity
+                  </Link>
+                )}
+              </div>
             )}
           </div>
-        )}
+        </div>
       </div>
+
       {loading && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm text-neutral-500">
+        <div className="flex items-center justify-center py-8">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+            <RefreshIcon className="h-5 w-5 animate-spin" />
+          </span>
+          <p className="ml-3 text-sm font-medium text-[#64748B]">
             Loading CRM dashboard...
           </p>
         </div>
       )}
 
       {!loading && error && (
-        <div
-          className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700"
-          role="alert"
-        >
-          {error}
+        <div className="rounded-2xl border border-red-200 bg-white p-6 text-center">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-red-200 bg-red-50 text-red-600">
+            <XIcon className="h-5 w-5" />
+          </span>
+
+          <h3 className="mt-4 text-base font-bold text-[#102A56]">
+            Unable to load CRM dashboard
+          </h3>
+
+          <p className="mt-1 text-sm text-red-700">{error}</p>
         </div>
       )}
 
-        {!loading && !error && dashboard && (
-          <>
-            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              <StatCard
-                label="Customers"
-                value={dashboard.stats.totalCustomers}
-                detail="Customer records"
-                href="/customers"
-              />
+      {!loading && !error && dashboard && (
+        <>
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <Link
+              href="/customers"
+              className="group flex items-center gap-4 rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5 transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF] group-hover:bg-[#1677FF] group-hover:text-white transition-colors">
+                <UserIcon className="h-5 w-5" />
+              </span>
 
-              <StatCard
-                label="Active Leads"
-                value={dashboard.stats.activeLeads}
-                detail="Open opportunities"
-                href="/leads"
-              />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#64748B]">
+                  Customers
+                </p>
 
-              <StatCard
-                label="Follow-ups Due"
-                value={dashboard.stats.followUpsDue}
-                detail={`${followUpSummary.overdue} overdue, ${followUpSummary.today} today`}
-                href="/leads"
-              />
+                <p className="mt-1 text-2xl font-bold text-[#102A56]">
+                  {dashboard.stats.totalCustomers}
+                </p>
 
-              <StatCard
-                label="Reports"
-                value={dashboard.stats.reportsGenerated}
-                detail="Reports generated"
-                href="/reports"
-              />
+                <p className="mt-1 text-xs text-[#64748B]">Customer records</p>
+              </div>
+            </Link>
 
-              {userRole !== "customer" && (
-                <StatCard
-                  label="Activities Today"
-                  value={dashboard.stats.activitiesToday}
-                  detail="Sales activity logged"
-                  href="/activities"
-                />
-              )}
-            </section>
+            <Link
+              href="/leads"
+              className="group flex items-center gap-4 rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5 transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF] group-hover:bg-[#1677FF] group-hover:text-white transition-colors">
+                <UserIcon className="h-5 w-5" />
+              </span>
 
-            <section className="mt-8 grid gap-6 lg:grid-cols-2">
-              <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#64748B]">
+                  Active Leads
+                </p>
+
+                <p className="mt-1 text-2xl font-bold text-[#102A56]">
+                  {dashboard.stats.activeLeads}
+                </p>
+
+                <p className="mt-1 text-xs text-[#64748B]">
+                  Open opportunities
+                </p>
+              </div>
+            </Link>
+
+            <Link
+              href="/leads"
+              className="group flex items-center gap-4 rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5 transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF] group-hover:bg-[#1677FF] group-hover:text-white transition-colors">
+                <ClockIcon className="h-5 w-5" />
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#64748B]">
+                  Follow-ups Due
+                </p>
+
+                <p className="mt-1 text-2xl font-bold text-[#102A56]">
+                  {dashboard.stats.followUpsDue}
+                </p>
+
+                <p className="mt-1 text-xs text-[#64748B]">
+                  {followUpSummary.overdue} overdue, {followUpSummary.today}{" "}
+                  today
+                </p>
+              </div>
+            </Link>
+
+            <Link
+              href="/reports"
+              className="group flex items-center gap-4 rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5 transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF] group-hover:bg-[#1677FF] group-hover:text-white transition-colors">
+                <FileTextIcon className="h-5 w-5" />
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#64748B]">
+                  Reports
+                </p>
+
+                <p className="mt-1 text-2xl font-bold text-[#102A56]">
+                  {dashboard.stats.reportsGenerated}
+                </p>
+
+                <p className="mt-1 text-xs text-[#64748B]">Reports generated</p>
+              </div>
+            </Link>
+
+            {userRole !== "customer" && (
+              <Link
+                href="/activities"
+                className="group flex items-center gap-4 rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5 transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF]"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF] group-hover:bg-[#1677FF] group-hover:text-white transition-colors">
+                  <BellIcon className="h-5 w-5" />
+                </span>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#64748B]">
+                    Activities Today
+                  </p>
+
+                  <p className="mt-1 text-2xl font-bold text-[#102A56]">
+                    {dashboard.stats.activitiesToday}
+                  </p>
+
+                  <p className="mt-1 text-xs text-[#64748B]">
+                    Sales activity logged
+                  </p>
+                </div>
+              </Link>
+            )}
+          </section>
+
+          <section className="mt-5 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5">
+              <div className="mb-4 flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                    <ClockIcon className="h-4 w-4" />
+                  </span>
+
                   <div>
-                    <h2 className="font-semibold text-neutral-900">
+                    <h2 className="text-base font-bold text-[#102A56]">
                       Follow-ups Due
                     </h2>
-                    <p className="mt-1 text-xs text-neutral-500">
+
+                    <p className="text-xs text-[#64748B]">
                       Customers that need attention
                     </p>
                   </div>
-
-                  <Link
-                    href="/leads"
-                    className="text-sm font-semibold text-neutral-700 hover:text-neutral-900"
-                  >
-                    View Leads
-                  </Link>
                 </div>
 
-                {dashboard.followUps.length === 0 ? (
-                  <div className="p-6 text-sm text-neutral-500">
-                    No follow-ups are due.
-                  </div>
-                ) : (
-                  <div>
-                    {dashboard.followUps.map((lead) => (
-                      <Link
-                        key={lead.id}
-                        href="/leads"
-                        className="block border-b border-neutral-200 px-5 py-4 last:border-b-0 hover:bg-neutral-50"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-neutral-900">
+                <Link
+                  href="/leads"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#64748B] hover:text-[#1677FF]"
+                >
+                  View Leads
+                </Link>
+              </div>
+
+              {dashboard.followUps.length === 0 ? (
+                <div className="rounded-xl border border-[#DCE8F5] bg-[#F8FBFF] p-6 text-center">
+                  <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#DCE8F5] bg-white text-[#1677FF]">
+                    <ClockIcon className="h-5 w-5" />
+                  </span>
+
+                  <h3 className="mt-4 text-sm font-bold text-[#102A56]">
+                    No follow-ups due
+                  </h3>
+
+                  <p className="mt-1 text-sm text-[#64748B]">
+                    All caught up! No follow-ups are currently due.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {dashboard.followUps.map((lead) => (
+                    <Link
+                      key={lead.id}
+                      href="/leads"
+                      className="block rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5 transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF]"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                              <UserIcon className="h-4 w-4" />
+                            </span>
+
+                            <p className="truncate text-sm font-semibold text-[#102A56]">
                               {lead.customer?.name ||
                                 lead.customer_name ||
                                 "Customer"}
                             </p>
-
-                            <p className="mt-1 truncate text-xs text-neutral-500">
-                              {vehicleName(lead.vehicle)}
-                            </p>
                           </div>
 
-                          <div className="shrink-0 text-right">
-                            <span
-                              className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${statusClasses(
-                                lead.status
-                              )}`}
-                            >
-                              {lead.status || "NEW"}
-                            </span>
-
-                            <p
-                              className={`mt-1 text-xs font-medium ${
-                                isOverdue(lead.follow_up_date)
-                                  ? "text-red-600"
-                                  : "text-neutral-500"
-                              }`}
-                            >
-                              {isOverdue(lead.follow_up_date)
-                                ? "Overdue"
-                                : "Due"}{" "}
-                              {formatDate(lead.follow_up_date)}
-                            </p>
-                          </div>
+                          <p className="mt-2 truncate text-xs text-[#64748B]">
+                            {vehicleName(lead.vehicle)}
+                          </p>
                         </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
 
-              <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses(
+                              lead.status,
+                            )}`}
+                          >
+                            {lead.status || "NEW"}
+                          </span>
+
+                          <p
+                            className={`text-xs font-medium ${
+                              isOverdue(lead.follow_up_date)
+                                ? "text-red-600"
+                                : "text-[#64748B]"
+                            }`}
+                          >
+                            {isOverdue(lead.follow_up_date) ? "Overdue" : "Due"}{" "}
+                            {formatDate(lead.follow_up_date)}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5">
+              <div className="mb-4 flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                    <UserIcon className="h-4 w-4" />
+                  </span>
+
                   <div>
-                    <h2 className="font-semibold text-neutral-900">
+                    <h2 className="text-base font-bold text-[#102A56]">
                       Recent Leads
                     </h2>
-                    <p className="mt-1 text-xs text-neutral-500">
+
+                    <p className="text-xs text-[#64748B]">
                       Latest customer opportunities
                     </p>
                   </div>
+                </div>
+
+                <Link
+                  href="/leads"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#64748B] hover:text-[#1677FF]"
+                >
+                  View All
+                </Link>
+              </div>
+
+              {dashboard.recentLeads.length === 0 ? (
+                <div className="rounded-xl border border-[#DCE8F5] bg-[#F8FBFF] p-6 text-center">
+                  <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#DCE8F5] bg-white text-[#1677FF]">
+                    <UserIcon className="h-5 w-5" />
+                  </span>
+
+                  <h3 className="mt-4 text-sm font-bold text-[#102A56]">
+                    No leads yet
+                  </h3>
+
+                  <p className="mt-1 text-sm text-[#64748B]">
+                    Create your first lead to start tracking opportunities.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {dashboard.recentLeads.map((lead) => (
+                    <Link
+                      key={lead.id}
+                      href="/leads"
+                      className="block rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5 transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF]"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                              <UserIcon className="h-4 w-4" />
+                            </span>
+
+                            <p className="truncate text-sm font-semibold text-[#102A56]">
+                              {lead.customer?.name ||
+                                lead.customer_name ||
+                                "Customer"}
+                            </p>
+                          </div>
+
+                          <p className="mt-2 truncate text-xs text-[#64748B]">
+                            {vehicleName(lead.vehicle)}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses(
+                            lead.status,
+                          )}`}
+                        >
+                          {lead.status || "NEW"}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                        <span className="flex items-center gap-1.5 text-xs text-[#64748B]">
+                          <ClockIcon className="h-3.5 w-3.5" />
+                          Created{" "}
+                          {new Date(lead.created_at).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )}
+                        </span>
+
+                        {lead.follow_up_date && (
+                          <span className="flex items-center gap-1.5 text-xs text-[#64748B]">
+                            <ClockIcon className="h-3.5 w-3.5" />
+                            Follow-up {formatDate(lead.follow_up_date)}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {userRole !== "customer" && (
+            <section className="mt-5 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5">
+                <div className="mb-4 flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                      <BellIcon className="h-4 w-4" />
+                    </span>
+
+                    <div>
+                      <h2 className="text-base font-bold text-[#102A56]">
+                        Recent Activities
+                      </h2>
+
+                      <p className="text-xs text-[#64748B]">
+                        Latest salesperson activity
+                      </p>
+                    </div>
+                  </div>
 
                   <Link
-                    href="/leads"
-                    className="text-sm font-semibold text-neutral-700 hover:text-neutral-900"
+                    href="/activities"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#64748B] hover:text-[#1677FF]"
                   >
                     View All
                   </Link>
                 </div>
 
-                {dashboard.recentLeads.length === 0 ? (
-                  <div className="p-6 text-sm text-neutral-500">
-                    No leads have been created yet.
+                {dashboard.recentActivities.length === 0 ? (
+                  <div className="rounded-xl border border-[#DCE8F5] bg-[#F8FBFF] p-6 text-center">
+                    <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#DCE8F5] bg-white text-[#1677FF]">
+                      <BellIcon className="h-5 w-5" />
+                    </span>
+
+                    <h3 className="mt-4 text-sm font-bold text-[#102A56]">
+                      No activities yet
+                    </h3>
+
+                    <p className="mt-1 text-sm text-[#64748B]">
+                      Log sales activities to track customer interactions.
+                    </p>
                   </div>
                 ) : (
-                  <div>
-                    {dashboard.recentLeads.map((lead) => (
+                  <div className="space-y-3">
+                    {dashboard.recentActivities.map((activity) => (
                       <Link
-                        key={lead.id}
-                        href="/leads"
-                        className="block border-b border-neutral-200 px-5 py-4 last:border-b-0 hover:bg-neutral-50"
+                        key={activity.id}
+                        href="/activities"
+                        className="block rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5 transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF]"
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-neutral-900">
-                              {lead.customer?.name ||
-                                lead.customer_name ||
-                                "Customer"}
+                        <div className="flex items-start gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                            <BellIcon className="h-4 w-4" />
+                          </span>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-bold uppercase text-[#64748B]">
+                                {activityLabel(activity.activity_type)}
+                              </span>
+
+                              <span className="flex items-center gap-1.5 text-xs text-[#64748B]">
+                                <ClockIcon className="h-3.5 w-3.5" />
+                                {formatDateTime(activity.activity_at)}
+                              </span>
+                            </div>
+
+                            <p className="mt-2 text-sm font-semibold text-[#102A56]">
+                              {activity.customer?.name ||
+                                activity.lead?.customer_name ||
+                                "CRM activity"}
                             </p>
 
-                            <p className="mt-1 truncate text-xs text-neutral-500">
-                              {vehicleName(lead.vehicle)}
+                            <p className="mt-1.5 truncate text-xs text-[#64748B]">
+                              {activity.description}
                             </p>
+
+                            {activity.user && (
+                              <p className="mt-2 flex items-center gap-1.5 text-xs text-[#64748B]">
+                                <UserIcon className="h-3.5 w-3.5" />
+                                By{" "}
+                                {activity.user.name ||
+                                  activity.user.email ||
+                                  "Salesperson"}
+                              </p>
+                            )}
                           </div>
-
-                          <span
-                            className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${statusClasses(
-                              lead.status
-                            )}`}
-                          >
-                            {lead.status || "NEW"}
-                          </span>
-                        </div>
-
-                        <div className="mt-2 flex items-center justify-between text-xs text-neutral-400">
-                          <span>
-                            Created{" "}
-                            {new Date(
-                              lead.created_at
-                            ).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </span>
-
-                          {lead.follow_up_date && (
-                            <span>
-                              Follow-up {formatDate(lead.follow_up_date)}
-                            </span>
-                          )}
                         </div>
                       </Link>
                     ))}
                   </div>
                 )}
               </div>
-            </section>
 
-            {userRole !== "customer" && (
-              <section className="mt-6 grid gap-6 lg:grid-cols-2">
-                <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
-                  <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+              <div className="rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5">
+                <div className="mb-4 flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                      <FileTextIcon className="h-4 w-4" />
+                    </span>
+
                     <div>
-                      <h2 className="font-semibold text-neutral-900">
-                        Recent Activities
-                      </h2>
-                      <p className="mt-1 text-xs text-neutral-500">
-                        Latest salesperson activity
-                      </p>
-                    </div>
-
-                    <Link
-                      href="/activities"
-                      className="text-sm font-semibold text-neutral-700 hover:text-neutral-900"
-                    >
-                      View All
-                    </Link>
-                  </div>
-
-                  {dashboard.recentActivities.length === 0 ? (
-                    <div className="p-6 text-sm text-neutral-500">
-                      No activities have been logged yet.
-                    </div>
-                  ) : (
-                    <div>
-                      {dashboard.recentActivities.map((activity) => (
-                        <Link
-                          key={activity.id}
-                          href="/activities"
-                          className="block border-b border-neutral-200 px-5 py-4 last:border-b-0 hover:bg-neutral-50"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-[10px] font-bold text-neutral-600">
-                              {activity.activity_type.slice(0, 3)}
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs font-semibold uppercase text-neutral-500">
-                                  {activityLabel(
-                                    activity.activity_type
-                                  )}
-                                </span>
-
-                                <span className="text-xs text-neutral-400">
-                                  {formatDateTime(activity.activity_at)}
-                                </span>
-                              </div>
-
-                              <p className="mt-1 font-medium text-neutral-900">
-                                {activity.customer?.name ||
-                                  activity.lead?.customer_name ||
-                                  "CRM activity"}
-                              </p>
-
-                              <p className="mt-1 truncate text-xs text-neutral-500">
-                                {activity.description}
-                              </p>
-
-                              {activity.user && (
-                                <p className="mt-1 text-xs text-neutral-400">
-                                  By{" "}
-                                  {activity.user.name ||
-                                    activity.user.email ||
-                                    "Salesperson"}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
-                  <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
-                    <div>
-                      <h2 className="font-semibold text-neutral-900">
+                      <h2 className="text-base font-bold text-[#102A56]">
                         Recent Customer Reports
                       </h2>
-                      <p className="mt-1 text-xs text-neutral-500">
+
+                      <p className="text-xs text-[#64748B]">
                         Latest generated reports
                       </p>
                     </div>
-
-                    <Link
-                      href="/reports"
-                      className="text-sm font-semibold text-neutral-700 hover:text-neutral-900"
-                    >
-                      View All
-                    </Link>
                   </div>
-
-                  {dashboard.recentReports.length === 0 ? (
-                    <div className="p-6 text-sm text-neutral-500">
-                      No customer reports have been generated yet.
-                    </div>
-                  ) : (
-                    <div>
-                      {dashboard.recentReports.map((report) => (
-                        <div
-                          key={report.id}
-                          className="border-b border-neutral-200 px-5 py-4 last:border-b-0"
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <p className="truncate font-medium text-neutral-900">
-                                {report.customer?.name ||
-                                  "General vehicle report"}
-                              </p>
-
-                              <p className="mt-1 truncate text-xs text-neutral-500">
-                                {vehicleName(
-                                  report.customer_report?.vehicle
-                                )}
-                              </p>
-
-                              {report.lead && (
-                                <p className="mt-1 text-xs text-neutral-400">
-                                  Lead:{" "}
-                                  {report.lead.customer_name ||
-                                    "Customer"}
-                                </p>
-                              )}
-                            </div>
-
-                            <span className="shrink-0 text-xs text-neutral-400">
-                              {formatDateTime(report.created_at)}
-                            </span>
-                          </div>
-
-                          <div className="mt-3">
-                            <Link
-                              href="/reports"
-                              className="text-xs font-semibold text-neutral-900 hover:underline"
-                            >
-                              View Report
-                            </Link>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {userRole === "customer" && (
-              <section className="mt-6">
-                <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
-                  <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
-                    <div>
-                      <h2 className="font-semibold text-neutral-900">
-                        Recent Customer Reports
-                      </h2>
-                      <p className="mt-1 text-xs text-neutral-500">
-                        Latest generated reports
-                      </p>
-                    </div>
-
-                    <Link
-                      href="/reports"
-                      className="text-sm font-semibold text-neutral-700 hover:text-neutral-900"
-                    >
-                      View All
-                    </Link>
-                  </div>
-
-                  {dashboard.recentReports.length === 0 ? (
-                    <div className="p-6 text-sm text-neutral-500">
-                      No customer reports have been generated yet.
-                    </div>
-                  ) : (
-                    <div>
-                      {dashboard.recentReports.map((report) => (
-                        <div
-                          key={report.id}
-                          className="border-b border-neutral-200 px-5 py-4 last:border-b-0"
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <p className="truncate font-medium text-neutral-900">
-                                {report.customer?.name ||
-                                  "General vehicle report"}
-                              </p>
-
-                              <p className="mt-1 truncate text-xs text-neutral-500">
-                                {vehicleName(
-                                  report.customer_report?.vehicle
-                                )}
-                              </p>
-
-                              {report.lead && (
-                                <p className="mt-1 text-xs text-neutral-400">
-                                  Lead:{" "}
-                                  {report.lead.customer_name ||
-                                    "Customer"}
-                                </p>
-                              )}
-                            </div>
-
-                            <span className="shrink-0 text-xs text-neutral-400">
-                              {formatDateTime(report.created_at)}
-                            </span>
-                          </div>
-
-                          <div className="mt-3">
-                            <Link
-                              href="/reports"
-                              className="text-xs font-semibold text-neutral-900 hover:underline"
-                            >
-                              View Report
-                            </Link>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {userRole !== "customer" && (
-              <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-                <h2 className="font-semibold text-neutral-900">
-                  CRM Quick Actions
-                </h2>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                  <Link
-                    href="/customers"
-                    className="rounded-lg border border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-                  >
-                    Customers
-                  </Link>
-
-                  <Link
-                    href="/leads"
-                    className="rounded-lg border border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-                  >
-                    Leads
-                  </Link>
-
-                  <Link
-                    href="/activities"
-                    className="rounded-lg border border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-                  >
-                    Activities
-                  </Link>
 
                   <Link
                     href="/reports"
-                    className="rounded-lg border border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#64748B] hover:text-[#1677FF]"
                   >
-                    Reports
-                  </Link>
-
-                  <Link
-                    href="/vehicles"
-                    className="rounded-lg border border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-                  >
-                    Vehicles
+                    View All
                   </Link>
                 </div>
-              </section>
-            )}
-          </>
-        )}
+
+                {dashboard.recentReports.length === 0 ? (
+                  <div className="rounded-xl border border-[#DCE8F5] bg-[#F8FBFF] p-6 text-center">
+                    <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#DCE8F5] bg-white text-[#1677FF]">
+                      <FileTextIcon className="h-5 w-5" />
+                    </span>
+
+                    <h3 className="mt-4 text-sm font-bold text-[#102A56]">
+                      No reports yet
+                    </h3>
+
+                    <p className="mt-1 text-sm text-[#64748B]">
+                      Generate vehicle reports to share with customers.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {dashboard.recentReports.map((report) => (
+                      <div
+                        key={report.id}
+                        className="rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2.5">
+                              <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                                <CarIcon className="h-4 w-4" />
+                              </span>
+
+                              <p className="truncate text-sm font-semibold text-[#102A56]">
+                                {report.customer?.name ||
+                                  "General vehicle report"}
+                              </p>
+                            </div>
+
+                            <p className="mt-2 truncate text-xs text-[#64748B]">
+                              {vehicleName(report.customer_report?.vehicle)}
+                            </p>
+
+                            {report.lead && (
+                              <p className="mt-1.5 text-xs text-[#64748B]">
+                                Lead: {report.lead.customer_name || "Customer"}
+                              </p>
+                            )}
+                          </div>
+
+                          <span className="shrink-0 text-xs text-[#64748B]">
+                            {formatDateTime(report.created_at)}
+                          </span>
+                        </div>
+
+                        <div className="mt-3">
+                          <Link
+                            href="/reports"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#1677FF] hover:underline"
+                          >
+                            <ExternalLinkIcon className="h-3.5 w-3.5" />
+                            View Report
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {userRole === "customer" && (
+            <section className="mt-5 rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5">
+              <div className="mb-4 flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                    <FileTextIcon className="h-4 w-4" />
+                  </span>
+
+                  <div>
+                    <h2 className="text-base font-bold text-[#102A56]">
+                      Recent Customer Reports
+                    </h2>
+
+                    <p className="text-xs text-[#64748B]">
+                      Latest generated reports
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/reports"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#64748B] hover:text-[#1677FF]"
+                >
+                  View All
+                </Link>
+              </div>
+
+              {dashboard.recentReports.length === 0 ? (
+                <div className="rounded-xl border border-[#DCE8F5] bg-[#F8FBFF] p-6 text-center">
+                  <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#DCE8F5] bg-white text-[#1677FF]">
+                    <FileTextIcon className="h-5 w-5" />
+                  </span>
+
+                  <h3 className="mt-4 text-sm font-bold text-[#102A56]">
+                    No reports yet
+                  </h3>
+
+                  <p className="mt-1 text-sm text-[#64748B]">
+                    Your vehicle reports will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {dashboard.recentReports.map((report) => (
+                    <div
+                      key={report.id}
+                      className="rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                              <CarIcon className="h-4 w-4" />
+                            </span>
+
+                            <p className="truncate text-sm font-semibold text-[#102A56]">
+                              {report.customer?.name ||
+                                "General vehicle report"}
+                            </p>
+                          </div>
+
+                          <p className="mt-2 truncate text-xs text-[#64748B]">
+                            {vehicleName(report.customer_report?.vehicle)}
+                          </p>
+
+                          {report.lead && (
+                            <p className="mt-1.5 text-xs text-[#64748B]">
+                              Lead: {report.lead.customer_name || "Customer"}
+                            </p>
+                          )}
+                        </div>
+
+                        <span className="shrink-0 text-xs text-[#64748B]">
+                          {formatDateTime(report.created_at)}
+                        </span>
+                      </div>
+
+                      <div className="mt-3">
+                        <Link
+                          href="/reports"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#1677FF] hover:underline"
+                        >
+                          <ExternalLinkIcon className="h-3.5 w-3.5" />
+                          View Report
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {userRole !== "customer" && (
+            <section className="mt-5 rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5">
+              <div className="mb-4 flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                  <CrmIcon className="h-4 w-4" />
+                </span>
+
+                <div>
+                  <h2 className="text-base font-bold text-[#102A56]">
+                    CRM Quick Actions
+                  </h2>
+
+                  <p className="text-xs text-[#64748B]">
+                    Navigate to key CRM modules
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <Link
+                  href="/customers"
+                  className="group flex items-center gap-3 rounded-2xl border border-[#DCE8F5] bg-[#F8FBFF] px-4 py-3.5 text-sm font-semibold text-[#475569] transition-colors hover:border-[#BFD8F2] hover:bg-white hover:text-[#1677FF]"
+                >
+                  <UserIcon className="h-5 w-5 text-[#64748B] group-hover:text-[#1677FF] transition-colors" />
+                  Customers
+                </Link>
+
+                <Link
+                  href="/leads"
+                  className="group flex items-center gap-3 rounded-2xl border border-[#DCE8F5] bg-[#F8FBFF] px-4 py-3.5 text-sm font-semibold text-[#475569] transition-colors hover:border-[#BFD8F2] hover:bg-white hover:text-[#1677FF]"
+                >
+                  <UserIcon className="h-5 w-5 text-[#64748B] group-hover:text-[#1677FF] transition-colors" />
+                  Leads
+                </Link>
+
+                <Link
+                  href="/activities"
+                  className="group flex items-center gap-3 rounded-2xl border border-[#DCE8F5] bg-[#F8FBFF] px-4 py-3.5 text-sm font-semibold text-[#475569] transition-colors hover:border-[#BFD8F2] hover:bg-white hover:text-[#1677FF]"
+                >
+                  <BellIcon className="h-5 w-5 text-[#64748B] group-hover:text-[#1677FF] transition-colors" />
+                  Activities
+                </Link>
+
+                <Link
+                  href="/reports"
+                  className="group flex items-center gap-3 rounded-2xl border border-[#DCE8F5] bg-[#F8FBFF] px-4 py-3.5 text-sm font-semibold text-[#475569] transition-colors hover:border-[#BFD8F2] hover:bg-white hover:text-[#1677FF]"
+                >
+                  <FileTextIcon className="h-5 w-5 text-[#64748B] group-hover:text-[#1677FF] transition-colors" />
+                  Reports
+                </Link>
+
+                <Link
+                  href="/vehicles"
+                  className="group flex items-center gap-3 rounded-2xl border border-[#DCE8F5] bg-[#F8FBFF] px-4 py-3.5 text-sm font-semibold text-[#475569] transition-colors hover:border-[#BFD8F2] hover:bg-white hover:text-[#1677FF]"
+                >
+                  <CarIcon className="h-5 w-5 text-[#64748B] group-hover:text-[#1677FF] transition-colors" />
+                  Vehicles
+                </Link>
+              </div>
+            </section>
+          )}
+        </>
+      )}
     </div>
   );
 }
-
-
-
-
-
-
-

@@ -1,4 +1,4 @@
-﻿// extension/popup/popup.js
+// extension/popup/popup.js
 
 import {
   WEB_APP_URL,
@@ -30,6 +30,17 @@ const openOptionsLink =
 
 const openOptionsLink2 =
   document.getElementById("open-options-link-2");
+const tricitySection =
+  document.getElementById("tricity-section");
+
+const tricityStatus =
+  document.getElementById("tricity-status");
+
+const tricityScanButton =
+  document.getElementById("tricity-scan-button");
+
+const tricityImportButton =
+  document.getElementById("tricity-import-button");
 
 
 /* -------------------------------------------------------
@@ -95,7 +106,7 @@ async function checkSession() {
     if (data.loggedIn) {
       sessionLine.textContent =
         data.dealershipName
-          ? `Signed in • ${data.dealershipName}`
+          ? `Signed in ΓÇó ${data.dealershipName}`
           : "Signed in";
     } else {
       sessionLine.textContent =
@@ -283,7 +294,7 @@ async function openFacebookAndFillForm() {
 
       let fieldDetails = "";
       Object.entries(fields).forEach(([field, success]) => {
-        const status = success === true ? "✓" : success === false ? "✗" : "⊘";
+        const status = success === true ? "\u2713" : success === false ? "\u2717" : "\u2298";
         fieldDetails += `${field}: ${status}\n`;
       });
 
@@ -991,6 +1002,262 @@ async function getActiveTab() {
 }
 
 
+
+async function findAuthenticatedShiftlyTab() {
+  const patterns = [
+    "http://localhost:3000/*",
+    "https://localhost:3000/*",
+    "https://shiftlyauto.vercel.app/*",
+    "https://shiftlyauto-two.vercel.app/*"
+  ];
+
+  let tabs = [];
+
+  try {
+    tabs = await chrome.tabs.query({ url: patterns });
+  } catch (error) {
+    console.error("Unable to find Shiftly tabs:", error);
+    return null;
+  }
+
+  tabs.sort((a, b) => Number(Boolean(b.active)) - Number(Boolean(a.active)));
+
+  for (const tab of tabs) {
+    if (!Number.isInteger(tab.id)) continue;
+
+    try {
+      const checks = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        world: "MAIN",
+        func: async () => {
+          try {
+            const response = await fetch("/api/auth/session", {
+              credentials: "same-origin",
+              cache: "no-store"
+            });
+
+            if (!response.ok) return false;
+
+            const session = await response.json();
+
+            return Boolean(
+              session?.loggedIn === true &&
+              session?.profile?.id &&
+              session?.profile?.dealership_id &&
+              ["admin", "manager", "salesperson"].includes(
+                session?.profile?.role
+              )
+            );
+          } catch {
+            return false;
+          }
+        }
+      });
+
+      if (checks?.[0]?.result === true) return tab;
+    } catch (error) {
+      console.debug("Shiftly tab is not ready for import:", error);
+    }
+  }
+
+  return null;
+}
+
+async function importSavedTriCityInventory() {
+  if (!tricityImportButton || !tricityStatus) return;
+
+  tricityImportButton.disabled = true;
+  tricityStatus.textContent = "Verifying saved inventory and Shiftly login...";
+
+  try {
+    const saved = await chrome.runtime.sendMessage({
+      type: "SHIFTLY_GET_TRICITY_INVENTORY"
+    });
+
+    if (!saved?.ok || !saved.found || !saved.inventory) {
+      throw new Error(
+        "Saved inventory data is unavailable. Your scan has not been intentionally deleted; verify the saved record."
+      );
+    }
+
+    const inventory = saved.inventory;
+
+    if (
+      inventory.source !== "tricitymits" ||
+      inventory.complete !== true ||
+      inventory.allPagesLoaded !== true ||
+      inventory.incomplete === true ||
+      !Array.isArray(inventory.vehicles) ||
+      inventory.vehicles.length !== Number(inventory.totalVehicles) ||
+      !Array.isArray(inventory.failedPages) ||
+      inventory.failedPages.length !== 0 ||
+      !Number.isInteger(Number(inventory.totalPages)) ||
+      !Array.isArray(inventory.loadedPages) ||
+      inventory.loadedPages.length !== Number(inventory.totalPages)
+    ) {
+      throw new Error("Saved scan failed completeness validation.");
+    }
+
+    const tab = await findAuthenticatedShiftlyTab();
+
+    if (!tab || !Number.isInteger(tab.id)) {
+      throw new Error(
+        "No authorized Shiftly session found. Open Shiftly, sign in, and reopen the extension."
+      );
+    }
+
+    tricityStatus.textContent =
+      `Submitting ${inventory.vehicles.length} saved vehicles to Shiftly...`;
+
+    const executions = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: "MAIN",
+      args: [inventory],
+      func: async (payload) => {
+        try {
+          const sessionResponse = await fetch("/api/auth/session", {
+            credentials: "same-origin",
+            cache: "no-store"
+          });
+
+          if (!sessionResponse.ok) {
+            return { ok: false, error: "Could not verify Shiftly session." };
+          }
+
+          const session = await sessionResponse.json();
+
+          if (
+            session?.loggedIn !== true ||
+            !session?.profile?.id ||
+            !session?.profile?.dealership_id ||
+            !["admin", "manager", "salesperson"].includes(
+              session?.profile?.role
+            )
+          ) {
+            return {
+              ok: false,
+              error: "The current Shiftly account is not authorized to import."
+            };
+          }
+
+          const response = await fetch("/api/vehicles/tricity-import", {
+            method: "POST",
+            credentials: "same-origin",
+            cache: "no-store",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json().catch(() => null);
+
+          return {
+            ok: response.ok && data?.success === true,
+            status: response.status,
+            data,
+            error: data?.error || null
+          };
+        } catch (error) {
+          return {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+      }
+    });
+
+    const result = executions?.[0]?.result;
+
+    if (!result?.ok) {
+      throw new Error(
+        result?.error ||
+        result?.data?.error ||
+        `Import failed (HTTP ${result?.status ?? "unknown"}).`
+      );
+    }
+
+    const summary = result.data?.summary;
+
+    if (!summary) {
+      throw new Error("Server response did not include an import summary.");
+    }
+
+    tricityStatus.textContent =
+      `Import complete: ${summary.imported} imported, ` +
+      `${summary.skipped} skipped, ${summary.errors} errors ` +
+      `out of ${summary.scanned} scanned.`;
+
+    console.info("SHIFTLY TRICITY IMPORT SUMMARY:", summary);
+    console.table(result.data.results || []);
+  } catch (error) {
+    tricityStatus.textContent =
+      error?.message || "Import failed. Check the extension console.";
+    console.error("SHIFTLY TRICITY IMPORT FAILED:", error);
+  } finally {
+    const tab = await findAuthenticatedShiftlyTab();
+    tricityImportButton.disabled = !tab;
+  }
+}
+async function showSavedTriCityInventory(tabUrl) {
+  if (!vinStatus || !vinList) return false;
+
+  let hostname = "";
+  try {
+    hostname = new URL(tabUrl).hostname;
+  } catch {
+    return false;
+  }
+
+  if (
+    hostname !== "www.tricitymits.com" &&
+    hostname !== "tricitymits.com"
+  ) {
+    return false;
+  }
+
+  try {
+    const result = await chrome.runtime.sendMessage({
+      type: "SHIFTLY_GET_TRICITY_INVENTORY"
+    });
+
+    if (!result?.ok || !result.found || !result.inventory) return false;
+
+    vinList.innerHTML = "";
+
+    const info = document.createElement("div");
+    info.className = "vehicle-info";
+
+    const title = document.createElement("div");
+    title.className = "vehicle-title";
+    title.textContent = "Tri-City Inventory Scan";
+    info.appendChild(title);
+
+    const details = document.createElement("div");
+    details.className = "vehicle-detail";
+    details.textContent =
+      `${result.totalVehicles} vehicles collected across ` +
+      `${result.totalPages} pages.`;
+    info.appendChild(details);
+
+    if (result.capturedAt) {
+      const captured = document.createElement("div");
+      captured.className = "vehicle-detail";
+      captured.textContent =
+        `Last scan: ${new Date(result.capturedAt).toLocaleString()}`;
+      info.appendChild(captured);
+    }
+
+    vinList.appendChild(info);
+    vinStatus.textContent = "Inventory scan complete."; 
+    if (tricityImportButton) {
+      tricityImportButton.disabled = !(await findAuthenticatedShiftlyTab());
+    }
+    return true;
+  } catch (error) {
+    console.error("Unable to read saved Tri-City inventory:", error);
+    return false;
+  }
+}
+
 /* -------------------------------------------------------
    DIRECT VIN SCAN
 ------------------------------------------------------- */
@@ -1093,6 +1360,24 @@ async function checkApprovalAndScan() {
 
   const tabUrl =
     String(tab.url).trim();
+  let isTriCityPage = false;
+  try {
+    const hostname = new URL(tabUrl).hostname.toLowerCase();
+    isTriCityPage =
+      hostname === "tricitymits.com" ||
+      hostname === "www.tricitymits.com";
+  } catch {
+    isTriCityPage = false;
+  }
+
+  if (tricitySection) {
+    tricitySection.hidden = !isTriCityPage;
+  }
+
+  // Import remains unavailable until a verified import handler exists.
+  if (tricityImportButton) {
+    tricityImportButton.disabled = true;
+  }
 
 
   /* -----------------------------------------------
@@ -1167,10 +1452,13 @@ async function checkApprovalAndScan() {
     notApproved.hidden = true;
   }
 
+  // Show the saved full inventory on Tri-City inventory pages.
+  if (await showSavedTriCityInventory(tabUrl)) {
+    return;
+  }
+
   vinStatus.textContent =
     "Scanning this page...";
-
-
   /* -----------------------------------------------
      SCAN
   ----------------------------------------------- */
@@ -1195,6 +1483,64 @@ async function checkApprovalAndScan() {
 /* -------------------------------------------------------
    START
 ------------------------------------------------------- */
+
+async function startTriCityInventoryScan() {
+  if (!tricityStatus || !tricityScanButton) return;
+
+  let tab;
+
+  try {
+    tab = await getActiveTab();
+
+    if (!tab?.id || !tab.url) {
+      throw new Error("Could not identify the active browser tab.");
+    }
+
+    const hostname = new URL(tab.url).hostname.toLowerCase();
+    if (
+      hostname !== "tricitymits.com" &&
+      hostname !== "www.tricitymits.com"
+    ) {
+      throw new Error("Open the Tri-City Mitsubishi inventory page first.");
+    }
+
+    tricityScanButton.disabled = true;
+    tricityStatus.textContent =
+      "Starting inventory scan. Keep this tab open...";
+
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: "MAIN",
+      func: () => {
+        window.postMessage(
+          {
+            source: "shiftly-auto",
+            type: "TRICITY_START_INVENTORY_SCAN"
+          },
+          window.location.origin
+        );
+      }
+    });
+
+    tricityStatus.textContent =
+      "Scan request sent. Wait for the inventory scan to finish.";
+  } catch (error) {
+    tricityStatus.textContent =
+      error?.message || "Unable to start the Tri-City inventory scan.";
+    tricityScanButton.disabled = false;
+  }
+}
+
+if (tricityImportButton) {
+  tricityImportButton.addEventListener("click", importSavedTriCityInventory);
+}
+if (tricityScanButton) {
+  tricityScanButton.addEventListener(
+    "click",
+    startTriCityInventoryScan
+  );
+}
+if (tricityImportButton) tricityImportButton.disabled = true;
 
 checkSession();
 checkApprovalAndScan();

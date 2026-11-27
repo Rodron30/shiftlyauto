@@ -136,7 +136,7 @@ export class MetaCatalogService {
   /**
    * Get catalog information
    */
-  async getCatalogInfo(): Promise<{ success: boolean; data?: any; error?: string }> {
+  async getCatalogInfo(): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
       const url = `https://graph.facebook.com/${this.apiVersion}/${this.catalogId}`;
       

@@ -1,9 +1,36 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import VehicleImagePlaceholder from "@/components/VehicleImagePlaceholder";
+import { useRef, FormEvent, useCallback, useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import {
+  CarIcon,
+  DocumentIcon,
+  DollarSignIcon,
+  GaugeIcon,
+  CogIcon,
+  EditIcon,
+  ArchiveIcon,
+  ShareIcon,
+  CalendarIcon,
+  FuelIcon,
+  MapPinIcon,
+  ShieldCheckIcon,
+  RefreshIcon,
+  PlusIcon,
+  BotIcon,
+  BackIcon,
+  CopyIcon,
+  CloseIcon,
+  SaveIcon,
+  AlertTriangleIcon,
+  AlertCircleIcon,
+  CreditCardIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "@/components/icons";
 
 function formatNumberInput(value: string) {
   const cleaned = value.replace(/,/g, "").replace(/[^\d.]/g, "");
@@ -213,6 +240,16 @@ export default function VehicleDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const thumbnailContainerRef = useRef<HTMLDivElement>(null);
+  const activeThumbnailRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    activeThumbnailRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [activeImageIndex]);
 
   const [matching, setMatching] =
     useState<MatchingResponse | null>(null);
@@ -301,7 +338,7 @@ export default function VehicleDetailsPage() {
   const [addComparableError, setAddComparableError] =
     useState("");
 
-  async function refreshMatching() {
+  const refreshMatching = useCallback(async () => {
     if (!vin) return;
 
     try {
@@ -346,9 +383,9 @@ export default function VehicleDetailsPage() {
     } finally {
       setMatchingLoading(false);
     }
-  }
+  }, [vin]);
 
-  async function refreshPricing() {
+  const refreshPricing = useCallback(async () => {
     if (!vin) return;
 
     try {
@@ -391,9 +428,9 @@ export default function VehicleDetailsPage() {
     } finally {
       setPricingLoading(false);
     }
-  }
+  }, [vin]);
 
-  async function refreshHistory() {
+  const refreshHistory = useCallback(async () => {
     if (!vin) return;
 
     try {
@@ -436,7 +473,7 @@ export default function VehicleDetailsPage() {
     } finally {
       setHistoryLoading(false);
     }
-  }
+  }, [vin]);
 
   async function refreshCrm() {
     try {
@@ -560,7 +597,7 @@ export default function VehicleDetailsPage() {
     };
 
     void loadVehicleData();
-  }, [vin]);
+  }, [vin, refreshMatching, refreshHistory, refreshPricing]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1080,7 +1117,7 @@ export default function VehicleDetailsPage() {
       // Send listing data to Chrome extension using externally_connectable
       const extensionId = 
         localStorage.getItem("shiftly_extension_id") ||
-        (window as any).shiftlyExtensionId ||
+        window.shiftlyExtensionId ||
         null;
       
       if (!extensionId) {
@@ -1089,21 +1126,27 @@ export default function VehicleDetailsPage() {
       }
       
       // Check for Chrome extension API availability across different browsers
-      const hasChromeRuntime = typeof (window as any).chrome !== 'undefined' && 
-                               (window as any).chrome !== null && 
-                               typeof (window as any).chrome.runtime !== 'undefined';
+      const hasChromeRuntime = typeof window.chrome !== 'undefined' && 
+                               window.chrome !== null && 
+                               typeof window.chrome.runtime !== 'undefined';
       
       if (!hasChromeRuntime) {
         alert("Chrome extension API not available. Please ensure you're using a Chromium-based browser (Chrome, Edge, Opera) with the Shiftly Auto extension installed.");
         return;
       }
 
-      (window as any).chrome.runtime.sendMessage(extensionId, {
+      const chromeRuntime = window.chrome?.runtime;
+      if (!chromeRuntime) {
+        alert("Chrome extension API not available. Please ensure you are using a Chromium-based browser with the Shiftly Auto extension installed.");
+        return;
+      }
+
+      chromeRuntime.sendMessage(extensionId, {
         type: "SHIFTLY_POST_TO_MARKETPLACE",
         listing: data.listing
-      }, (response: any) => {
-        if (window.chrome && window.chrome.runtime && window.chrome.runtime.lastError) {
-          alert(`Extension communication error: ${window.chrome.runtime.lastError.message}`);
+      }, (response) => {
+        if (chromeRuntime.lastError) {
+          alert(`Extension communication error: ${chromeRuntime.lastError?.message ?? "Unknown extension error"}`);
         } else if (response && !response.success) {
           alert(`Marketplace posting error: ${response.error}`);
         } else {
@@ -1142,25 +1185,25 @@ export default function VehicleDetailsPage() {
   const hasAccident =
     accidentEvents.length > 0;
 
-  const hasClaim =
-    claimEvents.length > 0;
-
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="px-4 pb-4 pt-0 lg:px-6 lg:pb-6 lg:pt-0 max-w-[1200px] mx-auto bg-[#F5F9FD] min-h-screen">
+      {/* Back Navigation */}
       <Link
         href="/vehicles"
-        className="text-xs font-semibold text-neutral-600 hover:text-neutral-900"
+        className="group mb-3 inline-flex items-center gap-2 rounded-lg border border-[#DCE8F5] bg-white px-4 py-2 text-sm font-semibold text-[#475569] shadow-[3px_3px_8px_rgba(71,85,105,0.07),-3px_-3px_8px_rgba(255,255,255,0.9)] transition-all duration-200 hover:border-[#BFD7EE] hover:bg-[#EAF5FF] hover:text-[#1677FF]"
       >
-        &lt; Back to Vehicles
+        <BackIcon className="w-3.5 h-3.5" />
+        Back to Vehicles
       </Link>
 
       {loading && (
-        <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-6 text-center shadow-sm">
-          <p className="text-xs font-medium text-neutral-700">
+        <div className="mt-4 rounded-lg border border-[#DCE8F5] bg-white p-6 text-center shadow-sm">
+          <RefreshIcon className="mx-auto h-6 w-6 animate-spin text-[#1677FF]" />
+          <p className="mt-2 text-xs font-medium text-[#102A56]">
             Loading vehicle...
           </p>
 
-          <p className="mt-1 text-xs text-neutral-500">
+          <p className="mt-1 text-xs text-[#64748B]">
             Fetching vehicle information.
           </p>
         </div>
@@ -1168,763 +1211,923 @@ export default function VehicleDetailsPage() {
 
       {!loading && error && (
         <div className="mt-4 rounded-lg border border-red-200 bg-white p-4 shadow-sm">
-          <h1 className="text-sm font-semibold text-neutral-900">
-            Unable to load vehicle
-          </h1>
+          <div className="flex items-start gap-3">
+            <AlertCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+            <div className="flex-1">
+              <h1 className="text-sm font-semibold text-[#102A56]">
+                Unable to load vehicle
+              </h1>
 
-          <p className="mt-1 text-xs text-red-600">
-            {error}
-          </p>
+              <p className="mt-1 text-xs text-red-600">
+                {error}
+              </p>
 
-            <Link
-              href="/vehicles"
-              className="mt-3 inline-flex rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700"
-            >
-              Back to Vehicles
-            </Link>
+              <Link
+                href="/vehicles"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#1677FF] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+              >
+                <BackIcon className="w-3.5 h-3.5" />
+                Back to Vehicles
+              </Link>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
         {!loading &&
           !error &&
           vehicle && (
             <>
-              <div className="mt-4 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex-1">
-                    <h1 className="text-lg font-bold text-gray-900">
-                      {vehicle.year}{" "}
-                      {vehicle.make}{" "}
-                      {vehicle.model}
-                    </h1>
+              {/* Vehicle Header */}
+              <div className="rounded-xl border border-[#DCE8F5] bg-white shadow-sm overflow-hidden">
+                <div className="border-b border-[#E8EEF5] bg-gradient-to-r from-[#F5F9FD] to-white px-4 py-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                        <CarIcon className="h-6 w-6 text-[#1677FF]" />
+                      </div>
 
-                    {vehicle.trim && (
-                      <p className="text-xs text-gray-500">
-                        {vehicle.trim}
-                      </p>
-                    )}
-                  </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {vehicle.status && (
+                            <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-700 ring-1 ring-green-200">
+                              {vehicle.status}
+                            </span>
+                          )}
+                          <h1 className="text-base font-bold text-[#102A56]">
+                            {vehicle.year} {vehicle.make} {vehicle.model}
+                          </h1>
+                          {vehicle.trim && (
+                            <span className="text-xs text-[#64748B]">
+                              {vehicle.trim}
+                            </span>
+                          )}
+                        </div>
 
-                  <div className="flex shrink-0 gap-2">
-                    {vehicle.vin ? (
-                      <Link
-                        href={`/vehicles/${encodeURIComponent(
-                          vehicle.vin
-                        )}/edit`}
-                        className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                        {vehicle.vin && (
+                          <div className="mt-1 flex items-center gap-1.5 text-[10px] text-[#64748B]">
+                            <span className="font-mono font-semibold">{vehicle.vin}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 gap-2">
+                      {vehicle.vin ? (
+                        <Link
+                          href={`/vehicles/${encodeURIComponent(
+                            vehicle.vin
+                          )}/edit`}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#DCE8F5] bg-white px-3 py-1.5 text-xs font-semibold text-[#102A56] shadow-sm transition hover:border-[#1677FF] hover:bg-blue-50 hover:text-[#1677FF]"
+                        >
+                          <EditIcon className="h-3.5 w-3.5" />
+                          Edit Vehicle
+                        </Link>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#DCE8F5] bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-400">
+                          <EditIcon className="h-3.5 w-3.5" />
+                          VIN Required
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handlePostToMarketplace}
+                        disabled={marketplaceLoading}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[#DCE8F5] bg-white px-3 py-1.5 text-xs font-semibold text-[#102A56] shadow-sm transition hover:border-[#1677FF] hover:bg-blue-50 hover:text-[#1677FF] disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Edit Vehicle
-                      </Link>
-                    ) : (
-                      <span className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-400">
-                        VIN Required for Edit
-                      </span>
-                    )}
+                        <ShareIcon className="h-3.5 w-3.5" />
+                        {marketplaceLoading
+                          ? "Posting..."
+                          : "Post to Marketplace"}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={handleArchiveVehicle}
-                      disabled={archiveLoading}
-                      className="inline-flex items-center justify-center rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {archiveLoading
-                        ? "Archiving..."
-                        : "Archive Vehicle"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handlePostToMarketplace}
-                      disabled={marketplaceLoading}
-                      className="inline-flex items-center justify-center rounded-md border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {marketplaceLoading
-                        ? "Opening Marketplace..."
-                        : "Post to Marketplace"}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={handleArchiveVehicle}
+                        disabled={archiveLoading}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <ArchiveIcon className="h-3.5 w-3.5" />
+                        {archiveLoading
+                          ? "Archiving..."
+                          : "Archive Vehicle"}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {/* Vehicle Image Gallery */}
-                  <div className="rounded-md overflow-hidden bg-gray-100 sm:col-span-2 lg:col-span-1">
-                    {(() => {
-                      const galleryImages =
-                        Array.isArray(vehicle.images) && vehicle.images.length > 0
-                          ? vehicle.images
-                          : vehicle.primary_image
-                            ? [vehicle.primary_image]
-                            : [];
+                <div className="p-4">
+                  <div className="grid gap-4 lg:grid-cols-3">
+                    {/* Vehicle Image Gallery */}
+                    <div className="lg:col-span-1">
+                      {(() => {
+                        const galleryImages =
+                          Array.isArray(vehicle.images) && vehicle.images.length > 0
+                            ? vehicle.images
+                            : vehicle.primary_image
+                              ? [vehicle.primary_image]
+                              : [];
 
-                      const showPreviousImage = () => {
-                        setActiveImageIndex((current) =>
-                          current === 0 ? galleryImages.length - 1 : current - 1
-                        );
-                      };
+                        const showPreviousImage = () => {
+  setImageError(false);
+  setActiveImageIndex((current) =>
+    current === 0 ? galleryImages.length - 1 : current - 1
+  );
+};
 
-                      const showNextImage = () => {
-                        setActiveImageIndex((current) =>
-                          current === galleryImages.length - 1 ? 0 : current + 1
-                        );
-                      };
+                        const showNextImage = () => {
+  setImageError(false);
+  setActiveImageIndex((current) =>
+    current === galleryImages.length - 1 ? 0 : current + 1
+  );
+};
 
-                      if (galleryImages.length === 0) {
+                        if (galleryImages.length === 0) {
+                          return (
+                            <VehicleImagePlaceholder className="h-48 w-full rounded-lg border border-[#DCE8F5]" />
+                          );
+                        }
+
                         return (
-                          <div className="h-48 flex items-center justify-center bg-gray-100">
-                            <VehicleImagePlaceholder />
-                          </div>
-                        );
-                      }
+                          <div className="space-y-1.5">
+                            <div className="relative overflow-hidden rounded-lg border border-[#DCE8F5] bg-[#F8FAFC]">
+                              {imageError ? (
+  <div className="flex h-48 w-full items-center justify-center bg-[#F8FAFC]">
+    <div className="text-center">
+      <CarIcon className="mx-auto h-8 w-8 text-[#94A3B8]" />
+      <p className="mt-2 text-xs text-[#64748B]">
+        Photo unavailable
+      </p>
+    </div>
+  </div>
+) : (
+  <img
+    src={galleryImages[activeImageIndex]}
+    alt={`${vehicle.year} ${vehicle.make} ${vehicle.model} photo ${activeImageIndex + 1}`}
+    className="h-48 w-full object-cover"
+    onError={() => {
+      if (galleryImages.length <= 1) {
+        setImageError(true);
+        return;
+      }
 
-                      return (
-                        <>
-                          <div className="relative overflow-hidden">
-                            <img
-                              src={galleryImages[activeImageIndex]}
-                              alt={`${vehicle.year} ${vehicle.make} ${vehicle.model} photo ${activeImageIndex + 1}`}
-                              className="h-48 w-full object-cover"
-                              onError={() => setImageError(true)}
-                            />
+      const tryCandidate = (offset: number): void => {
+        if (offset >= galleryImages.length) {
+          setImageError(true);
+          return;
+        }
+
+        const candidate = (activeImageIndex + offset) % galleryImages.length;
+        const image = new Image();
+
+        image.onload = () => {
+          setImageError(false);
+          setActiveImageIndex(candidate);
+        };
+
+        image.onerror = () => tryCandidate(offset + 1);
+        image.src = galleryImages[candidate];
+      };
+
+      tryCandidate(1);
+    }}
+  />
+)}
+
+                              {galleryImages.length > 1 && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={showPreviousImage}
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:bg-white"
+                                    aria-label="Previous photo"
+                                  >
+                                    <ChevronLeftIcon className="h-4 w-4 text-[#102A56]" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={showNextImage}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:bg-white"
+                                    aria-label="Next photo"
+                                  >
+                                    <ChevronRightIcon className="h-4 w-4 text-[#102A56]" />
+                                  </button>
+
+                                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
+                                    {activeImageIndex + 1} / {galleryImages.length}
+                                  </div>
+                                </>
+                              )}
+                            </div>
 
                             {galleryImages.length > 1 && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={showPreviousImage}
-                                  className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-1.5 text-sm font-semibold text-white hover:bg-black/80"
-                                  aria-label="Previous photo"
-                                >
-                                  ←
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={showNextImage}
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-1.5 text-sm font-semibold text-white hover:bg-black/80"
-                                  aria-label="Next photo"
-                                >
-                                  →
-                                </button>
-
-                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
-                                  {activeImageIndex + 1} / {galleryImages.length}
-                                </div>
-                              </>
+                              <div ref={thumbnailContainerRef} className="flex gap-1.5 overflow-x-auto pb-1">
+                                {galleryImages.map((image, index) => (
+                                  <button
+                                    key={`${image}-${index}`}
+                                    ref={index === activeImageIndex ? activeThumbnailRef : null}
+                                    type="button"
+                                    onClick={() => { setImageError(false); setActiveImageIndex(index); }}
+                                    className={`overflow-hidden rounded border flex-shrink-0 ${
+                                      index === activeImageIndex
+                                        ? "border-[#1677FF] ring-2 ring-blue-200"
+                                        : "border-[#DCE8F5]"
+                                    }`}
+                                    aria-label={`View photo ${index + 1}`}
+                                  >
+                                    <img
+  src={image}
+  alt={`${vehicle.year} ${vehicle.make} ${vehicle.model} photo ${index + 1}`}
+  className="h-12 w-12 object-cover"
+  onError={(event) => {
+    const thumbnailButton = event.currentTarget.closest("button");
+    if (thumbnailButton) thumbnailButton.hidden = true;
+  }}
+/>
+                                  </button>
+                                ))}
+                              </div>
                             )}
                           </div>
-
-                          {galleryImages.length > 1 && (
-                            <div className="mt-2 flex flex-nowrap gap-1.5 overflow-x-auto">
-                              {galleryImages.map((image, index) => (
-                                <button
-                                  key={`${image}-${index}`}
-                                  type="button"
-                                  onClick={() => setActiveImageIndex(index)}
-                                  className={`overflow-hidden rounded border bg-white flex-shrink-0 ${
-                                    index === activeImageIndex
-                                      ? "border-blue-600 ring-2 ring-blue-200"
-                                      : "border-neutral-200"
-                                  }`}
-                                  aria-label={`View photo ${index + 1}`}
-                                >
-                                  <img
-                                    src={image}
-                                    alt={`${vehicle.year} ${vehicle.make} ${vehicle.model} photo ${index + 1}`}
-                                    className="h-12 w-full object-cover"
-                                  />
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Vehicle Details */}
-                  <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:col-span-2 lg:col-span-2">
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                      Vehicle Details
-                    </p>
-
-                    <div className="mt-2">
-                      <p className="font-mono text-sm font-bold text-gray-900">
-                        {vehicle.vin || "VIN Not Available"}
-                      </p>
-
-                      <h2 className="mt-1 text-base font-bold text-gray-900">
-                        {vehicle.year} {vehicle.make} {vehicle.model}
-                      </h2>
-
-                      {vehicle.trim && (
-                        <p className="mt-0.5 text-xs text-gray-500">
-                          Trim: {vehicle.trim}
-                        </p>
-                      )}
+                        );
+                      })()}
                     </div>
-                    <div className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-2">
-                      <div>
-                        <span className="text-xs text-gray-500">Price:</span>{" "}
-                        <span className="text-sm font-semibold text-gray-900">
-                          {vehicle.price != null
-                            ? new Intl.NumberFormat("en-CA", {
-                                style: "currency",
-                                currency: "CAD",
-                                useGrouping: true,
-                                maximumFractionDigits: 0,
-                              }).format(vehicle.price)
-                            : "Not specified"}
-                        </span>
-                      </div>
 
-                      <div>
-                        <span className="text-xs text-gray-500">Mileage:</span>{" "}
-                        <span className="text-sm font-semibold text-gray-900">
-                          {vehicle.mileage != null
-                            ? `${vehicle.mileage.toLocaleString()} KM`
-                            : "Not specified"}
-                        </span>
-                      </div>
-
-                      <div>
-                        <span className="text-xs text-gray-500">Engine:</span>{" "}
-                        <span className="text-sm text-gray-800">
-                          {vehicle.engine || "Not specified"}
-                        </span>
-                      </div>
-
-                      <div>
-                        <span className="text-xs text-gray-500">Drivetrain:</span>{" "}
-                        <span className="text-sm text-gray-800">
-                          {vehicle.drivetrain || "Not specified"}
-                        </span>
-                      </div>
-
-                      <div>
-                        <span className="text-xs text-gray-500">Transmission:</span>{" "}
-                        <span className="text-sm text-gray-800">
-                          {vehicle.transmission || "Not specified"}
-                        </span>
-                      </div>
-
-                      <div>
-                        <span className="text-xs text-gray-500">Fuel:</span>{" "}
-                        <span className="text-sm text-gray-800">
-                          {vehicle.fuel || "Not specified"}
-                        </span>
-                      </div>
-
-                      {vehicle.location && (
-                        <div className="sm:col-span-2">
-                          <span className="text-xs text-gray-500">Location:</span>{" "}
-                          <span className="text-sm text-gray-800">
-                            {vehicle.location}
-                          </span>
+                    {/* Vehicle Information Grid */}
+                    <div className="lg:col-span-2">
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {/* VIN */}
+                        <div className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheckIcon className="h-4 w-4 text-[#1677FF]" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                              VIN
+                            </span>
+                          </div>
+                          <p className="mt-1.5 font-mono text-xs font-bold text-[#102A56]">
+                            {vehicle.vin || "Not available"}
+                          </p>
                         </div>
-                      )}
+
+                        {/* Mileage */}
+                        <div className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                          <div className="flex items-center gap-2">
+                            <GaugeIcon className="h-4 w-4 text-[#1677FF]" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                              Mileage
+                            </span>
+                          </div>
+                          <p className="mt-1.5 text-xs font-bold text-[#102A56]">
+                            {vehicle.mileage != null
+                              ? `${vehicle.mileage.toLocaleString()} ${vehicle.mileage_unit || 'km'}`
+                              : "Not specified"}
+                          </p>
+                        </div>
+
+                        {/* Price */}
+                        <div className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                          <div className="flex items-center gap-2">
+                            <DollarSignIcon className="h-4 w-4 text-[#1677FF]" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                              Price
+                            </span>
+                          </div>
+                          <p className="mt-1.5 text-xs font-bold text-[#102A56]">
+                            {vehicle.price != null
+                              ? new Intl.NumberFormat("en-CA", {
+                                  style: "currency",
+                                  currency: "CAD",
+                                  useGrouping: true,
+                                  maximumFractionDigits: 0,
+                                }).format(vehicle.price)
+                              : "Not specified"}
+                          </p>
+                        </div>
+
+                        {/* Transmission */}
+                        <div className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                          <div className="flex items-center gap-2">
+                            <CogIcon className="h-4 w-4 text-[#1677FF]" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                              Transmission
+                            </span>
+                          </div>
+                          <p className="mt-1.5 text-xs font-bold text-[#102A56]">
+                            {vehicle.transmission || "Not specified"}
+                          </p>
+                        </div>
+
+                        {/* Fuel */}
+                        <div className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                          <div className="flex items-center gap-2">
+                            <FuelIcon className="h-4 w-4 text-[#1677FF]" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                              Fuel
+                            </span>
+                          </div>
+                          <p className="mt-1.5 text-xs font-bold text-[#102A56]">
+                            {vehicle.fuel || "Not specified"}
+                          </p>
+                        </div>
+
+                        {/* Engine */}
+                        <div className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                          <div className="flex items-center gap-2">
+                            <CogIcon className="h-4 w-4 text-[#1677FF]" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                              Engine
+                            </span>
+                          </div>
+                          <p className="mt-1.5 text-xs font-bold text-[#102A56]">
+                            {vehicle.engine || "Not specified"}
+                          </p>
+                        </div>
+
+                        {/* Drivetrain */}
+                        <div className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                          <div className="flex items-center gap-2">
+                            <CogIcon className="h-4 w-4 text-[#1677FF]" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                              Drivetrain
+                            </span>
+                          </div>
+                          <p className="mt-1.5 text-xs font-bold text-[#102A56]">
+                            {vehicle.drivetrain || "Not specified"}
+                          </p>
+                        </div>
+
+                        {/* Body */}
+                        <div className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                          <div className="flex items-center gap-2">
+                            <CarIcon className="h-4 w-4 text-[#1677FF]" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                              Body
+                            </span>
+                          </div>
+                          <p className="mt-1.5 text-xs font-bold text-[#102A56]">
+                            {vehicle.body || "Not specified"}
+                          </p>
+                        </div>
+
+                        {/* Location */}
+                        {vehicle.location && (
+                          <div className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                            <div className="flex items-center gap-2">
+                              <MapPinIcon className="h-4 w-4 text-[#1677FF]" />
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                                Location
+                              </span>
+                            </div>
+                            <p className="mt-1.5 text-xs font-bold text-[#102A56]">
+                              {vehicle.location}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* V2 VEHICLE MATCHING */}
-              <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                      V2 Inventory Intelligence
-                    </p>
+              {/* Similar Vehicles */}
+              <div className="mt-4 rounded-xl border border-[#DCE8F5] bg-white shadow-sm overflow-hidden">
+                <div className="border-b border-[#E8EEF5] bg-gradient-to-r from-[#F5F9FD] to-white px-4 py-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                        <CarIcon className="h-5 w-5 text-[#1677FF]" />
+                      </div>
 
-                    <h2 className="mt-0.5 text-sm font-bold text-gray-900">
-                      Similar Vehicles
-                    </h2>
+                      <div>
+                        <h2 className="text-sm font-bold text-[#102A56]">
+                          Similar Vehicles
+                        </h2>
+                        <p className="mt-0.5 text-[10px] text-[#64748B]">
+                          Vehicles matching this profile in your inventory
+                        </p>
+                      </div>
+                    </div>
+
+                    {!matchingLoading &&
+                      matching &&
+                      matching.count !== undefined && (
+                        <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">
+                          {matching.count}{" "}
+                          {matching.count === 1
+                            ? "match"
+                            : "matches"}
+                        </span>
+                      )}
                   </div>
-
-                  {!matchingLoading &&
-                    matching &&
-                    matching.count !== undefined && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600">
-                        {matching.count}{" "}
-                        {matching.count === 1
-                          ? "match"
-                          : "matches"}
-                      </span>
-                    )}
                 </div>
 
-                {matchingLoading && (
-                  <div className="mt-2 rounded-md bg-gray-50 p-2">
-                    <p className="text-xs text-gray-500">
-                      Finding similar vehicles...
-                    </p>
-                  </div>
-                )}
-
-                {!matchingLoading &&
-                  matchingError && (
-                    <div className="mt-2 rounded-md border border-red-200 bg-red-50 p-2">
-                      <p className="text-xs font-medium text-red-700">
-                        Unable to load vehicle matches.
+                <div className="p-4">
+                  {matchingLoading && (
+                    <div className="flex items-center gap-2 rounded-md bg-[#F8FAFC] px-3 py-2">
+                      <RefreshIcon className="h-3.5 w-3.5 animate-spin text-[#1677FF]" />
+                      <p className="text-xs text-[#64748B]">
+                        Finding similar vehicles...
                       </p>
-
-                      <p className="mt-0.5 text-xs text-red-600">
-                        {matchingError}
-                      </p>
-
-                      <button
-                        type="button"
-                        onClick={refreshMatching}
-                        className="mt-1 rounded-md border border-red-300 bg-white px-2 py-1 text-[10px] font-semibold text-red-700 hover:bg-red-50"
-                      >
-                        Try Again
-                      </button>
                     </div>
                   )}
 
-                {!matchingLoading &&
-                  !matchingError &&
-                  matching &&
-                  matching.matches &&
-                  matching.matches.length > 0 && (
-                    <div className="mt-2 space-y-1.5">
-                      {matching.matches.map((match) => (
-                        match.vin ? (
-                          <Link
-                            key={match.id}
-                            href={`/vehicles/${encodeURIComponent(
-                              match.vin
-                            )}`}
-                            className="block rounded-lg border border-gray-200 p-2 transition hover:border-gray-400 hover:bg-gray-50"
+                  {!matchingLoading &&
+                    matchingError && (
+                      <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                        <AlertCircleIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
+                        <div>
+                          <p className="text-xs font-medium text-red-700">
+                            Unable to load vehicle matches.
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-red-600">
+                            {matchingError}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={refreshMatching}
+                            className="mt-1.5 rounded-md border border-red-300 bg-white px-2 py-1 text-[10px] font-semibold text-red-700 hover:bg-red-50"
                           >
-                          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-gray-900">
-                                {match.year}{" "}
-                                {match.make}{" "}
-                                {match.model}
-                              </p>
+                            Try Again
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
-                              {match.trim && (
-                                <p className="text-[10px] text-gray-500">
-                                  {match.trim}
-                                </p>
+                  {!matchingLoading &&
+                    !matchingError &&
+                    matching &&
+                    matching.matches &&
+                    matching.matches.length > 0 && (
+                      <div className="space-y-1.5">
+                        {matching.matches.map((match) => (
+                          match.vin ? (
+                            <Link
+                              key={match.id}
+                              href={`/vehicles/${encodeURIComponent(
+                                match.vin
+                              )}`}
+                              className="block rounded-lg border border-[#DCE8F5] p-3 transition hover:border-[#1677FF] hover:bg-blue-50"
+                            >
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold text-[#102A56]">
+                                    {match.year}{" "}
+                                    {match.make}{" "}
+                                    {match.model}
+                                  </p>
+
+                                  {match.trim && (
+                                    <p className="text-[10px] text-[#64748B]">
+                                      {match.trim}
+                                    </p>
+                                  )}
+
+                                  <p className="break-all font-mono text-[10px] text-[#94A3B8]">
+                                    VIN: {match.vin}
+                                  </p>
+                                </div>
+
+                                <div className="shrink-0 text-left sm:text-right">
+                                  <p className="text-sm font-bold text-[#1677FF]">
+                                    {match.matchScore}%
+                                  </p>
+
+                                  <p className="text-[10px] font-medium uppercase tracking-wide text-[#64748B]">
+                                    Match
+                                  </p>
+                                </div>
+                              </div>
+
+                              {match.reasons.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-[10px] font-medium text-[#64748B]">
+                                    {match.reasons.join(" | ")}
+                                  </p>
+                                </div>
                               )}
+                            </Link>
+                            ) : null
+                        ))}
+                      </div>
+                    )}
 
-                              <p className="break-all font-mono text-[10px] text-gray-400">
-                                VIN: {match.vin}
-                              </p>
-                            </div>
+                  {!matchingLoading &&
+                    !matchingError &&
+                    matching &&
+                    matching.matches &&
+                    matching.matches.length === 0 && (
+                      <div className="rounded-md border border-dashed border-[#DCE8F5] bg-[#F8FAFC] p-3 text-center">
+                        <CarIcon className="mx-auto h-5 w-5 text-[#94A3B8]" />
+                        <p className="mt-2 text-xs font-semibold text-[#102A56]">
+                          No similar vehicles found
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-[#64748B]">
+                          No matching vehicles in your active inventory.
+                        </p>
+                      </div>
+                    )}
+                </div>
+              </div>
 
-                            <div className="shrink-0 text-left sm:text-right">
-                              <p className="text-sm font-bold text-gray-900">
-                                {match.matchScore}%
-                              </p>
+              {/* Pricing Intelligence */}
+              <div className="mt-4 rounded-xl border border-[#DCE8F5] bg-white shadow-sm overflow-hidden">
+                <div className="border-b border-[#E8EEF5] bg-gradient-to-r from-[#F5F9FD] to-white px-4 py-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                        <DollarSignIcon className="h-5 w-5 text-[#1677FF]" />
+                      </div>
 
-                              <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                                Match
-                              </p>
-                            </div>
-                          </div>
+                      <div>
+                        <h2 className="text-sm font-bold text-[#102A56]">
+                          Pricing Intelligence
+                        </h2>
+                        <p className="mt-0.5 text-[10px] text-[#64748B]">
+                          Market analysis and competitive pricing
+                        </p>
+                      </div>
+                    </div>
 
-                          {match.reasons.length > 0 && (
-                            <div className="mt-1.5">
-                              <p className="text-[10px] font-medium text-gray-600">
-                                {match.reasons.join(" · ")}
-                              </p>
-                            </div>
-                          )}
-                        </Link>
-                        ) : null
+                    <div className="flex items-center gap-2">
+                      {!showAddComparable && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAddComparable(true)}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#DCE8F5] bg-white px-3 text-[11px] font-semibold text-[#102A56] transition hover:border-[#1677FF] hover:bg-blue-50 hover:text-[#1677FF]"
+                        >
+                          <PlusIcon className="h-3.5 w-3.5" />
+                          Add Comparable
+                        </button>
+                      )}
+
+                      {pricing?.pricing?.calculated_at && (
+                        <div className="flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1.5 text-[10px] text-[#64748B]">
+                          <CalendarIcon className="h-3.5 w-3.5" />
+                          Updated{" "}
+                          {new Date(
+                            pricing.pricing.calculated_at
+                          ).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4">
+                  {pricingLoading && (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      {[1, 2, 3, 4].map((item) => (
+                        <div
+                          key={item}
+                          className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3"
+                        >
+                          <div className="h-2.5 w-20 animate-pulse rounded bg-gray-200" />
+                          <div className="mt-2 h-5 w-28 animate-pulse rounded bg-gray-200" />
+                        </div>
                       ))}
                     </div>
                   )}
 
-                {!matchingLoading &&
-                  !matchingError &&
-                  matching &&
-                  matching.matches &&
-                  matching.matches.length === 0 && (
-                    <div className="mt-2 rounded-md bg-gray-50 p-2">
-                      <p className="text-xs text-gray-500">
-                        No similar vehicles were found
-                        in your active inventory.
-                      </p>
+                  {!pricingLoading && pricingError && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                      <div className="flex items-start gap-2">
+                        <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+
+                        <div>
+                          <p className="text-xs font-semibold text-red-700">
+                            Unable to load pricing intelligence
+                          </p>
+
+                          <p className="mt-0.5 text-[11px] text-red-600">
+                            {pricingError}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
-              </div>
 
-              {/* V2.2 PRICING */}
-              <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                      V2.2 Pricing Intelligence
-                    </p>
-
-                    <h2 className="mt-0.5 text-sm font-bold text-gray-900">
-                      Price Intelligence
-                    </h2>
-                  </div>
-
-                  {pricing?.pricing?.calculated_at && (
-                    <p className="text-[10px] text-gray-400">
-                      Updated{" "}
-                      {new Date(
-                        pricing.pricing.calculated_at
-                      ).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-
-                {pricingLoading && (
-                  <div className="mt-2 rounded-md bg-gray-50 p-2">
-                    <p className="text-xs text-gray-500">
-                      Loading pricing intelligence...
-                    </p>
-                  </div>
-                )}
-
-                {!pricingLoading && pricingError && (
-                  <div className="mt-2 rounded-md border border-red-200 bg-red-50 p-2">
-                    <p className="text-xs font-medium text-red-700">
-                      Unable to load pricing intelligence.
-                    </p>
-
-                    <p className="mt-0.5 text-xs text-red-600">
-                      {pricingError}
-                    </p>
-                  </div>
-                )}
-
-                {!pricingLoading &&
-                  !pricingError &&
-                  pricing && (
-                    <>
-                      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                            Current Price
-                          </p>
-
-                          <p className="mt-0.5 text-sm font-bold text-gray-900">
-                            {pricing.vehicle?.current_price != null
-                              ? `$${pricing.vehicle.current_price.toLocaleString()}`
-                              : "Not specified"}
-                          </p>
-                        </div>
-
-                        <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                            Market Price
-                          </p>
-
-                          <p className="mt-0.5 text-sm font-bold text-gray-900">
-                            {pricing.pricing?.market_price != null
-                              ? `$${pricing.pricing.market_price.toLocaleString()}`
-                              : "Not specified"}
-                          </p>
-                        </div>
-
-                        <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                            Recommended Price
-                          </p>
-
-                          <p className="mt-0.5 text-sm font-bold text-gray-900">
-                            {pricing.pricing?.recommended_price != null
-                              ? `$${pricing.pricing.recommended_price.toLocaleString()}`
-                              : "Not specified"}
-                          </p>
-                        </div>
-
-                        <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                            Days on Market
-                          </p>
-
-                          <p className="mt-0.5 text-sm font-bold text-gray-900">
-                            {pricing.days_on_market != null
-                              ? pricing.days_on_market
-                              : "Not specified"}
-                          </p>
-
-                          {pricing.days_on_market != null && (
-                            <p className="text-[10px] text-gray-500">
-                              days
+                  {!pricingLoading &&
+                    !pricingError &&
+                    pricing && (
+                      <>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                          <div className="flex min-h-[88px] flex-col justify-between rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-50">
+                                <DollarSignIcon className="h-3.5 w-3.5 text-[#1677FF]" />
+                              </div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                                Current Price
+                              </p>
+                            </div>
+                            <p className="mt-2 text-sm font-bold text-[#102A56]">
+                              {pricing.vehicle?.current_price != null
+                                ? `$${pricing.vehicle.current_price.toLocaleString()}`
+                                : "Not specified"}
                             </p>
-                          )}
+                          </div>
+
+                          <div className="flex min-h-[88px] flex-col justify-between rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-green-50">
+                                <DollarSignIcon className="h-3.5 w-3.5 text-green-600" />
+                              </div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                                Market Price
+                              </p>
+                            </div>
+                            <p className="mt-2 text-sm font-bold text-[#102A56]">
+                              {pricing.pricing?.market_price != null
+                                ? `$${pricing.pricing.market_price.toLocaleString()}`
+                                : "Not specified"}
+                            </p>
+                          </div>
+
+                          <div className="flex min-h-[88px] flex-col justify-between rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-50">
+                                <DollarSignIcon className="h-3.5 w-3.5 text-amber-600" />
+                              </div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                                Recommended
+                              </p>
+                            </div>
+                            <p className="mt-2 text-sm font-bold text-[#102A56]">
+                              {pricing.pricing?.recommended_price != null
+                                ? `$${pricing.pricing.recommended_price.toLocaleString()}`
+                                : "Not specified"}
+                            </p>
+                          </div>
+
+                          <div className="flex min-h-[88px] flex-col justify-between rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-purple-50">
+                                <CalendarIcon className="h-3.5 w-3.5 text-purple-600" />
+                              </div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                                Days on Market
+                              </p>
+                            </div>
+                            <p className="mt-2 text-sm font-bold text-[#102A56]">
+                              {pricing.days_on_market != null
+                                ? pricing.days_on_market
+                                : "Not specified"}
+                            </p>
+                          </div>
+
+                          <div className="flex min-h-[88px] flex-col justify-between rounded-lg border border-[#DCE8F5] bg-white p-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                              Low Market
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-[#102A56]">
+                              {pricing.pricing?.low_price != null
+                                ? `$${pricing.pricing.low_price.toLocaleString()}`
+                                : "Not specified"}
+                            </p>
+                          </div>
+
+                          <div className="flex min-h-[88px] flex-col justify-between rounded-lg border border-[#DCE8F5] bg-white p-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                              High Market
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-[#102A56]">
+                              {pricing.pricing?.high_price != null
+                                ? `$${pricing.pricing.high_price.toLocaleString()}`
+                                : "Not specified"}
+                            </p>
+                          </div>
+
+                          <div className="flex min-h-[88px] flex-col justify-between rounded-lg border border-[#DCE8F5] bg-white p-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                              Comparables
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-[#102A56]">
+                              {pricing.pricing?.comparable_count ?? 0}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                        <div className="rounded-md border border-gray-200 p-2">
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                            Low Market
-                          </p>
-
-                          <p className="mt-0.5 text-xs font-semibold text-gray-900">
-                            {pricing.pricing?.low_price != null
-                              ? `$${pricing.pricing.low_price.toLocaleString()}`
-                              : "Not specified"}
-                          </p>
-                        </div>
-
-                        <div className="rounded-md border border-gray-200 p-2">
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                            High Market
-                          </p>
-
-                          <p className="mt-0.5 text-xs font-semibold text-gray-900">
-                            {pricing.pricing?.high_price != null
-                              ? `$${pricing.pricing.high_price.toLocaleString()}`
-                              : "Not specified"}
-                          </p>
-                        </div>
-
-                        <div className="rounded-md border border-gray-200 p-2">
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                            Comparables
-                          </p>
-
-                          <p className="mt-0.5 text-xs font-semibold text-gray-900">
-                            {pricing.pricing?.comparable_count ?? 0}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 border-t border-gray-100 pt-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowAddComparable((v) => !v)
-                          }
-                          className="text-xs font-semibold text-gray-700 hover:text-gray-900"
-                        >
-                          {showAddComparable
-                            ? "Cancel"
-                            : "+ Add Comparable"}
-                        </button>
 
                         {showAddComparable && (
                           <form
                             onSubmit={handleAddComparable}
-                            className="mt-2 space-y-2"
+                            className="mt-4 overflow-hidden rounded-xl border border-[#DCE8F5] bg-white"
                           >
-                            <p className="text-[10px] text-gray-500">
-                              No commercial market-data
-                              provider is connected yet.
-                              Comparables added here are
-                              tagged &quot;Manual Entry
-                              (Dealer)&quot; and immediately
-                              recalculate the pricing above.
-                            </p>
-
-                            <div className="grid gap-2 sm:grid-cols-3">
-                              <div>
-                                <label className="block text-[10px] font-medium text-gray-500">
-                                  Year
-                                </label>
-
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  placeholder="2026"
-                                  value={newCompYear}
-                                  onChange={(e) =>
-                                    setNewCompYear(
-                                      e.target.value.replace(
-                                        /\D/g,
-                                        ""
-                                      )
-                                    )
-                                  }
-                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
-                                />
+                            <div className="flex items-center gap-3 border-b border-[#E8EEF5] bg-[#F8FBFF] px-4 py-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                                <PlusIcon className="h-4 w-4 text-[#1677FF]" />
                               </div>
 
                               <div>
-                                <label className="block text-[10px] font-medium text-gray-500">
-                                  Make
-                                </label>
-
-                                <input
-                                  type="text"
-                                  placeholder="Honda"
-                                  value={newCompMake}
-                                  onChange={(e) =>
-                                    setNewCompMake(
-                                      e.target.value
-                                    )
-                                  }
-                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-medium text-gray-500">
-                                  Model
-                                </label>
-
-                                <input
-                                  type="text"
-                                  placeholder="Civic"
-                                  value={newCompModel}
-                                  onChange={(e) =>
-                                    setNewCompModel(
-                                      e.target.value
-                                    )
-                                  }
-                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
-                                />
+                                <h3 className="text-sm font-bold text-[#102A56]">
+                                  Add Comparable
+                                </h3>
+                                <p className="mt-0.5 text-[10px] text-[#64748B]">
+                                  Add a dealer listing to improve pricing intelligence.
+                                </p>
                               </div>
                             </div>
 
-                            <div className="grid gap-2 sm:grid-cols-3">
-                              <div>
-                                <label className="block text-[10px] font-medium text-gray-500">
-                                  Trim
-                                </label>
+                            <div className="space-y-4 p-4">
+                              <div className="rounded-lg border border-[#E8EEF5] bg-[#F8FAFC] px-3 py-2.5">
+                                <p className="text-[11px] leading-5 text-[#64748B]">
+                                  No commercial market-data provider is connected yet.
+                                  Comparables added here are tagged &quot;Manual Entry (Dealer)&quot;
+                                  and immediately recalculate the pricing above.
+                                </p>
+                              </div>
 
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <div>
+                                  <label className="mb-1.5 block text-xs font-semibold text-[#102A56]">
+                                    Year
+                                  </label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="2026"
+                                    value={newCompYear}
+                                    onChange={(e) =>
+                                      setNewCompYear(
+                                        e.target.value.replace(/\D/g, "")
+                                      )
+                                    }
+                                    className="h-10 w-full max-w-xs rounded-lg border border-[#DCE8F5] bg-white px-3 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-blue-100"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="mb-1.5 block text-xs font-semibold text-[#102A56]">
+                                    Make
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="Honda"
+                                    value={newCompMake}
+                                    onChange={(e) => setNewCompMake(e.target.value)}
+                                    className="h-10 w-full max-w-xs rounded-lg border border-[#DCE8F5] bg-white px-3 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-blue-100"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="mb-1.5 block text-xs font-semibold text-[#102A56]">
+                                    Model
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="Civic"
+                                    value={newCompModel}
+                                    onChange={(e) => setNewCompModel(e.target.value)}
+                                    className="h-10 w-full max-w-xs rounded-lg border border-[#DCE8F5] bg-white px-3 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-blue-100"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="mb-1.5 block text-xs font-semibold text-[#102A56]">
+                                    Trim
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="Sport"
+                                    value={newCompTrim}
+                                    onChange={(e) => setNewCompTrim(e.target.value)}
+                                    className="h-10 w-full max-w-xs rounded-lg border border-[#DCE8F5] bg-white px-3 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-blue-100"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="mb-1.5 block text-xs font-semibold text-[#102A56]">
+                                    Price ($)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    required
+                                    placeholder="1,200,000"
+                                    value={newCompPrice}
+                                    onChange={(e) =>
+                                      setNewCompPrice(formatNumberInput(e.target.value))
+                                    }
+                                    className="h-10 w-full max-w-xs rounded-lg border border-[#DCE8F5] bg-white px-3 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-blue-100"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="mb-1.5 block text-xs font-semibold text-[#102A56]">
+                                    Mileage ({vehicle.mileage_unit || "km"})
+                                  </label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="25,000"
+                                    value={newCompMileage}
+                                    onChange={(e) =>
+                                      setNewCompMileage(formatNumberInput(e.target.value))
+                                    }
+                                    className="h-10 w-full max-w-xs rounded-lg border border-[#DCE8F5] bg-white px-3 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-blue-100"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="max-w-xs">
+                                <label className="mb-1.5 block text-xs font-semibold text-[#102A56]">
+                                  Location
+                                </label>
                                 <input
                                   type="text"
-                                  placeholder="Sport"
-                                  value={newCompTrim}
-                                  onChange={(e) =>
-                                    setNewCompTrim(
-                                      e.target.value
-                                    )
-                                  }
-                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
+                                  placeholder="Quezon City"
+                                  value={newCompLocation}
+                                  onChange={(e) => setNewCompLocation(e.target.value)}
+                                  className="h-10 w-full max-w-xs rounded-lg border border-[#DCE8F5] bg-white px-3 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-blue-100"
                                 />
                               </div>
 
-                              <div>
-                                <label className="block text-[10px] font-medium text-gray-500">
-                                  Price ($)
-                                </label>
+                              {addComparableError && (
+                                <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
+                                  <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                                  <p className="text-xs leading-5 text-red-600">
+                                    {addComparableError}
+                                  </p>
+                                </div>
+                              )}
 
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  required
-                                  placeholder="1,200,000"
-                                  value={newCompPrice}
-                                  onChange={(e) =>
-                                    setNewCompPrice(
-                                      formatNumberInput(
-                                        e.target.value
-                                      )
-                                    )
-                                  }
-                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
-                                />
-                              </div>
+                              <div className="flex flex-col-reverse gap-2 border-t border-[#E8EEF5] pt-4 sm:flex-row sm:items-center sm:justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowAddComparable(false);
+                                    setNewCompYear("");
+                                    setNewCompMake("");
+                                    setNewCompModel("");
+                                    setNewCompTrim("");
+                                    setNewCompPrice("");
+                                    setNewCompMileage("");
+                                    setNewCompLocation("");
+                                    setAddComparableError("");
+                                  }}
+                                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#DCE8F5] bg-white px-4 text-sm font-semibold text-[#475569] transition hover:border-[#BFD8F2] hover:bg-[#F8FBFF]"
+                                >
+                                  <CloseIcon className="h-4 w-4" />
+                                  Cancel
+                                </button>
 
-                              <div>
-                                <label className="block text-[10px] font-medium text-gray-500">
-                                  Mileage ({vehicle.mileage_unit || 'km'})
-                                </label>
-
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  placeholder="25,000"
-                                  value={newCompMileage}
-                                  onChange={(e) =>
-                                    setNewCompMileage(
-                                      formatNumberInput(
-                                        e.target.value
-                                      )
-                                    )
-                                  }
-                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
-                                />
+                                <button
+                                  type="submit"
+                                  disabled={addComparableLoading}
+                                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#1677FF] bg-[#1677FF] px-4 text-sm font-semibold text-white transition hover:border-[#0F67E8] hover:bg-[#0F67E8] disabled:cursor-not-allowed disabled:border-[#CBD5E1] disabled:bg-[#CBD5E1]"
+                                >
+                                  <SaveIcon className="h-4 w-4" />
+                                  {addComparableLoading ? "Saving..." : "Save Comparable"}
+                                </button>
                               </div>
                             </div>
-
-                            <div>
-                              <label className="block text-[10px] font-medium text-gray-500">
-                                Location
-                              </label>
-
-                              <input
-                                type="text"
-                                placeholder="Quezon City"
-                                value={newCompLocation}
-                                onChange={(e) =>
-                                  setNewCompLocation(
-                                    e.target.value
-                                  )
-                                }
-                                className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
-                              />
-                            </div>
-
-                            {addComparableError && (
-                              <p className="text-xs text-red-600">
-                                {addComparableError}
-                              </p>
-                            )}
-
-                            <button
-                              type="submit"
-                              disabled={addComparableLoading}
-                              className="rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-                            >
-                              {addComparableLoading
-                                ? "Saving..."
-                                : "Save Comparable"}
-                            </button>
                           </form>
                         )}
-                      </div>
 
-                      {pricing.comparables &&
-                        pricing.comparables.length > 0 && (
-                          <div className="mt-3">
-                            <div className="flex items-center justify-between gap-2">
-                              <h3 className="text-xs font-semibold text-gray-900">
-                                Competitive Listings
-                              </h3>
+                        {pricing.comparables &&
+                          pricing.comparables.length > 0 && (
+                            <div className="mt-4">
+                              <div className="flex items-center justify-between gap-2 mb-3">
+                                <h3 className="text-xs font-semibold text-[#102A56]">
+                                  Competitive Listings
+                                </h3>
 
-                              <span className="text-[10px] text-gray-400">
-                                {pricing.comparables.length} listing
-                                {pricing.comparables.length === 1
-                                  ? ""
-                                  : "s"}
-                              </span>
-                            </div>
+                                <span className="text-[10px] text-[#64748B]">
+                                  {pricing.comparables.length} listing
+                                  {pricing.comparables.length === 1 ? "" : "s"}
+                                </span>
+                              </div>
 
-                            <div className="mt-2 space-y-1.5">
-                              {pricing.comparables.map(
-                                (comparable) => (
+                              <div className="space-y-1.5">
+                                {pricing.comparables.map((comparable) => (
                                   <div
                                     key={comparable.id}
-                                    className="rounded-md border border-gray-200 p-2"
+                                    className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3"
                                   >
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                       <div>
-                                        <p className="text-xs font-semibold text-gray-900">
+                                        <p className="text-xs font-semibold text-[#102A56]">
                                           {comparable.year ?? "N/A"}{" "}
                                           {comparable.make ?? ""}{" "}
                                           {comparable.model ?? ""}
                                         </p>
 
                                         {comparable.trim && (
-                                          <p className="text-[10px] text-gray-500">
+                                          <p className="text-[10px] text-[#64748B]">
                                             {comparable.trim}
                                           </p>
                                         )}
                                       </div>
 
-                                      <p className="text-xs font-bold text-gray-900">
+                                      <p className="text-xs font-bold text-[#102A56]">
                                         {comparable.price != null
                                           ? `$${comparable.price.toLocaleString()}`
                                           : "Not specified"}
                                       </p>
                                     </div>
 
-                                    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-gray-500">
+                                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-[#64748B]">
                                       <span>
                                         Mileage:{" "}
                                         {comparable.mileage != null
@@ -1933,810 +2136,1007 @@ export default function VehicleDetailsPage() {
                                       </span>
 
                                       <span>
-                                        Location:{" "}
-                                        {comparable.location || "N/A"}
+                                        Location: {comparable.location || "N/A"}
                                       </span>
 
-                                      <span>
-                                        Source:{" "}
-                                        {comparable.source}
-                                      </span>
+                                      <span>Source: {comparable.source}</span>
                                     </div>
-
 
                                     {comparable.source_url && (
                                       <a
                                         href={comparable.source_url}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="mt-1.5 inline-block text-[10px] font-medium text-gray-700 underline hover:text-gray-900"
+                                        className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-[#1677FF] hover:text-blue-600"
                                       >
                                         View listing
+                                        <ChevronRightIcon className="h-3 w-3" />
                                       </a>
                                     )}
                                   </div>
-                                )
-                              )}
+                                ))}
+                              </div>
                             </div>
+                          )}
+
+                        {!pricing.comparables?.length && (
+                          <div className="mt-4 rounded-lg border border-dashed border-[#DCE8F5] bg-[#F8FAFC] p-3 text-center">
+                            <CarIcon className="mx-auto h-5 w-5 text-[#94A3B8]" />
+                            <p className="mt-2 text-xs font-semibold text-[#102A56]">
+                              No competitive listings yet
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-[#64748B]">
+                              Add a comparable vehicle to improve the market analysis.
+                            </p>
                           </div>
                         )}
-
-                      {!pricing.comparables?.length && (
-                        <div className="mt-3 rounded-md bg-gray-50 p-2">
-                          <p className="text-xs text-gray-500">
-                            No competitive listings are available yet.
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  )}
+                      </>
+                    )}
+                </div>
               </div>
 
-              {/* VEHICLE STATUS */}
-              <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                <h2 className="text-sm font-semibold text-gray-900">
-                  Vehicle Status
-                </h2>
-
-                {historyLoading && (
-                  <p className="mt-2 text-xs text-gray-500">
-                    Checking available history...
-                  </p>
-                )}
-
-                {!historyLoading &&
-                  historyError && (
-                    <p className="mt-2 text-xs text-red-600">
-                      {historyError}
-                    </p>
-                  )}
-
-                {!historyLoading &&
-                  !historyError &&
-                  history && (
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className={
-                          hasTheft
-                            ? "text-amber-700"
-                            : "text-green-700"
-                        }>
-                          {hasTheft ? "\u2713" : "\u2013"}
-                        </span>
-
-                        <span className={
-                          hasTheft
-                            ? "text-amber-700"
-                            : "text-green-700"
-                        }>
-                          {hasTheft
-                            ? "Theft-related record found"
-                            : "No theft-related record"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs text-gray-700">
-                        <span>
-                          {hasOdometer ? "\u2713" : "\u2013"}
-                        </span>
-
-                        <span>
-                          {hasOdometer
-                            ? "Odometer records available"
-                            : "No odometer records"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs text-gray-700">
-                        <span>
-                          {hasAccident ? "\u2713" : "\u2013"}
-                        </span>
-
-                        <span>
-                          {hasAccident
-                            ? "Accident records available"
-                            : "No accident records"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs text-gray-700">
-                        <span>
-                          {hasClaim ? "\u2713" : "\u2013"}
-                        </span>
-
-                        <span>
-                          {hasClaim
-                            ? "Insurance claim records available"
-                            : "No insurance claim records"}
-                        </span>
-                      </div>
-                      {history.odometerAnomaly && (
-                        <div className="flex items-center gap-2 text-xs text-amber-700 sm:col-span-2">
-                          <span>\u26A0 </span>
-
-                          <span>
-                            Odometer Pattern Requires Review
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                <div className="mt-3 border-t border-gray-100 pt-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowAddEvent((v) => !v)
-                    }
-                    className="text-xs font-semibold text-gray-700 hover:text-gray-900"
-                  >
-                    {showAddEvent
-                      ? "Cancel"
-                      : "+ Add History Record"}
-                  </button>
-
-                  {showAddEvent && (
-                    <form
-                      onSubmit={handleAddEvent}
-                      className="mt-2 space-y-2"
-                    >
-                      <p className="text-[10px] text-gray-500">
-                        No commercial vehicle-history
-                        provider is connected yet.
-                        Records added here are tagged
-                        &quot;Manual Entry (Dealer)&quot;.
-                      </p>
-
-                      <div className="flex flex-wrap gap-2">
-                        <label className="flex items-center gap-1 text-xs">
-                          <input
-                            type="radio"
-                            checked={
-                              newEventType === "THEFT"
-                            }
-                            onChange={() => {
-                              setNewEventType("THEFT");
-                              setNewEventOdometer("");
-                            }}
-                          />
-                          Theft
-                        </label>
-
-                        <label className="flex items-center gap-1 text-xs">
-                          <input
-                            type="radio"
-                            checked={
-                              newEventType === "ODOMETER"
-                            }
-                            onChange={() =>
-                              setNewEventType("ODOMETER")
-                            }
-                          />
-                          Odometer
-                        </label>
-
-                        <label className="flex items-center gap-1 text-xs">
-                          <input
-                            type="radio"
-                            checked={
-                              newEventType === "ACCIDENT"
-                            }
-                            onChange={() => {
-                              setNewEventType("ACCIDENT");
-                              setNewEventOdometer("");
-                            }}
-                          />
-                          Accident
-                        </label>
-
-                        <label className="flex items-center gap-1 text-xs">
-                          <input
-                            type="radio"
-                            checked={
-                              newEventType === "CLAIM"
-                            }
-                            onChange={() => {
-                              setNewEventType("CLAIM");
-                              setNewEventOdometer("");
-                            }}
-                          />
-                          Insurance Claim
-                        </label>
-                      </div>
-
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <div>
-                          <label className="block text-[10px] font-medium text-gray-500">
-                            Date
-                          </label>
-
-                          <input
-                            type="date"
-                            value={newEventDate}
-                            onChange={(e) =>
-                              setNewEventDate(
-                                e.target.value
-                              )
-                            }
-                            className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
-                          />
-                        </div>
-
-                        {newEventType === "ODOMETER" && (
-                          <div>
-                            <label className="block text-[10px] font-medium text-gray-500">
-                              Odometer ({vehicle.mileage_unit || 'km'})
-                            </label>
-
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              required
-                              value={newEventOdometer}
-                              onChange={(e) =>
-                                handleOdometerChange(
-                                  e.target.value
-                                )
-                              }
-                              className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
-                            />
-                          </div>
-                        )}
+              {/* Vehicle History */}
+              <div className="mt-4 rounded-xl border border-[#DCE8F5] bg-white shadow-sm overflow-hidden">
+                <div className="border-b border-[#E8EEF5] bg-gradient-to-r from-[#F5F9FD] to-white px-4 py-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                        <ShieldCheckIcon className="h-5 w-5 text-[#1677FF]" />
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-medium text-gray-500">
-                          Description
-                        </label>
+                        <h2 className="text-sm font-bold text-[#102A56]">
+                          Vehicle History
+                        </h2>
+                        <p className="mt-0.5 text-[10px] text-[#64748B]">
+                          History checks and dealer records
+                        </p>
+                      </div>
+                    </div>
 
-                        <input
-                          type="text"
-                          placeholder={
-                            newEventType === "THEFT"
-                              ? "Theft-related description"
-                              : "Optional note"
-                          }
-                          value={newEventDescription}
-                          onChange={(e) =>
-                            setNewEventDescription(
-                              e.target.value
-                            )
-                          }
-                          className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs outline-none focus:border-black"
+                    {!showAddEvent && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddEvent(true)}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#DCE8F5] bg-white px-3 text-[11px] font-semibold text-[#102A56] shadow-sm transition hover:border-[#1677FF] hover:text-[#1677FF]"
+                      >
+                        <PlusIcon className="h-3.5 w-3.5" />
+                        Add History Record
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-4">
+                  {historyLoading && (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      {[1, 2, 3, 4].map((item) => (
+                        <div
+                          key={item}
+                          className="h-24 animate-pulse rounded-lg border border-[#DCE8F5] bg-[#F8FAFC]"
                         />
+                      ))}
+                    </div>
+                  )}
+
+                  {!historyLoading && historyError && (
+                    <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3">
+                      <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+
+                      <div>
+                        <p className="text-xs font-semibold text-red-800">
+                          Unable to load vehicle history
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-red-600">
+                          {historyError}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {!historyLoading && !historyError && history && (
+                    <>
+                      {/* 2x2 Grid for all history categories */}
+                      <div className="grid items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        {/* Theft */}
+                        <div className="flex min-h-[82px] flex-col justify-between rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white">
+                                <AlertTriangleIcon className="h-3.5 w-3.5 text-amber-600" />
+                              </div>
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                                Theft
+                              </span>
+                            </div>
+
+                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                              hasTheft
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-green-100 text-green-700"
+                            }`}>
+                              {hasTheft ? "Found" : "Clear"}
+                            </span>
+                          </div>
+
+                          <p className="mt-2 text-xs font-bold text-[#102A56]">
+                            {hasTheft
+                              ? `${theftEvents.length} record${theftEvents.length === 1 ? "" : "s"}`
+                              : "No records"}
+                          </p>
+                        </div>
+
+                        {/* Odometer */}
+                        <div className="flex min-h-[82px] flex-col justify-between rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white">
+                                <GaugeIcon className="h-3.5 w-3.5 text-green-600" />
+                              </div>
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                                Odometer
+                              </span>
+                            </div>
+
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[9px] font-bold text-green-700">
+                              {hasOdometer ? "Recorded" : "N/A"}
+                            </span>
+                          </div>
+
+                          <p className="mt-2 text-xs font-bold text-[#102A56]">
+                            {hasOdometer
+                              ? `${odometerEvents[odometerEvents.length - 1]?.odometer?.toLocaleString("en-US") || "Not specified"} ${vehicle.mileage_unit || "km"}`
+                              : "No records"}
+                          </p>
+                        </div>
+
+                        {/* Accident */}
+                        <div className={`flex min-h-[82px] flex-col justify-between rounded-lg border p-3 ${
+                          hasAccident
+                            ? "border-red-200 bg-red-50/60"
+                            : "border-[#DCE8F5] bg-[#F8FAFC]"
+                        }`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
+                                hasAccident ? "bg-red-100" : "bg-white"
+                              }`}>
+                                <AlertCircleIcon className={`h-3.5 w-3.5 ${
+                                  hasAccident ? "text-red-600" : "text-[#64748B]"
+                                }`} />
+                              </div>
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                                Accident
+                              </span>
+                            </div>
+
+                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                              hasAccident
+                                ? "bg-red-100 text-red-700"
+                                : "bg-green-100 text-green-700"
+                            }`}>
+                              {hasAccident ? "Found" : "Clear"}
+                            </span>
+                          </div>
+
+                          <p className="mt-2 text-xs font-bold text-[#102A56]">
+                            {hasAccident
+                              ? `${accidentEvents.length} record${accidentEvents.length === 1 ? "" : "s"}`
+                              : "No records"}
+                          </p>
+                        </div>
+
+                        {/* Insurance */}
+                        <div className="flex min-h-[82px] flex-col justify-between rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white">
+                                <CreditCardIcon className="h-3.5 w-3.5 text-blue-600" />
+                              </div>
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                                Insurance
+                              </span>
+                            </div>
+
+                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                              claimEvents.length
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-slate-100 text-slate-600"
+                            }`}>
+                              {claimEvents.length ? "Claims" : "Clear"}
+                            </span>
+                          </div>
+
+                          <p className="mt-2 text-xs font-bold text-[#102A56]">
+                            {claimEvents.length
+                              ? `${claimEvents.length} claim${claimEvents.length === 1 ? "" : "s"}`
+                              : "No claims"}
+                          </p>
+                        </div>
                       </div>
 
-                      {addEventError && (
-                        <p className="text-xs text-red-600">
-                          {addEventError}
-                        </p>
+                      {/* Detailed History */}
+                      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                        {/* Theft Records */}
+                        <div className="flex flex-col rounded-lg border border-[#E8EEF5] bg-[#FBFDFF]">
+                          <div className="flex items-center justify-between border-b border-[#E8EEF5] px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangleIcon className="h-4 w-4 text-amber-600" />
+                              <h3 className="text-xs font-bold text-[#102A56]">
+                                Theft Records
+                              </h3>
+                            </div>
+
+                            <span className="text-[10px] text-[#64748B]">
+                              {theftEvents.length} record {theftEvents.length === 1 ? "" : "s"}
+                            </span>
+                          </div>
+
+                          <div className="flex-1 p-2.5">
+                            {hasTheft ? (
+                              <div className="space-y-1.5">
+                                {theftEvents.map((event) => (
+                                  <div
+                                    key={event.id}
+                                    className="rounded-md border border-amber-200 bg-amber-50/60 p-2"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="min-w-0 flex-1 break-words text-[11px] font-semibold leading-4 text-amber-900">
+                                        {event.description || "Theft-related record"}
+                                      </p>
+
+                                      <ConfidenceTag source={event.source} />
+                                    </div>
+
+                                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-amber-700">
+                                      <span>
+                                        {event.event_date
+                                          ? new Date(event.event_date).toLocaleDateString()
+                                          : "Date not provided"}
+                                      </span>
+
+                                      {event.location && (
+                                        <>
+                                          <span>|</span>
+                                          <span>{event.location}</span>
+                                        </>
+                                      )}
+                                    </div>
+
+                                    <p className="mt-1 text-[9px] text-amber-600">
+                                      Source: {event.source}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="rounded-md bg-white p-3 text-center">
+                                <ShieldCheckIcon className="mx-auto h-5 w-5 text-green-500" />
+                                <p className="mt-1.5 text-xs font-semibold text-[#102A56]">
+                                  No theft records
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-[#64748B]">
+                                  No reported theft history was found.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Odometer Records */}
+                        <div className="flex flex-col rounded-lg border border-[#E8EEF5] bg-[#FBFDFF]">
+                          <div className="flex items-center justify-between border-b border-[#E8EEF5] px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <GaugeIcon className="h-4 w-4 text-green-600" />
+                              <h3 className="text-xs font-bold text-[#102A56]">
+                                Odometer Records
+                              </h3>
+                            </div>
+
+                            <span className="text-[10px] text-[#64748B]">
+                              {odometerEvents.length} record {odometerEvents.length === 1 ? "" : "s"}
+                            </span>
+                          </div>
+
+                          <div className="flex-1 p-2.5">
+                            {hasOdometer ? (
+                              <ol className="space-y-1.5 text-xs">
+                                {odometerEvents.map((event) => (
+                                  <li
+                                    key={event.id}
+                                    className="flex items-center justify-between gap-2 rounded-md border border-[#EEF3F8] bg-white px-2 py-1.5"
+                                  >
+                                    <span className="text-[#102A56]">
+                                      {event.event_date
+                                        ? new Date(event.event_date).toLocaleDateString()
+                                        : "Not specified"}
+                                    </span>
+
+                                    <span className="flex items-center gap-2">
+                                      <span className="font-medium text-[#102A56]">
+                                        {event.odometer != null
+                                          ? event.odometer.toLocaleString("en-US")
+                                          : "Not specified"}{" "}
+                                        {vehicle.mileage_unit || 'km'}
+                                      </span>
+
+                                      <ConfidenceTag source={event.source} />
+                                    </span>
+                                  </li>
+                                ))}
+                              </ol>
+                            ) : (
+                              <div className="rounded-md bg-white p-3 text-center">
+                                <GaugeIcon className="mx-auto h-5 w-5 text-[#94A3B8]" />
+                                <p className="mt-1.5 text-xs font-semibold text-[#102A56]">
+                                  No odometer records
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-[#64748B]">
+                                  No odometer readings were found.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Accident Records */}
+                        <div className="flex flex-col rounded-lg border border-[#E8EEF5] bg-[#FBFDFF]">
+                          <div className="flex items-center justify-between border-b border-[#E8EEF5] px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <AlertCircleIcon className="h-4 w-4 text-red-600" />
+                              <h3 className="text-xs font-bold text-[#102A56]">
+                                Accident Records
+                              </h3>
+                            </div>
+
+                            <span className="text-[10px] text-[#64748B]">
+                              {accidentEvents.length} record {accidentEvents.length === 1 ? "" : "s"}
+                            </span>
+                          </div>
+
+                          <div className="flex-1 p-2.5">
+                            {hasAccident ? (
+                              <div className="space-y-1.5">
+                                {accidentEvents.map((event) => (
+                                  <div
+                                    key={event.id}
+                                    className="rounded-md border border-red-200 bg-red-50/60 p-2"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="min-w-0 flex-1 break-words text-[11px] font-semibold leading-4 text-red-900">
+                                        {event.description || "Accident record"}
+                                      </p>
+
+                                      <ConfidenceTag source={event.source} />
+                                    </div>
+
+                                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-red-700">
+                                      <span>
+                                        {event.event_date
+                                          ? new Date(event.event_date).toLocaleDateString()
+                                          : "Date not provided"}
+                                      </span>
+
+                                      {event.location && (
+                                        <>
+                                          <span>|</span>
+                                          <span>{event.location}</span>
+                                        </>
+                                      )}
+                                    </div>
+
+                                    <p className="mt-1 text-[9px] text-red-600">
+                                      Source: {event.source}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="rounded-md bg-white p-3 text-center">
+                                <ShieldCheckIcon className="mx-auto h-5 w-5 text-green-500" />
+                                <p className="mt-1.5 text-xs font-semibold text-[#102A56]">
+                                  No accident records
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-[#64748B]">
+                                  No reported accident history was found.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Insurance Claims */}
+                        <div className="flex flex-col rounded-lg border border-[#E8EEF5] bg-[#FBFDFF]">
+                          <div className="flex items-center justify-between border-b border-[#E8EEF5] px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <CreditCardIcon className="h-4 w-4 text-blue-600" />
+                              <h3 className="text-xs font-bold text-[#102A56]">
+                                Insurance Claims
+                              </h3>
+                            </div>
+
+                            <span className="text-[10px] text-[#64748B]">
+                              {claimEvents.length} record {claimEvents.length === 1 ? "" : "s"}
+                            </span>
+                          </div>
+
+                          <div className="flex-1 p-2.5">
+                            {claimEvents.length ? (
+                              <div className="space-y-1.5">
+                                {claimEvents.map((claim, index) => (
+                                  <div
+                                    key={claim.id || index}
+                                    className="rounded-md border border-blue-200 bg-blue-50/60 p-2"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="text-[11px] font-semibold text-blue-900">
+                                        {claim.description || "Insurance claim"}
+                                      </p>
+
+                                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-semibold text-blue-700">
+                                        Claim
+                                      </span>
+                                    </div>
+
+                                    <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-blue-700">
+                                      {claim.event_date && (
+                                        <span>
+                                          {new Date(claim.event_date).toLocaleDateString()}
+                                        </span>
+                                      )}
+
+                                      {claim.location && (
+                                        <>
+                                          <span>|</span>
+                                          <span>{claim.location}</span>
+                                        </>
+                                      )}
+                                    </div>
+
+                                    <p className="mt-1 text-[9px] text-blue-600">
+                                      Source: {claim.source}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="rounded-md bg-white p-3 text-center">
+                                <CreditCardIcon className="mx-auto h-5 w-5 text-[#94A3B8]" />
+                                <p className="mt-1.5 text-xs font-semibold text-[#102A56]">
+                                  No insurance claims
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-[#64748B]">
+                                  No insurance claim history is currently available.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Odometer Anomaly */}
+                      {history.odometerAnomaly && (
+                        <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                          <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+
+                          <div>
+                            <p className="text-xs font-bold text-amber-900">
+                              Odometer anomaly detected
+                            </p>
+
+                            <p className="mt-0.5 text-[10px] leading-relaxed text-amber-700">
+                              Potential mileage inconsistency detected. Review the mileage
+                              records before relying on the current reading.
+                            </p>
+                          </div>
+                        </div>
                       )}
 
-                      <button
-                        type="submit"
-                        disabled={addEventLoading}
-                        className="rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-                      >
-                        {addEventLoading
-                          ? "Saving..."
-                          : "Save Record"}
-                      </button>
-                    </form>
+                      {/* Add History Record Form */}
+                      {showAddEvent && (
+                        <form
+                          onSubmit={handleAddEvent}
+                          className="mt-4 overflow-hidden rounded-xl border border-[#DCE8F5] bg-white"
+                        >
+                          <div className="flex items-center gap-3 border-b border-[#E8EEF5] bg-[#F8FBFF] px-4 py-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                              <PlusIcon className="h-4 w-4 text-[#1677FF]" />
+                            </div>
+
+                            <div>
+                              <h3 className="text-sm font-bold text-[#102A56]">
+                                Add Record
+                              </h3>
+                              <p className="mt-0.5 text-[10px] text-[#64748B]">
+                                Add a manual vehicle history record.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-4 p-4">
+                            <div className="rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2.5">
+                              <p className="text-[11px] leading-5 text-[#526581]">
+                                No commercial vehicle-history provider is connected yet.
+                                Records added here are tagged &quot;Manual Entry (Dealer)&quot;.
+                              </p>
+                            </div>
+
+                            <div>
+                              <label className="mb-1.5 block text-xs font-semibold text-[#102A56]">
+                                Record Type
+                              </label>
+
+                              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                                {[
+                                  { id: "THEFT", label: "Theft", icon: AlertTriangleIcon },
+                                  { id: "ODOMETER", label: "Odometer", icon: GaugeIcon },
+                                  { id: "ACCIDENT", label: "Accident", icon: AlertCircleIcon },
+                                  { id: "CLAIM", label: "Insurance Claim", icon: CreditCardIcon },
+                                ].map((type) => {
+                                  const Icon = type.icon;
+
+                                  return (
+                                    <label
+                                      key={type.id}
+                                      className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                                        newEventType === type.id
+                                          ? "border-[#1677FF] bg-blue-50 text-[#1677FF]"
+                                          : "border-[#DCE8F5] bg-white text-[#64748B] hover:border-[#1677FF] hover:bg-blue-50/50"
+                                      }`}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name="eventType"
+                                        value={type.id}
+                                        checked={newEventType === type.id}
+                                        onChange={(e) => {
+                                          setNewEventType(e.target.value as "THEFT" | "ODOMETER" | "ACCIDENT" | "CLAIM");
+                                          setNewEventOdometer("");
+                                        }}
+                                        className="sr-only"
+                                      />
+                                      <Icon className="h-4 w-4 shrink-0" />
+                                      <span>{type.label}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <label className="mb-1.5 block text-xs font-semibold text-[#102A56]">
+                                  Date
+                                </label>
+
+                                <input
+                                  type="date"
+                                  value={newEventDate}
+                                  onChange={(e) => setNewEventDate(e.target.value)}
+                                  className="h-10 w-full max-w-xs rounded-lg border border-[#DCE8F5] bg-white px-3 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-blue-100"
+                                />
+                              </div>
+
+                              {newEventType === "ODOMETER" && (
+                                <div>
+                                  <label className="mb-1.5 block text-xs font-semibold text-[#102A56]">
+                                    Odometer ({vehicle.mileage_unit || "km"})
+                                  </label>
+
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    required
+                                    value={newEventOdometer}
+                                    onChange={(e) => handleOdometerChange(e.target.value)}
+                                    className="h-10 w-full max-w-xs rounded-lg border border-[#DCE8F5] bg-white px-3 text-sm text-[#102A56] outline-none transition focus:border-[#1677FF] focus:ring-2 focus:ring-blue-100"
+                                  />
+                                </div>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="mb-1.5 block text-xs font-semibold text-[#102A56]">
+                                Description
+                              </label>
+
+                              <textarea
+  placeholder={
+    newEventType === "THEFT"
+      ? "Theft-related description"
+      : "Optional note"
+  }
+  value={newEventDescription}
+  onChange={(e) => {
+  const textarea = e.currentTarget;
+  setNewEventDescription(textarea.value);
+  textarea.style.height = "auto";
+  textarea.style.height = `${textarea.scrollHeight}px`;
+}}
+  rows={1}
+  className="min-h-10 w-full max-w-xs resize-none overflow-hidden rounded-lg border border-[#DCE8F5] bg-white px-3 py-2 text-sm leading-5 text-[#102A56] outline-none transition placeholder:text-[#94A3B8] focus:border-[#1677FF] focus:ring-2 focus:ring-blue-100"
+/>
+                            </div>
+
+                            {addEventError && (
+                              <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2.5">
+                                <p className="text-xs text-red-600">
+                                  {addEventError}
+                                </p>
+                              </div>
+                            )}
+
+                            <div className="flex justify-end gap-3 border-t border-[#E8EEF5] pt-4">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddEvent(false);
+                                  setNewEventDate("");
+                                  setNewEventDescription("");
+                                  setNewEventOdometer("");
+                                  setAddEventError("");
+                                }}
+                                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[#DCE8F5] bg-white px-4 text-sm font-semibold text-[#102A56] transition hover:bg-gray-50"
+                              >
+                                <CloseIcon className="h-4 w-4" />
+                                Cancel
+                              </button>
+
+                              <button
+                                type="submit"
+                                disabled={addEventLoading}
+                                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[#1677FF] bg-[#1677FF] px-4 text-sm font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300"
+                              >
+                                <SaveIcon className="h-4 w-4" />
+                                {addEventLoading ? "Saving..." : "Save Record"}
+                              </button>
+                            </div>
+                          </div>
+                        </form>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
 
-              {/* HISTORY */}
-              <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                  <h2 className="text-sm font-semibold text-gray-900">
-                    Theft History
-                  </h2>
 
-                  {!historyLoading && !hasTheft && (
-                    <p className="mt-2 text-xs text-gray-500">
-                      No theft-related record was
-                      found in the available data.
-                    </p>
-                  )}
-
-                  {hasTheft && (
-                    <ul className="mt-2 space-y-1.5">
-                      {theftEvents.map((event) => (
-                        <li
-                          key={event.id}
-                          className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="font-medium text-amber-900">
-                              {event.description ||
-                                "Theft-related record"}
-                            </p>
-
-                            <ConfidenceTag
-                              source={event.source}
-                            />
-                          </div>
-
-                          <p className="mt-0.5 text-[10px] text-amber-700">
-                            {event.event_date
-                              ? new Date(
-                                  event.event_date
-                                ).toLocaleDateString()
-                              : "Date not provided"}
-
-                            {event.location
-                              ? ` · ${event.location}`
-                              : ""}
-                          </p>
-
-                          <p className="text-[10px] text-amber-600">
-                            Source: {event.source}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                  <h2 className="text-sm font-semibold text-gray-900">
-                    Odometer History
-                  </h2>
-
-                  {!historyLoading &&
-                    !hasOdometer && (
-                      <p className="mt-2 text-xs text-gray-500">
-                        No odometer records were
-                        returned by the connected data
-                        source.
-                      </p>
-                    )}
-
-                  {hasOdometer && (
-                    <ol className="mt-2 space-y-1 text-xs">
-                      {odometerEvents.map((event) => (
-                        <li
-                          key={event.id}
-                          className="flex items-center justify-between gap-2 rounded-md bg-gray-50 px-2 py-1.5"
-                        >
-                          <span className="text-gray-700">
-                            {event.event_date
-                              ? new Date(
-                                  event.event_date
-                                ).toLocaleDateString()
-                              : "Not specified"}
-                          </span>
-
-                          <span className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900">
-                              {event.odometer != null
-                                ? event.odometer.toLocaleString(
-                                    "en-US"
-                                  )
-                                : "Not specified"}{" "}
-                              {vehicle.mileage_unit || 'km'}
-                            </span>
-
-                            <ConfidenceTag
-                              source={event.source}
-                            />
-                          </span>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </div>
-
-                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                  <h2 className="text-sm font-semibold text-gray-900">
-                    Accident History
-                  </h2>
-
-                  {!historyLoading && !hasAccident && (
-                    <p className="mt-2 text-xs text-gray-500">
-                      No accident records were
-                      found in the available data.
-                    </p>
-                  )}
-
-                  {hasAccident && (
-                    <ul className="mt-2 space-y-1.5">
-                      {accidentEvents.map((event) => (
-                        <li
-                          key={event.id}
-                          className="rounded-md border border-red-200 bg-red-50 p-2 text-xs"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="font-medium text-red-900">
-                              {event.description ||
-                                "Accident record"}
-                            </p>
-
-                            <ConfidenceTag
-                              source={event.source}
-                            />
-                          </div>
-
-                          <p className="mt-0.5 text-[10px] text-red-700">
-                            {event.event_date
-                              ? new Date(
-                                  event.event_date
-                                ).toLocaleDateString()
-                              : "Date not provided"}
-
-                            {event.location
-                              ? ` · ${event.location}`
-                              : ""}
-                          </p>
-
-                          <p className="text-[10px] text-red-600">
-                            Source: {event.source}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                  <h2 className="text-sm font-semibold text-gray-900">
-                    Insurance Claim History
-                  </h2>
-
-                  {!historyLoading && !hasClaim && (
-                    <p className="mt-2 text-xs text-gray-500">
-                      No insurance claim records were
-                      found in the available data.
-                    </p>
-                  )}
-
-                  {hasClaim && (
-                    <ul className="mt-2 space-y-1.5">
-                      {claimEvents.map((event) => (
-                        <li
-                          key={event.id}
-                          className="rounded-md border border-blue-200 bg-blue-50 p-2 text-xs"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="font-medium text-blue-900">
-                              {event.description ||
-                                "Insurance claim record"}
-                            </p>
-
-                            <ConfidenceTag
-                              source={event.source}
-                            />
-                          </div>
-
-                          <p className="mt-0.5 text-[10px] text-blue-700">
-                            {event.event_date
-                              ? new Date(
-                                  event.event_date
-                                ).toLocaleDateString()
-                              : "Date not provided"}
-
-                            {event.location
-                              ? ` · ${event.location}`
-                              : ""}
-                          </p>
-
-                          <p className="text-[10px] text-blue-600">
-                            Source: {event.source}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-
-              {/* AI */}
-              <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="text-sm font-semibold text-gray-900">
-                      AI Analysis
-                    </h2>
-
-                    <p className="text-xs text-gray-500">
-                      Turns the raw history above into a
-                      plain-language explanation, without
-                      adding facts beyond what was found.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleGenerateAiSummary}
-                    disabled={
-                      aiLoading || historyLoading
-                    }
-                    className="shrink-0 rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-                  >
-                    {aiLoading
-                      ? "Generating..."
-                      : "Generate AI Summary"}
-                  </button>
-                </div>
-
-                {aiError && (
-                  <p className="mt-2 text-xs text-red-600">
-                    {aiError}
-                  </p>
-                )}
-
-                {aiSummary && (
-                  <div className="mt-3 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700 ring-1 ring-purple-200">
-                        AI Interpretation
-                      </span>
-
-                      <span className="text-[10px] text-gray-400">
-                        Explains the source facts above - not a source fact itself.
-                      </span>
-                    </div>
-
-                    <div className="rounded-md bg-gray-50 p-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                        Quick Summary
-                      </p>
-
-                      <p className="mt-0.5 text-xs text-gray-800">
-                        {aiSummary.quick_summary}
-                      </p>
-                    </div>
-
-                    <div className="rounded-md bg-gray-50 p-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                        Salesperson Explanation
-                      </p>
-
-                      <p className="mt-0.5 text-xs text-gray-800">
-                        {
-                          aiSummary.salesperson_explanation
-                        }
-                      </p>
-                    </div>
-
-                    <div className="rounded-md border border-gray-200 p-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                        Customer-Friendly Summary
-                      </p>
-
-                      <p className="mt-0.5 text-xs text-gray-800">
-                        {aiSummary.customer_summary}
-                      </p>
-                    </div>
-
-                    {aiSummary.warnings.length > 0 && (
-                      <div className="rounded-md border border-amber-200 bg-amber-50 p-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                          Warnings
-                        </p>
-
-                        <ul className="mt-0.5 list-inside list-disc text-xs text-amber-800">
-                          {aiSummary.warnings.map(
-                            (warning, i) => (
-                              <li key={i}>
-                                {warning}
-                              </li>
-                            )
-                          )}
-                        </ul>
+              {/* AI Vehicle Intelligence */}
+              <div className="mt-4 rounded-xl border border-[#DCE8F5] bg-white shadow-sm overflow-hidden">
+                <div className="border-b border-[#E8EEF5] bg-gradient-to-r from-[#F5F9FD] to-white px-4 py-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                        <BotIcon className="h-5 w-5 text-[#1677FF]" />
                       </div>
-                    )}
 
-                    <p className="text-[10px] text-gray-400">
-                      Generated by AI from the
-                      vehicle-history records shown above.
-                      This does not replace an independent
-                      vehicle inspection or the original
-                      source documentation.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* CUSTOMER REPORT */}
-              {aiSummary && (
-                <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                  <h2 className="text-sm font-semibold text-gray-900">
-                    Customer Report
-                  </h2>
-
-                  <p className="text-xs text-gray-500">
-                    Creates a professional, shareable
-                    report the customer can open without a
-                    dealership login, and download as a PDF.
-                  </p>
-
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-700">
-                        Customer
-                      </label>
-
-                      <select
-                        value={selectedCustomerId}
-                        onChange={(e) => {
-                          setSelectedCustomerId(e.target.value);
-
-                          const selected = e.target.value;
-
-                          if (
-                            selectedLeadId &&
-                            leads.some(
-                              (lead) =>
-                                lead.id === selectedLeadId &&
-                                lead.customer_id !== selected
-                            )
-                          ) {
-                            setSelectedLeadId("");
-                          }
-                        }}
-                        disabled={crmLoading}
-                        className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-800"
-                      >
-                        <option value="">
-                          No customer selected
-                        </option>
-
-                        {customers.map((customer) => (
-                          <option
-                            key={customer.id}
-                            value={customer.id}
-                          >
-                            {customer.name}
-                            {customer.phone
-                              ? ` | ${customer.phone}`
-                              : ""}
-                          </option>
-                        ))}
-                      </select>
+                      <div>
+                        <h2 className="text-sm font-bold text-[#102A56]">
+                          AI Vehicle Intelligence
+                        </h2>
+                        <p className="mt-0.5 text-[10px] text-[#64748B]">
+                          Plain-language explanation of vehicle history
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-700">
-                        Lead
-                      </label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateAiSummary}
+                      disabled={aiLoading || historyLoading}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#DCE8F5] bg-white px-3 text-[11px] font-semibold text-[#102A56] shadow-sm transition hover:border-[#1677FF] hover:bg-blue-50 hover:text-[#1677FF] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <BotIcon className="h-3.5 w-3.5" />
+                      {aiLoading ? "Generating..." : "Generate AI Summary"}
+                    </button>
+                  </div>
+                </div>
 
-                      <select
-                        value={selectedLeadId}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setSelectedLeadId(value);
+                <div className="p-4">
+                  {aiError && (
+                    <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+                      <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                      <p className="text-xs text-red-700">{aiError}</p>
+                    </div>
+                  )}
 
-                          if (value) {
-                            const selectedLead =
-                              leads.find(
-                                (lead) =>
-                                  lead.id === value
-                              );
+                  {aiSummary && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700 ring-1 ring-purple-200">
+                          AI Interpretation
+                        </span>
+                        <span className="text-[10px] text-[#64748B]">
+                          Explains the source facts above - not a source fact itself.
+                        </span>
+                      </div>
+
+                      <div className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                          Quick Summary
+                        </p>
+                        <p className="mt-1.5 text-xs text-[#102A56]">
+                          {aiSummary.quick_summary}
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg border border-[#DCE8F5] bg-[#F8FAFC] p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                          Salesperson Explanation
+                        </p>
+                        <p className="mt-1.5 text-xs text-[#102A56]">
+                          {aiSummary.salesperson_explanation}
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg border border-[#DCE8F5] bg-white p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                          Customer-Friendly Summary
+                        </p>
+                        <p className="mt-1.5 text-xs text-[#102A56]">
+                          {aiSummary.customer_summary}
+                        </p>
+                      </div>
+
+                      {aiSummary.warnings.length > 0 && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                            Warnings
+                          </p>
+                          <ul className="mt-1.5 list-inside list-disc text-xs text-amber-800">
+                            {aiSummary.warnings.map((warning, i) => (
+                              <li key={i}>{warning}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <p className="text-[10px] text-[#64748B]">
+                        Generated by AI from the vehicle-history records shown above. This does not replace an independent vehicle inspection or the original source documentation.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Customer Report */}
+              {aiSummary && (
+                <div className="mt-4 rounded-xl border border-[#DCE8F5] bg-white shadow-sm overflow-hidden">
+                  <div className="border-b border-[#E8EEF5] bg-gradient-to-r from-[#F5F9FD] to-white px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                        <DocumentIcon className="h-5 w-5 text-[#1677FF]" />
+                      </div>
+
+                      <div>
+                        <h2 className="text-sm font-bold text-[#102A56]">
+                          Customer Report
+                        </h2>
+                        <p className="mt-0.5 text-[10px] text-[#64748B]">
+                          Shareable report for customers with PDF download
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-[#64748B]">
+                          Customer
+                        </label>
+
+                        <select
+                          value={selectedCustomerId}
+                          onChange={(e) => {
+                            setSelectedCustomerId(e.target.value);
+
+                            const selected = e.target.value;
 
                             if (
-                              selectedLead?.customer_id
+                              selectedLeadId &&
+                              leads.some(
+                                (lead) =>
+                                  lead.id === selectedLeadId &&
+                                  lead.customer_id !== selected
+                              )
                             ) {
-                              setSelectedCustomerId(
-                                selectedLead.customer_id
-                              );
+                              setSelectedLeadId("");
                             }
-                          }
-                        }}
-                        disabled={
-                          crmLoading ||
-                          !selectedCustomerId
-                        }
-                        className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-800 disabled:bg-gray-100"
-                      >
-                        <option value="">
-                          No lead selected
-                        </option>
+                          }}
+                          disabled={crmLoading}
+                          className="h-9 w-full rounded-md border border-[#DCE8F5] bg-white px-2.5 text-xs text-[#102A56] outline-none focus:border-[#1677FF] focus:ring-2 focus:ring-blue-100"
+                        >
+                          <option value="">
+                            No customer selected
+                          </option>
 
-                        {leads
-                          .filter(
-                            (lead) =>
-                              lead.customer_id ===
-                              selectedCustomerId
-                          )
-                          .map((lead) => (
+                          {customers.map((customer) => (
                             <option
-                              key={lead.id}
-                              value={lead.id}
+                              key={customer.id}
+                              value={customer.id}
                             >
-                              {lead.customer_name} -{" "}
-                              {lead.status}
+                              {customer.name}
+                              {customer.phone
+                                ? ` | ${customer.phone}`
+                                : ""}
                             </option>
                           ))}
-                      </select>
-                    </div>
-                  </div>
+                        </select>
+                      </div>
 
-                  {crmLoading && (
-                    <p className="mt-2 text-[10px] text-gray-500">
-                      Loading customers and leads...
-                    </p>
-                  )}
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-[#64748B]">
+                          Lead
+                        </label>
 
-                  {crmError && (
-                    <p className="mt-2 text-xs text-red-600">
-                      {crmError}
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleCreateReport}
-                    disabled={reportLoading}
-                    className="mt-3 rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-                  >
-                    {reportLoading
-                      ? "Creating report..."
-                      : reportUrl
-                        ? "Regenerate Report"
-                        : "Create Customer Report"}
-                  </button>
+                        <select
+                          value={selectedLeadId}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setSelectedLeadId(value);
 
-                  {reportError && (
-                    <p className="mt-2 text-xs text-red-600">
-                      {reportError}
-                    </p>
-                  )}
+                            if (value) {
+                              const selectedLead =
+                                leads.find(
+                                  (lead) =>
+                                    lead.id === value
+                                );
 
-                  {reportUrl && (
-                    <div className="mt-3 space-y-2">
-                      <div className="flex flex-col gap-2 rounded-md bg-gray-50 p-2 sm:flex-row sm:items-center">
-                        <input
-                          readOnly
-                          value={reportUrl}
-                          onFocus={(e) =>
-                            e.target.select()
+                              if (
+                                selectedLead?.customer_id
+                              ) {
+                                setSelectedCustomerId(
+                                  selectedLead.customer_id
+                                );
+                              }
+                            }
+                          }}
+                          disabled={
+                            crmLoading ||
+                            !selectedCustomerId
                           }
-                          className="flex-1 truncate rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700"
-                        />
-
-                        <button
-                          type="button"
-                          onClick={handleCopyLink}
-                          className="shrink-0 rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
+                          className="h-9 w-full rounded-md border border-[#DCE8F5] bg-white px-2.5 text-xs text-[#102A56] outline-none focus:border-[#1677FF] focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50"
                         >
-                          {copied
-                            ? "Copied!"
-                            : "Copy Link"}
-                        </button>
-                      </div>
+                          <option value="">
+                            No lead selected
+                          </option>
 
-                      <div className="flex flex-wrap gap-2">
-                        <a
-                          href={reportUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
-                        >
-                          View Report
-                        </a>
-
-                        <a
-                          href={`${reportUrl.replace(
-                            "/report/",
-                            "/api/reports/"
-                          )}/pdf`}
-                          className="rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
-                        >
-                          Download PDF
-                        </a>
-
-                        <button
-                          type="button"
-                          onClick={handleRevokeReport}
-                          disabled={reportLoading}
-                          className="rounded-md border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          Revoke Link
-                        </button>
+                          {leads
+                            .filter(
+                              (lead) =>
+                                lead.customer_id ===
+                                selectedCustomerId
+                            )
+                            .map((lead) => (
+                              <option
+                                key={lead.id}
+                                value={lead.id}
+                              >
+                                {lead.customer_name} -{" "}
+                                {lead.status}
+                              </option>
+                            ))}
+                        </select>
                       </div>
                     </div>
-                  )}
+
+                    {crmLoading && (
+                      <div className="mt-3 flex items-center gap-2 rounded-md bg-[#F8FBFE] px-3 py-2">
+                        <RefreshIcon className="h-3.5 w-3.5 animate-spin text-[#1677FF]" />
+                        <p className="text-[10px] text-[#64748B]">
+                          Loading customers and leads...
+                        </p>
+                      </div>
+                    )}
+
+                    {crmError && (
+                      <div className="mt-3 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                        <AlertCircleIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
+                        <p className="text-xs text-red-700">
+                          {crmError}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleCreateReport}
+                        disabled={reportLoading}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#1677FF] px-3 text-xs font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        <DocumentIcon className="h-3.5 w-3.5" />
+                        {reportLoading
+                          ? "Creating report..."
+                          : reportUrl
+                            ? "Regenerate Report"
+                            : "Create Customer Report"}
+                      </button>
+
+                      {reportUrl && (
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                          Report Ready
+                        </span>
+                      )}
+                    </div>
+
+                    {reportError && (
+                      <div className="mt-3 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                        <AlertCircleIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
+                        <p className="text-xs text-red-700">
+                          {reportError}
+                        </p>
+                      </div>
+                    )}
+
+                    {reportUrl && (
+                      <div className="mt-4 rounded-lg border border-[#DCE8F5] bg-[#F8FBFE] p-3">
+                        <div className="flex items-center gap-2">
+                          <ShareIcon className="h-4 w-4 text-[#1677FF]" />
+
+                          <div>
+                            <p className="text-xs font-bold text-[#102A56]">
+                              Shareable Report Link
+                            </p>
+                            <p className="text-[10px] text-[#64748B]">
+                              Customer can open this report without dealership login.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                          <input
+                            readOnly
+                            value={reportUrl}
+                            onFocus={(e) => e.target.select()}
+                            className="h-8 min-w-0 flex-1 rounded-md border border-[#DCE8F5] bg-white px-2.5 text-xs text-[#102A56] outline-none"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={handleCopyLink}
+                            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-[#DCE8F5] bg-white px-3 text-xs font-semibold text-[#102A56] transition hover:bg-gray-50"
+                          >
+                            <CopyIcon className="h-3.5 w-3.5" />
+                            {copied ? "Copied!" : "Copy Link"}
+                          </button>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <a
+                            href={reportUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#DCE8F5] bg-white px-3 text-xs font-semibold text-[#102A56] transition hover:bg-gray-50"
+                          >
+                            <DocumentIcon className="h-3.5 w-3.5" />
+                            View Report
+                          </a>
+
+                          <a
+                            href={`${reportUrl.replace(
+                              "/report/",
+                              "/api/reports/"
+                            )}/pdf`}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#DCE8F5] bg-white px-3 text-xs font-semibold text-[#102A56] transition hover:bg-gray-50"
+                          >
+                            <DocumentIcon className="h-3.5 w-3.5" />
+                            Download PDF
+                          </a>
+
+                          <button
+                            type="button"
+                            onClick={handleRevokeReport}
+                            disabled={reportLoading}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <CloseIcon className="h-3.5 w-3.5" />
+                            Revoke Link
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </>
@@ -2753,20 +3153,66 @@ function ConfidenceTag({
   const isManual =
     source === "Manual Entry (Dealer)";
 
+  const isCarfax =
+    source === "CARFAX";
+
   return (
     <span
       className={
         isManual
           ? "shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700 ring-1 ring-blue-200"
+          : isCarfax
+          ? "shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-700 ring-1 ring-green-200"
           : "shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600 ring-1 ring-gray-200"
       }
     >
       {isManual
         ? "Manual Entry"
+        : isCarfax
+        ? "CARFAX"
         : "Source Confirmed"}
     </span>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

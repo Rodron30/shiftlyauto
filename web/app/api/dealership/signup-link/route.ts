@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient, getCurrentUserProfile } from "@/lib/supabaseServer";
+import {
+  createSupabaseServerClient,
+  getCurrentUserProfile,
+} from "@/lib/supabaseServer";
 
 export async function GET() {
   try {
@@ -8,14 +11,14 @@ export async function GET() {
     if (!profile) {
       return NextResponse.json(
         { success: false, error: "Not authenticated" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     if (profile.role !== "admin") {
       return NextResponse.json(
         { success: false, error: "Only admins can access signup links" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -31,8 +34,37 @@ export async function GET() {
     if (error || !dealership) {
       return NextResponse.json(
         { success: false, error: "Failed to get dealership" },
-        { status: 500 }
+        { status: 500 },
       );
+    }
+
+    // If signup_code is null, generate a simple code client-side
+    let signupCode = dealership.signup_code;
+    if (!signupCode) {
+      // Generate a random 8-character alphanumeric code
+      const chars =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      let code = "";
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      // Update the dealership record with the new code
+      const { error: updateError } = await supabase
+        .from("dealerships")
+        .update({ signup_code: code })
+        .eq("id", profile.dealership_id);
+
+      if (updateError) {
+        console.error("Failed to update signup code:", updateError);
+        return NextResponse.json(
+          { success: false, error: "Failed to generate signup code" },
+          { status: 500 },
+        );
+      }
+
+      signupCode = code;
+      dealership.signup_code = code;
     }
 
     // Generate signup link
@@ -52,7 +84,7 @@ export async function GET() {
     console.error("Get signup link error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to get signup link" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -64,28 +96,38 @@ export async function POST() {
     if (!profile) {
       return NextResponse.json(
         { success: false, error: "Not authenticated" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     if (profile.role !== "admin") {
       return NextResponse.json(
         { success: false, error: "Only admins can regenerate signup codes" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     const supabase = await createSupabaseServerClient();
 
-    // Regenerate signup code
-    const { data: newCode, error } = await supabase
-      .rpc("regenerate_dealership_signup");
+    // Generate a new random 8-character alphanumeric code
+    const chars =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let code = "";
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
 
-    if (error) {
-      console.error("Regenerate signup code error:", error);
+    // Update the dealership record with the new code
+    const { error: updateError } = await supabase
+      .from("dealerships")
+      .update({ signup_code: code })
+      .eq("id", profile.dealership_id);
+
+    if (updateError) {
+      console.error("Failed to update signup code:", updateError);
       return NextResponse.json(
         { success: false, error: "Failed to regenerate signup code" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -98,21 +140,24 @@ export async function POST() {
 
     if (!dealership) {
       return NextResponse.json(
-        { success: false, error: "Failed to get dealership after regeneration" },
-        { status: 500 }
+        {
+          success: false,
+          error: "Failed to get dealership after regeneration",
+        },
+        { status: 500 },
       );
     }
 
     // Generate new signup link
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const signupLink = `${baseUrl}/signup?dealership=${newCode}`;
+    const signupLink = `${baseUrl}/signup?dealership=${dealership.signup_code}`;
 
     return NextResponse.json({
       success: true,
       dealership: {
         id: dealership.id,
         name: dealership.name,
-        signupCode: newCode,
+        signupCode: dealership.signup_code,
         signupLink,
       },
     });
@@ -120,7 +165,7 @@ export async function POST() {
     console.error("Regenerate signup link error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to regenerate signup link" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

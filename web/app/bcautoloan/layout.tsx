@@ -16,7 +16,7 @@ const openSans = Open_Sans({
 const domain = process.env.NEXT_PUBLIC_BCAUTOLOAN_DOMAIN;
 
 export const metadata: Metadata = {
-  title: "BCAutoLoan - Get Approved",
+  title: "BCAutoLoan",
   description:
     "A simple way to get approved, connect with a local dealership, and find a vehicle that fits your needs and budget.",
   keywords:
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   },
   ...(domain && {
     openGraph: {
-      title: "BCAutoLoan - Get Approved",
+      title: "BCAutoLoan",
       description:
         "A simple way to get approved, connect with a local dealership, and find a vehicle that fits your needs and budget.",
       type: "website",

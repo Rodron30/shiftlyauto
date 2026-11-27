@@ -1,9 +1,8 @@
-﻿import { createClient } from "@supabase/supabase-js";
-
-import {
+﻿import {
   createSupabaseServerClient,
   getCurrentUserProfile,
 } from "@/lib/supabaseServer";
+import { createSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export async function getCurrentPlatformAdmin() {
   const profile = await getCurrentUserProfile();
@@ -28,20 +27,5 @@ export async function getCurrentPlatformAdmin() {
   return data;
 }
 
-export function createSupabaseServiceRoleClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error(
-      "Supabase service role configuration is missing."
-    );
-  }
-
-  return createClient(url, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-}
+// Re-export for convenience - consolidated to avoid duplication
+export { createSupabaseAdminClient as createSupabaseServiceRoleClient };

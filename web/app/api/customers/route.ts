@@ -38,10 +38,11 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false });
 
     if (search) {
-      const escaped = search.replace(/[%_]/g, "\\$&");
+      // Escape SQL wildcard characters to prevent pattern injection
+      const escapedSearch = search.replace(/[%_\\]/g, "\\$&");
 
       query = query.or(
-        `name.ilike.%${escaped}%,phone.ilike.%${escaped}%,email.ilike.%${escaped}%`
+        `name.ilike.%${escapedSearch}%,phone.ilike.%${escapedSearch}%,email.ilike.%${escapedSearch}%`
       );
     }
 

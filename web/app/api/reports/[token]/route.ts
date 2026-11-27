@@ -3,6 +3,7 @@ import {
   createSupabaseServerClient,
   getCurrentUserProfile,
 } from "@/lib/supabaseServer";
+import { isShareTokenExpired } from "@/lib/shareToken";
 
 type RouteContext = {
   params: Promise<{ token: string }>;
@@ -74,6 +75,17 @@ export async function GET(
           error: "Report not found.",
         },
         { status: 404 }
+      );
+    }
+
+    // Check if share token has expired (30 days default)
+    if (isShareTokenExpired(data.created_at)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Report share link has expired. Please request a new share link from the dealership.",
+        },
+        { status: 410 }
       );
     }
 

@@ -6,8 +6,6 @@ import {
 } from "@/lib/supabaseServer";
 
 import {
-  getSaasLimit,
-  getSaasLimitError,
   requireSaasAccess,
 } from "@/lib/saas";
 
@@ -177,7 +175,13 @@ export async function POST(request: Request) {
     const location =
       String(body.location ?? "").trim() || null;
 
-    const status =
+    const sourceUrl =
+      body.source_url == null ||
+      String(body.source_url).trim() === ""
+        ? null
+        : String(body.source_url).trim();
+
+        const status =
       String(body.status ?? "AVAILABLE")
         .trim()
         .toUpperCase() || "AVAILABLE";
@@ -227,9 +231,8 @@ export async function POST(request: Request) {
       if (convertedMileage !== null) {
         mileage = convertedMileage;
         mileageUnit = "KM";
-        console.log(`📏 Mileage conversion: ${rawMileage} ${rawMileageUnit} → ${mileage} KM`);
       } else {
-        console.error(`❌ Mileage conversion failed for ${rawMileage} ${rawMileageUnit}, keeping original value`);
+        console.error(`Mileage conversion failed for ${rawMileage} ${rawMileageUnit}, keeping original value`);
       }
     }
 
@@ -306,7 +309,7 @@ export async function POST(request: Request) {
 
     // Allow 0 mileage for new vehicles
     if (mileage === 0) {
-      console.log("📏 Zero mileage detected - preserving 0 KM for new vehicle");
+      // Preserve 0 mileage for new vehicles
     }
 
     const allowedStatuses = [
@@ -403,115 +406,95 @@ export async function POST(request: Request) {
       );
     }
 
-    const vehicleLimit = getSaasLimit(
-      saasAccess.context.plan,
-      "vehicles"
-    );
-
-    if (vehicleLimit !== null) {
-      const { count: activeVehicleCount, error: vehicleCountError } =
-        await supabase
-          .from("vehicles")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
-          .eq(
-            "dealership_id",
-            profile.dealership_id
-          )
-          .is("archived_at", null);
-
-      if (vehicleCountError) {
-        console.error(
-          "SaaS vehicle count error:",
-          vehicleCountError
-        );
-
-        return NextResponse.json(
+    const { data: insertedVehicles, error } =
+      await supabase.rpc("insert_vehicles_atomic", {
+        p_vehicles: [
           {
-            success: false,
-            error: "Failed to check vehicle plan limit.",
+            vin: vin || null,
+            year,
+            make,
+            model,
+            trim,
+            body: vehicleBody,
+            engine,
+            drivetrain,
+            fuel,
+            price,
+            currency: "CAD",
+            mileage,
+            transmission,
+            mileage_unit: "KM",
+            primary_image: primaryImage,
+            images,
+            description,
+            location,
+            status,
+            exterior_color: exteriorColor,
+            interior_color: interiorColor,
+            has_clean_title: hasCleanTitle,
+            source_url: sourceUrl,
           },
-          { status: 500 }
-        );
-      }
+        ],
+      });
+
+    const vehicle = insertedVehicles?.[0] ?? null;
+
+    if (error) {
+      console.error(
+        "Supabase atomic vehicle insert error:",
+        error
+      );
 
       if (
-        (activeVehicleCount ?? 0) >= vehicleLimit
+        error.code === "23505" &&
+        error.message?.includes("vehicles_vin_dealership_unique")
       ) {
         return NextResponse.json(
           {
             success: false,
-            error: getSaasLimitError(
-              "Vehicle",
-              vehicleLimit
-            ),
+            error: "A vehicle with this VIN already exists.",
+          },
+          { status: 409 }
+        );
+      }
+
+      if (
+        error.code === "23514" &&
+        error.message?.includes("Vehicle limit reached")
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: error.message,
           },
           { status: 403 }
         );
       }
-    }
 
-    const { data: vehicle, error } =
-      await supabase
-        .from("vehicles")
-        .insert({
-          dealership_id: profile.dealership_id,
-          vin: vin || null, // Allow null VIN for vehicles without VIN
-          year,
-          make,
-          model,
-          trim,
-          body: vehicleBody,
-          engine,
-          drivetrain,
-          fuel,
-          price,
-          currency: "CAD", // Force CAD for Canadian market
-          mileage,
-          transmission,
-          mileage_unit: "KM", // Force KM for Canadian market
-          primary_image: primaryImage,
-          images,
-          description,
-          location,
-          status,
-          exterior_color: exteriorColor,
-          interior_color: interiorColor,
-          has_clean_title: hasCleanTitle,
-          created_by: profile.id,
-        })
-        .select()
-        .single();
-
-    // Log inserted vehicle data for pipeline trace
-    console.log("========== VEHICLE INSERT DATA ==========");
-    console.log("VEHICLE INSERT: vin =", vin);
-    console.log("VEHICLE INSERT: make =", make);
-    console.log("VEHICLE INSERT: model =", model);
-    console.log("VEHICLE INSERT: year =", year);
-    console.log("VEHICLE INSERT: body =", vehicleBody);
-    console.log("VEHICLE INSERT: exterior_color =", exteriorColor);
-    console.log("VEHICLE INSERT: interior_color =", interiorColor);
-    console.log("VEHICLE INSERT: has_clean_title =", hasCleanTitle);
-    console.log("VEHICLE INSERT: mileage =", mileage);
-    console.log("VEHICLE INSERT: fuel =", fuel);
-    console.log("VEHICLE INSERT: transmission =", transmission);
-    console.log("VEHICLE INSERT: location =", location);
-    console.log("VEHICLE INSERT: images.length =", images.length);
-    console.log("==========================================");
-
-    if (error) {
-      console.error(
-        "Supabase vehicle insert error:",
-        error
-      );
+      if (error.code === "42501") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: error.message || "Vehicle access denied.",
+          },
+          { status: 403 }
+        );
+      }
 
       return NextResponse.json(
         {
           success: false,
-error: error?.message || "Failed to create vehicle.",
+          error: error.message || "Failed to create vehicle.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!vehicle) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Vehicle was not created.",
         },
         { status: 500 }
       );
@@ -532,7 +515,7 @@ error: error?.message || "Failed to create vehicle.",
             : `/vehicles/id/${vehicle.id}`
           : "/vehicles",
         metadata: {
-          vehicle_id: vehicle?.id ?? null,
+          vehicle_id: vehicle.id,
           vin: vin || null,
         },
       });
@@ -566,12 +549,3 @@ error: error?.message || "Failed to create vehicle.",
     );
   }
 }
-
-
-
-
-
-
-
-
-

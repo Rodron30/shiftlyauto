@@ -44,7 +44,7 @@ const VDP_PATTERNS = [
 function isDealerInspireInventory(url: string): boolean {
   const urlObj = new URL(url);
   const hostname = urlObj.hostname.toLowerCase();
-  return hostname.includes("dealerinspire.com");
+  return hostname === "dealerinspire.com" || hostname.endsWith(".dealerinspire.com");
 }
 
 /**
@@ -55,7 +55,7 @@ function isDealerInspireInventory(url: string): boolean {
 async function discoverDealerInspireInventory(
   baseUrl: string,
   maxVehicles: number
-): Promise<{ vinToVdpMap: Map<string, string>; totalRecords: number }> {
+): Promise<{ vinToVdpMap: Map<string, string>; totalRecords: number; complete: boolean }> {
   console.log(`🏭 DealerInspire inventory discovery initiated for: ${baseUrl}, max: ${maxVehicles}`);
 
   try {
@@ -71,10 +71,11 @@ async function discoverDealerInspireInventory(
     let totalRecords = 0;
     let pageNumber = 1;
     let hasMorePages = true;
+    let discoveryComplete = false;
+    let consecutiveDuplicatePages = 0;
+    const MAX_DUPLICATE_PAGES = 3;
 
     while (hasMorePages && vinToVdpMap.size < maxVehicles) {
-      // Capture size before processing to detect progress
-      const sizeBeforePage = vinToVdpMap.size;
 
       // Construct the LLM inventory endpoint URL with pagination
       const llmUrl = new URL(`${protocol}//${hostname}/llm/inventory/`);
@@ -83,10 +84,12 @@ async function discoverDealerInspireInventory(
         llmUrl.searchParams.set("_p", pageNumber.toString());
       }
       const llmEndpoint = llmUrl.toString();
+      await validateScrapeUrl(llmEndpoint);
 
       console.log(`📡 Fetching DealerInspire LLM page ${pageNumber}: ${llmEndpoint}`);
 
       const response = await fetch(llmEndpoint, {
+      redirect: "error",
         headers: {
           "User-Agent": USER_AGENT,
           "Accept": "application/json",
@@ -115,17 +118,18 @@ async function discoverDealerInspireInventory(
       console.log(`📊 DealerInspire page ${pageNumber} records: ${records.length}`);
 
       if (records.length === 0) {
-        console.log(`🏁 DealerInspire pagination stopped: No records on page ${pageNumber}`);
+        console.log(`DealerInspire pagination completed: no records on page ${pageNumber}`);
         hasMorePages = false;
+        discoveryComplete = true;
         break;
       }
 
       let validPairsOnPage = 0;
 
-      records.forEach((record: any, index: number) => {
+      records.forEach((record: Record<string, unknown>) => {
         try {
-          const vin = record.vin || record.VIN;
-          const vdpUrl = record.url || record.view_full_listing || record.vdp_url || record.link;
+          const vin = typeof record.vin === "string" ? record.vin : typeof record.VIN === "string" ? record.VIN : null;
+          const vdpUrl = [record.url, record.view_full_listing, record.vdp_url, record.link].find((value): value is string => typeof value === "string");
 
           if (vin && vdpUrl) {
             // Normalize the VDP URL to be absolute
@@ -149,7 +153,7 @@ async function discoverDealerInspireInventory(
               }
             }
           }
-        } catch (e) {
+        } catch {
           // Skip malformed records
         }
       });
@@ -158,17 +162,27 @@ async function discoverDealerInspireInventory(
 
       console.log(`📊 Page ${pageNumber} summary: ${records.length} records, ${validPairsOnPage} new VIN/VDP pairs, total collected: ${vinToVdpMap.size}/${maxVehicles}`);
 
-      // Progress guard: stop if no new VIN/VDP pairs were discovered on this page
+      // Duplicate-only pages are not proof that pagination has ended.
+      // Allow a small number of consecutive duplicate pages, then fail closed.
       if (validPairsOnPage === 0) {
-        console.log(`🏁 DealerInspire pagination stopped: No new VIN/VDP pairs discovered on page ${pageNumber}`);
-        hasMorePages = false;
-        break;
+        consecutiveDuplicatePages++;
+        console.log(`DealerInspire page ${pageNumber} contained no new VIN/VDP pairs (${consecutiveDuplicatePages}/${MAX_DUPLICATE_PAGES})`);
+
+        if (consecutiveDuplicatePages >= MAX_DUPLICATE_PAGES) {
+          console.warn("DealerInspire pagination stopped after repeated duplicate-only pages; discovery is incomplete");
+          hasMorePages = false;
+          discoveryComplete = false;
+          break;
+        }
+      } else {
+        consecutiveDuplicatePages = 0;
       }
 
       // Check if we've collected enough vehicles
       if (vinToVdpMap.size >= maxVehicles) {
-        console.log(`🏁 DealerInspire pagination stopped: Collected ${vinToVdpMap.size} VIN/VDP pairs (max: ${maxVehicles})`);
+        console.log(`DealerInspire pagination reached configured maxVehicles (${maxVehicles}); discovery intentionally capped`);
         hasMorePages = false;
+        discoveryComplete = false;
         break;
       }
 
@@ -177,7 +191,7 @@ async function discoverDealerInspireInventory(
 
     console.log(`✅ DealerInspire discovery completed: ${vinToVdpMap.size} VIN/VDP pairs found across ${pageNumber - 1} pages, ${totalRecords} total records`);
 
-    return { vinToVdpMap, totalRecords };
+    return { vinToVdpMap, totalRecords, complete: discoveryComplete };
   } catch (error) {
     console.error(`❌ DealerInspire LLM discovery failed:`, error);
     throw error;
@@ -248,10 +262,10 @@ function extractVdpLinks(html: string, baseUrl: string): string[] {
         const parsed = JSON.parse(jsonText);
         const schemas = Array.isArray(parsed) ? parsed : [parsed];
 
-        schemas.forEach((schema: any) => {
+        schemas.forEach((schema: Record<string, unknown>) => {
           // Look for Vehicle/Car/Product schemas with URLs
           if (schema["@type"] === "Vehicle" || schema["@type"] === "Car" || schema["@type"] === "Product") {
-            if (schema.url) {
+            if (typeof schema.url === "string") {
               const normalized = normalizeUrl(schema.url, baseUrl);
               if (isVdpUrl(normalized)) {
                 links.push(normalized);
@@ -259,8 +273,8 @@ function extractVdpLinks(html: string, baseUrl: string): string[] {
             }
             // Also check offers for vehicle URLs
             if (schema.offers && Array.isArray(schema.offers)) {
-              schema.offers.forEach((offer: any) => {
-                if (offer.url) {
+              schema.offers.forEach((offer: Record<string, unknown>) => {
+                if (typeof offer.url === "string") {
                   const normalized = normalizeUrl(offer.url, baseUrl);
                   if (isVdpUrl(normalized)) {
                     links.push(normalized);
@@ -270,11 +284,11 @@ function extractVdpLinks(html: string, baseUrl: string): string[] {
             }
           }
         });
-      } catch (e) {
+      } catch {
         // Invalid JSON, skip
       }
     });
-  } catch (e) {
+  } catch {
     // JSON-LD parsing failed, continue with other methods
   }
 
@@ -369,12 +383,12 @@ function extractVdpLinks(html: string, baseUrl: string): string[] {
                 links.push(normalized);
               }
             }
-          } catch (e) {
+          } catch {
             // Skip invalid matches
           }
         });
       });
-    } catch (e) {
+    } catch {
       // Script parsing failed, continue
     }
   });
@@ -397,7 +411,7 @@ function delay(ms: number): Promise<void> {
 export async function crawlInventory(
   listingPageUrl: string,
   options: Partial<CrawlerOptions> = {}
-): Promise<{ vehicles: RawScrapedVehicle[]; errors: ScraperError[] }> {
+): Promise<{ vehicles: RawScrapedVehicle[]; errors: ScraperError[]; complete: boolean }> {
   console.log(`🕷️ crawlInventory function called: ${listingPageUrl}`);
 
   const opts = { ...DEFAULT_CRAWLER_OPTIONS, ...options };
@@ -429,14 +443,16 @@ export async function crawlInventory(
     console.log(`🏭 Platform detection: ${isDealerInspire ? 'DealerInspire' : 'Generic'}`);
 
     let vdpLinks: string[] = [];
+    let scrapeComplete = false;
 
     if (isDealerInspire) {
       // Use DealerInspire's LLM endpoint for structured inventory discovery
       try {
-        const { vinToVdpMap, totalRecords } = await discoverDealerInspireInventory(
+        const { vinToVdpMap, totalRecords, complete: discoveryComplete } = await discoverDealerInspireInventory(
           listingPageUrl,
           opts.maxVehicles
         );
+        scrapeComplete = discoveryComplete;
 
         // Convert VIN-to-VDP map to array of VDP URLs
         vdpLinks = Array.from(vinToVdpMap.values());
@@ -450,7 +466,7 @@ export async function crawlInventory(
 
         if (vdpLinks.length === 0) {
           console.warn("❌ BLOCKER: DealerInspire LLM endpoint returned no VDP URLs");
-          return { vehicles, errors };
+          return { vehicles, errors, complete: false };
         }
       } catch (llmError) {
         console.error(`❌ DealerInspire LLM discovery failed, falling back to generic HTML scraping:`, llmError);
@@ -460,6 +476,7 @@ export async function crawlInventory(
 
     // Generic HTML scraping (fallback or for non-DealerInspire sites)
     if (vdpLinks.length === 0) {
+      scrapeComplete = false;
       console.log(`🌐 Starting generic HTML inventory page fetch: ${listingPageUrl}`);
 
       const response = await fetch(listingPageUrl, {
@@ -480,7 +497,13 @@ export async function crawlInventory(
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (response.status === 403) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText} (likely Cloudflare protection)`);
+        } else if (response.status === 429) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText} (rate limited)`);
+        } else {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
       }
 
       const html = await response.text();
@@ -511,7 +534,119 @@ export async function crawlInventory(
 
       // Extract VDP links
       console.log(`🔎 Starting VDP URL extraction...`);
-      vdpLinks = extractVdpLinks(html, listingPageUrl);
+vdpLinks = extractVdpLinks(html, listingPageUrl);
+
+  // Generic pagination: follow only same-origin next-page links.
+  const visitedListingPages = new Set<string>();
+  let currentListingPageUrl = listingPageUrl;
+  let currentListingHtml = html;
+  const MAX_LISTING_PAGES = 10;
+
+  visitedListingPages.add(normalizeUrl(listingPageUrl, listingPageUrl));
+
+  for (
+    let pageNumber = 2;
+    pageNumber <= MAX_LISTING_PAGES && vdpLinks.length < opts.maxVehicles;
+    pageNumber++
+  ) {
+    const $page = cheerio.load(currentListingHtml);
+    const nextHref =
+      $page('a[rel~="next"]').first().attr("href") ||
+      $page(
+        'a.next, .pagination a.next, a[aria-label="Next"], a[aria-label="Next page"], .pagination-next a'
+      ).first().attr("href");
+
+    if (!nextHref) {
+      console.log(`[Generic Pagination] No explicit next-page link on page ${pageNumber - 1}`);
+      break;
+    }
+
+    let nextPageUrl: string;
+
+    try {
+      const parsedNextUrl = new URL(nextHref, currentListingPageUrl);
+      const originalUrl = new URL(listingPageUrl);
+
+      if (
+        !["http:", "https:"].includes(parsedNextUrl.protocol) ||
+        parsedNextUrl.origin !== originalUrl.origin
+      ) {
+        console.warn("[Generic Pagination] Rejected non-HTTP or cross-origin next-page URL");
+        break;
+      }
+
+      nextPageUrl = normalizeUrl(parsedNextUrl.toString(), listingPageUrl);
+
+      if (visitedListingPages.has(nextPageUrl)) {
+        console.warn("[Generic Pagination] Stopped on repeated listing-page URL");
+        break;
+      }
+
+      await validateScrapeUrl(nextPageUrl);
+    } catch (error) {
+      errors.push({
+        url: currentListingPageUrl,
+        error: `Pagination URL validation failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        timestamp: new Date().toISOString(),
+      });
+      break;
+    }
+
+    visitedListingPages.add(nextPageUrl);
+
+    try {
+      if (opts.delayMs > 0) {
+        await delay(opts.delayMs);
+      }
+
+      const nextResponse = await fetch(nextPageUrl, {
+        redirect: "error",
+        headers: {
+          "User-Agent": opts.userAgent || USER_AGENT,
+        },
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (!nextResponse.ok) {
+        throw new Error(`HTTP ${nextResponse.status}: ${nextResponse.statusText}`);
+      }
+
+      currentListingHtml = await nextResponse.text();
+      currentListingPageUrl = nextPageUrl;
+
+      const pageVdpLinks = extractVdpLinks(
+        currentListingHtml,
+        currentListingPageUrl
+      );
+
+      const knownLinks = new Set(vdpLinks);
+      for (const link of pageVdpLinks) {
+        if (!knownLinks.has(link)) {
+          knownLinks.add(link);
+          vdpLinks.push(link);
+        }
+      }
+
+      console.log("[Generic Pagination] Page scanned:", {
+        pageNumber,
+        pageUrl: currentListingPageUrl,
+        discoveredOnPage: pageVdpLinks.length,
+        uniqueVdpLinks: vdpLinks.length,
+      });
+    } catch (error) {
+      errors.push({
+        url: nextPageUrl,
+        error: `Pagination fetch failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        timestamp: new Date().toISOString(),
+      });
+      break;
+    }
+  }
+
 
       console.log(`VDP Discovery Results:`, {
         totalLinks: vdpLinks.length,
@@ -521,7 +656,7 @@ export async function crawlInventory(
 
       if (vdpLinks.length === 0) {
         console.warn("❌ BLOCKER: No VDP links found on listing page - check page structure");
-        return { vehicles, errors };
+        return { vehicles, errors, complete: false };
       }
     }
 
@@ -565,7 +700,8 @@ export async function crawlInventory(
     }
 
     console.log(`✅ crawlInventory completed: ${vehicles.length} vehicles scraped, ${errors.length} errors`);
-    return { vehicles, errors };
+    const complete = scrapeComplete && errors.length === 0 && vdpLinks.length <= opts.maxVehicles;
+    return { vehicles, errors, complete };
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
@@ -575,6 +711,7 @@ export async function crawlInventory(
       error: errorMessage,
       timestamp: new Date().toISOString(),
     });
-    return { vehicles, errors };
+    return { vehicles, errors, complete: false };
   }
 }
+

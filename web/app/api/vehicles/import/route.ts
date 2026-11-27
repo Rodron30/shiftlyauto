@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import {
   createSupabaseServerClient,
@@ -6,8 +6,6 @@ import {
 } from "@/lib/supabaseServer";
 
 import {
-  getSaasLimit,
-  getSaasLimitError,
   requireSaasAccess,
 } from "@/lib/saas";
 
@@ -41,7 +39,7 @@ type RowResult = {
 };
 
 /**
- * Minimal CSV parser â€” no external dependency, so importing this
+ * Minimal CSV parser - no external dependency, so importing this
  * feature doesn't require an `npm install` for everyone applying
  * this fix. Handles quoted fields (commas/quotes inside "...")
  * which covers the template this app generates. Not a general-
@@ -301,23 +299,8 @@ export async function POST(request: Request) {
       const price =
         priceRaw === "" ? null : Number(priceRaw);
 
-      const currency = (get("currency").toUpperCase() || "USD").trim();
-      const allowedCurrencies = [
-        "USD",
-        "PHP",
-        "EUR",
-        "GBP",
-        "CAD",
-        "AUD",
-        "JPY",
-        "CNY",
-        "SGD",
-        "HKD",
-        "MYR",
-        "THB",
-        "IDR",
-        "VND",
-      ];
+      const currency = (get("currency").toUpperCase() || "CAD").trim();
+      const allowedCurrencies = ["CAD"];
 
       if (currency && !allowedCurrencies.includes(currency)) {
         results.push({
@@ -397,8 +380,9 @@ export async function POST(request: Request) {
         drivetrain: get("drivetrain") || null,
         fuel: get("fuel") || null,
         price,
-        currency: currency || "USD",
+        currency: "CAD",
         mileage,
+        mileage_unit: "KM",
         description: get("description") || null,
         status,
         primary_image: null,
@@ -407,21 +391,6 @@ export async function POST(request: Request) {
         has_clean_title: hasCleanTitle,
         created_by: profile.id,
       });
-
-      // Log imported vehicle data for pipeline trace
-      console.log("========== VEHICLE IMPORT DATA ==========");
-      console.log("IMPORT: VIN =", vin);
-      console.log("IMPORT: make =", make);
-      console.log("IMPORT: model =", model);
-      console.log("IMPORT: year =", year);
-      console.log("IMPORT: body =", get("body"));
-      console.log("IMPORT: exterior_color =", get("exterior_color"));
-      console.log("IMPORT: interior_color =", get("interior_color"));
-      console.log("IMPORT: has_clean_title =", hasCleanTitle);
-      console.log("IMPORT: mileage =", mileage);
-      console.log("IMPORT: fuel =", get("fuel"));
-      console.log("IMPORT: transmission =", get("transmission"));
-      console.log("==========================================");
 
       results.push({
         row: rowNumber,
@@ -443,69 +412,43 @@ export async function POST(request: Request) {
         );
       }
 
-      const vehicleLimit = getSaasLimit(
-        saasAccess.context.plan,
-        "vehicles"
+      const { error: insertError } = await supabase.rpc(
+        "insert_vehicles_atomic",
+        {
+          p_vehicles: toInsert,
+        }
       );
-
-      if (vehicleLimit !== null) {
-        const { count: activeVehicleCount, error: vehicleCountError } =
-          await supabase
-            .from("vehicles")
-            .select("id", {
-              count: "exact",
-              head: true,
-            })
-            .eq(
-              "dealership_id",
-              profile.dealership_id
-            )
-            .is("archived_at", null);
-
-        if (vehicleCountError) {
-          console.error(
-            "Import: SaaS vehicle count error:",
-            vehicleCountError
-          );
-
-          return NextResponse.json(
-            {
-              success: false,
-              error: "Failed to check vehicle plan limit.",
-            },
-            { status: 500 }
-          );
-        }
-
-        const currentVehicleCount =
-          activeVehicleCount ?? 0;
-
-        if (
-          currentVehicleCount + toInsert.length >
-          vehicleLimit
-        ) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: getSaasLimitError(
-                "Vehicle",
-                vehicleLimit
-              ),
-            },
-            { status: 403 }
-          );
-        }
-      }
-
-      const { error: insertError } = await supabase
-        .from("vehicles")
-        .insert(toInsert);
 
       if (insertError) {
         console.error(
           "Import: bulk insert error:",
           insertError
         );
+
+        if (
+          insertError.code === "23514" &&
+          insertError.message?.includes("Vehicle limit reached")
+        ) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: insertError.message,
+            },
+            { status: 403 }
+          );
+        }
+
+        if (insertError.code === "42501") {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                insertError.message ||
+                "Vehicle access denied.",
+            },
+            { status: 403 }
+          );
+        }
 
         return NextResponse.json(
           {
@@ -517,6 +460,7 @@ export async function POST(request: Request) {
           { status: 500 }
         );
       }
+
     }
 
     const summary = {

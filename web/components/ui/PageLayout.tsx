@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 
 type PageLayoutProps = {
   children: ReactNode;
@@ -8,33 +8,48 @@ type PageLayoutProps = {
   className?: string;
 };
 
-export function PageLayout({ children, title, subtitle, actions, className = "" }: PageLayoutProps) {
+export function PageLayout({
+  children,
+  title,
+  subtitle,
+  actions,
+  className = "",
+}: PageLayoutProps) {
   return (
-    <main className="min-h-screen bg-gray-100 lg:pl-72">
-      <div className={`mx-auto max-w-7xl px-6 py-8 ${className}`}>
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              Vehicle Intelligence
+    <div
+      className={`
+        mx-auto
+        w-full
+        max-w-[1440px]
+        px-3
+        py-4
+        sm:px-5
+        lg:px-6
+        lg:py-5
+        ${className}
+      `}
+    >
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight text-[#102A56] sm:text-2xl">
+            {title}
+          </h1>
+
+          {subtitle && (
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-[#64748B] sm:text-sm">
+              {subtitle}
             </p>
-            <h1 className="mt-1 text-xl font-semibold text-gray-900">
-              {title}
-            </h1>
-            {subtitle && (
-              <p className="mt-1 text-sm text-gray-600">
-                {subtitle}
-              </p>
-            )}
-          </div>
-          {actions && (
-            <div className="flex flex-wrap gap-2">
-              {actions}
-            </div>
           )}
         </div>
-        
-        {children}
+
+        {actions && (
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
+            {actions}
+          </div>
+        )}
       </div>
-    </main>
+
+      {children}
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   IntegrationProvider,
   IntegrationType,
 } from "./types";
@@ -31,6 +31,14 @@ export const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     name: "Generic Inventory Platform",
     type: "INVENTORY",
     description: "External inventory platform integration.",
+    available: true,
+  },
+  {
+    id: "tricity_mitsubishi",
+    name: "Tri-City Mitsubishi",
+    type: "INVENTORY",
+    description:
+      "Tri-City Mitsubishi inventory synchronization via authorized Convertus feed.",
     available: true,
   },
   {

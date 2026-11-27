@@ -7,13 +7,13 @@
 // Never invents missing vehicle data - only extracts what's actually present.
 
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 import type { RawScrapedVehicle } from "../types/scraper";
 import { validateScrapeUrl } from "./url-security";
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
 
-const DEFAULT_DELAY_MS = 1000;
 
 /**
  * Normalizes a URL relative to a base URL.
@@ -44,7 +44,7 @@ function normalizeUrl(url: string, baseUrl: string): string {
 /**
  * Extracts text content from a Cheerio element, trimming whitespace.
  */
-function extractText($elem: cheerio.Cheerio<any>): string | null {
+function extractText($elem: cheerio.Cheerio<AnyNode>): string | null {
   if (!$elem.length) return null;
   const text = $elem.text().trim();
   return text || null;
@@ -54,8 +54,8 @@ function extractText($elem: cheerio.Cheerio<any>): string | null {
  * Attempts to parse JSON-LD data from the page.
  * Supports arrays, @graph, and multiple JSON-LD blocks.
  */
-function parseJsonLd($: cheerio.CheerioAPI): any[] {
-  const schemas: any[] = [];
+function parseJsonLd($: cheerio.CheerioAPI): Record<string, unknown>[] {
+  const schemas: Record<string, unknown>[] = [];
 
   $('script[type="application/ld+json"]').each((_, elem) => {
     try {
@@ -87,7 +87,7 @@ function parseJsonLd($: cheerio.CheerioAPI): any[] {
 /**
  * Finds a Vehicle/Car/Product schema from parsed JSON-LD.
  */
-function findVehicleSchema(schemas: any[]): any | null {
+function findVehicleSchema(schemas: Record<string, unknown>[]): Record<string, unknown> | null {
   return (
     schemas.find(
       (schema) =>
@@ -101,7 +101,7 @@ function findVehicleSchema(schemas: any[]): any | null {
 /**
  * Extracts vehicle data from JSON-LD schema.
  */
-function extractFromSchema(schema: any): Partial<RawScrapedVehicle> {
+function extractFromSchema(schema: Record<string, unknown>): Partial<RawScrapedVehicle> {
   const result: Partial<RawScrapedVehicle> = {};
 
   if (schema.name) {
@@ -130,7 +130,11 @@ function extractFromSchema(schema: any): Partial<RawScrapedVehicle> {
     const engine = schema.vehicleEngine;
     if (typeof engine === "string") {
       result.engine = engine.trim();
-    } else if (engine.name) {
+    } else if (
+      typeof engine === "object" &&
+      engine !== null &&
+      "name" in engine
+    ) {
       result.engine = String(engine.name).trim();
     }
   }
@@ -139,7 +143,11 @@ function extractFromSchema(schema: any): Partial<RawScrapedVehicle> {
     const transmission = schema.vehicleTransmission;
     if (typeof transmission === "string") {
       result.transmission = transmission.trim();
-    } else if (transmission.name) {
+    } else if (
+      typeof transmission === "object" &&
+      transmission !== null &&
+      "name" in transmission
+    ) {
       result.transmission = String(transmission.name).trim();
     }
   }
@@ -239,60 +247,117 @@ function extractFromText($: cheerio.CheerioAPI, baseUrl: string): Partial<RawScr
     }
   }
 
-  // Try to find images with generic multi-platform support
-  const imageUrls: string[] = [];
+  // Collect images from common HTML, lazy-loading, responsive-image,
+// metadata, and CSS background-image patterns.
   const imageSet = new Set<string>();
+  const ignoredImagePattern =
+    /(?:logo|favicon|sprite|placeholder|avatar|payment|social-icon|banner|background|pattern)/i;
+  const imageExtensionPattern =
+    /\.(?:jpe?g|png|webp|avif|gif|bmp)(?:$)/i;
+
+  const addImageCandidate = (
+    rawValue: string | undefined,
+    allowExtensionless = false
+  ) => {
+    const raw = rawValue?.trim();
+    if (!raw || /^(?:data:|blob:|javascript:|#)/i.test(raw)) return;
+
+    try {
+      const normalized = normalizeUrl(raw, baseUrl);
+      const parsed = new URL(normalized);
+
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        return;
+      }
+
+      const pathAndQuery = `${parsed.pathname}${parsed.search}`;
+      if (ignoredImagePattern.test(pathAndQuery)) return;
+
+      // Some image CDNs use extensionless URLs or transformation endpoints.
+      // Accept these only when discovered in an actual image-related attribute.
+      if (
+        !imageExtensionPattern.test(parsed.pathname) &&
+        !allowExtensionless
+      ) {
+        return;
+      }
+
+      imageSet.add(normalized);
+    } catch {
+      // Ignore malformed or unsupported image candidates.
+    }
+  };
+
+  const addSrcSet = (value: string | undefined) => {
+    if (!value) return;
+
+    for (const candidate of value.split(",")) {
+      const url = candidate.trim().split(/\s+/)[0];
+      if (url) addImageCandidate(url, true);
+    }
+  };
 
   $("img").each((_, elem) => {
     const img = $(elem);
-    const src = img.attr("src");
-    const dataSrc = img.attr("data-src");
-    const dataLazySrc = img.attr("data-lazy-src");
-    const currentSrc = img.attr("currentSrc");
-    const dataOriginal = img.attr("data-original");
+    const descriptiveText = [
+      img.attr("alt"),
+      img.attr("class"),
+      img.attr("id"),
+    ].filter(Boolean).join(" ");
 
-    // Check all possible image attributes for different platforms
-    [src, dataSrc, dataLazySrc, currentSrc, dataOriginal].forEach((imgUrl) => {
-      if (!imgUrl) return;
+    if (ignoredImagePattern.test(descriptiveText)) return;
 
-      const normalized = normalizeUrl(imgUrl, baseUrl);
+    const width = Number(img.attr("width"));
+    const height = Number(img.attr("height"));
 
-      // Accept standard image formats from any domain
-      if (normalized.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i)) {
-        // Filter out logos, icons, and UI elements
-        if (
-          !normalized.includes("logo") &&
-          !normalized.includes("icon") &&
-          !normalized.includes("banner") &&
-          !normalized.includes("background") &&
-          !normalized.includes("pattern")
-        ) {
-          imageSet.add(normalized);
-        }
-      }
+    // Ignore obvious tiny UI icons, but keep images with unknown dimensions.
+    if (
+      (Number.isFinite(width) && width > 0 && width < 48) ||
+      (Number.isFinite(height) && height > 0 && height < 48)
+    ) {
+      return;
+    }
+
+    [
+      "src",
+      "data-src",
+      "data-lazy-src",
+      "data-original",
+      "data-original-src",
+      "data-zoom-image",
+      "data-image",
+      "data-fancybox",
+    ].forEach((attribute) => {
+      addImageCandidate(img.attr(attribute), true);
     });
+
+    addSrcSet(img.attr("srcset"));
+    addSrcSet(img.attr("data-srcset"));
+    addSrcSet(img.attr("data-lazy-srcset"));
   });
 
-  // Also scan HTML for image URLs (for lazy-loaded content across platforms)
-  const html = $.html();
-  const imageUrlRegex = /https?:\/\/[^\s"'<>]+\.(jpg|jpeg|png|webp|gif|bmp)/gi;
-  const htmlImageMatches = html.match(imageUrlRegex) || [];
-  htmlImageMatches.forEach((url) => {
-    const normalized = normalizeUrl(url, baseUrl);
-    // Generic image filtering
-    if (
-      !normalized.includes("logo") &&
-      !normalized.includes("icon") &&
-      !normalized.includes("banner")
-    ) {
-      imageSet.add(normalized);
+  $("source[srcset], source[data-srcset]").each((_, elem) => {
+    const source = $(elem);
+    addSrcSet(source.attr("srcset"));
+    addSrcSet(source.attr("data-srcset"));
+  });
+
+  $('meta[property="og:image"], meta[name="twitter:image"]').each((_, elem) => {
+    addImageCandidate($(elem).attr("content"), true);
+  });
+
+  // Discover image URLs used by inline CSS backgrounds.
+  $("[style]").each((_, elem) => {
+    const style = $(elem).attr("style") || "";
+    const backgroundPattern = /url\(\s*["']?([^"'()]+)["']?\s*\)/gi;
+    let match: RegExpExecArray | null;
+
+    while ((match = backgroundPattern.exec(style)) !== null) {
+      addImageCandidate(match[1], true);
     }
   });
 
-  if (imageSet.size > 0) {
-    result.imageUrls = Array.from(imageSet);
-  }
-
+  result.imageUrls = Array.from(imageSet);
   return result;
 }
 
@@ -385,3 +450,5 @@ export async function scrapeVdp(vdpUrl: string): Promise<RawScrapedVehicle | nul
     return null;
   }
 }
+
+

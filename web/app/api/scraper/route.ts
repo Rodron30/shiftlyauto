@@ -1,16 +1,13 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 
-import {
-  createSupabaseServerClient,
-  getCurrentUserProfile,
-} from "@/lib/supabaseServer";
+import { getCurrentUserProfile } from "@/lib/supabaseServer";
 
-import { requireSaasAccess, getSaasLimit, getSaasLimitError } from "@/lib/saas";
+import { requireSaasAccess, getSaasLimit } from "@/lib/saas";
 import { checkRateLimit, getRateLimitKey } from "@/lib/rateLimit";
 
 import { crawlInventory } from "@/lib/scraper/inventory-crawler";
 import { transformBatchToShiftlyVehicles } from "@/lib/scraper/transformer";
-import type { RawScrapedVehicle, ScrapedVehiclePreview } from "@/lib/types/scraper";
+import type { ScrapedVehiclePreview } from "@/lib/types/scraper";
 
 // Security: Maximum vehicles that can be scraped in a single request
 const MAX_VEHICLES_HARD_LIMIT = 50;
@@ -192,15 +189,11 @@ export async function POST(request: Request) {
     }
 
     // 9. Perform scraping
-    console.log(`Starting scrape for ${listingPageUrl} with max ${maxVehicles} vehicles`);
-
     const { vehicles: scrapedVehicles, errors: scrapeErrors } =
       await crawlInventory(listingPageUrl, {
         maxVehicles,
         delayMs: 1000, // 1 second delay between requests
       });
-
-    console.log(`Scrape completed: ${scrapedVehicles.length} vehicles, ${scrapeErrors.length} errors`);
 
     // 10. Transform to Shiftly vehicle format (for preview)
     const transformedVehicles = await transformBatchToShiftlyVehicles(
@@ -242,3 +235,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

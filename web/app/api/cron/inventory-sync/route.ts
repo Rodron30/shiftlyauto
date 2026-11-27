@@ -35,7 +35,7 @@ export async function GET(request: Request) {
       .from("integrations")
       .select("*")
       .eq("integration_type", "INVENTORY")
-      .neq("status", "DISABLED");
+      .in("status", ["CONNECTED", "ERROR"]);
 
     if (integrationError) {
       console.error(
@@ -65,7 +65,26 @@ export async function GET(request: Request) {
       const startedAt = new Date().toISOString();
 
       try {
-        if (integration.status === "SYNCING") {
+        const { data: claimed, error: claimError } = await supabase
+          .from("integrations")
+          .update({
+            status: "SYNCING",
+            last_error: null,
+            updated_at: startedAt,
+          })
+          .eq("id", integration.id)
+          .eq("dealership_id", integration.dealership_id)
+          .in("status", ["CONNECTED", "ERROR"])
+          .select("id")
+          .maybeSingle();
+
+        if (claimError) {
+          throw new Error(
+            `Unable to claim integration ${integration.id}: ${claimError.message}`
+          );
+        }
+
+        if (!claimed) {
           results.push({
             integration_id: integration.id,
             dealership_id: integration.dealership_id,
@@ -75,38 +94,44 @@ export async function GET(request: Request) {
             recordsCreated: 0,
             recordsUpdated: 0,
             recordsFailed: 0,
-            errorMessage: "Integration is already syncing.",
+            errorMessage: "Integration was claimed by another request or is no longer eligible.",
           });
 
           continue;
         }
 
-        const { data: log, error: logError } =
-          await supabase
-            .from("integration_sync_logs")
-            .insert({
-              integration_id: integration.id,
-              dealership_id: integration.dealership_id,
-              sync_type: "SCHEDULED",
-              status: "STARTED",
-              started_at: startedAt,
-            })
-            .select("*")
-            .single();
+        const { data: log, error: logError } = await supabase
+          .from("integration_sync_logs")
+          .insert({
+            integration_id: integration.id,
+            dealership_id: integration.dealership_id,
+            sync_type: "SCHEDULED",
+            status: "STARTED",
+            started_at: startedAt,
+          })
+          .select("*")
+          .single();
 
         if (logError || !log) {
+          const { error: releaseError } = await supabase
+            .from("integrations")
+            .update({
+              status: integration.status,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", integration.id)
+            .eq("dealership_id", integration.dealership_id)
+            .eq("status", "SYNCING");
+
+          if (releaseError) {
+            console.error(
+              `Failed to release integration ${integration.id}:`,
+              releaseError
+            );
+          }
+
           throw new Error("Unable to create scheduled sync log.");
         }
-
-        await supabase
-          .from("integrations")
-          .update({
-            status: "SYNCING",
-            last_error: null,
-            updated_at: startedAt,
-          })
-          .eq("id", integration.id)
-          .eq("dealership_id", integration.dealership_id);
 
         try {
           const result = await syncIntegration(
@@ -115,7 +140,7 @@ export async function GET(request: Request) {
 
           const completedAt = new Date().toISOString();
 
-          await supabase
+          const { error: syncLogUpdateError } = await supabase
             .from("integration_sync_logs")
             .update({
               status: result.status,
@@ -129,19 +154,38 @@ export async function GET(request: Request) {
             .eq("id", log.id)
             .eq("dealership_id", integration.dealership_id);
 
-          await supabase
-            .from("integrations")
-            .update({
-              status:
-                result.status === "FAILED"
-                  ? "ERROR"
-                  : "CONNECTED",
-              last_sync_at: completedAt,
-              last_error: result.errorMessage ?? null,
-              updated_at: completedAt,
-            })
-            .eq("id", integration.id)
-            .eq("dealership_id", integration.dealership_id);
+          if (syncLogUpdateError) {
+            throw new Error(
+              `Unable to save inventory sync log: ${syncLogUpdateError.message}`
+            );
+          }
+
+          const { data: finalized, error: integrationUpdateError } =
+            await supabase
+              .from("integrations")
+              .update({
+                status: result.status === "SUCCESS" ? "CONNECTED" : "ERROR",
+                last_sync_at: completedAt,
+                last_error: result.errorMessage ?? null,
+                updated_at: completedAt,
+              })
+              .eq("id", integration.id)
+              .eq("dealership_id", integration.dealership_id)
+              .eq("status", "SYNCING")
+              .select("id")
+              .maybeSingle();
+
+          if (integrationUpdateError) {
+            throw new Error(
+              `Unable to finalize inventory integration: ${integrationUpdateError.message}`
+            );
+          }
+
+          if (!finalized) {
+            throw new Error(
+              "Integration status changed before inventory sync finalization."
+            );
+          }
 
           results.push({
             integration_id: integration.id,
@@ -162,7 +206,7 @@ export async function GET(request: Request) {
               ? syncError.message
               : "Integration sync failed";
 
-          await supabase
+          const { error: syncLogFailureError } = await supabase
             .from("integration_sync_logs")
             .update({
               status: "FAILED",
@@ -173,16 +217,38 @@ export async function GET(request: Request) {
             .eq("id", log.id)
             .eq("dealership_id", integration.dealership_id);
 
-          await supabase
-            .from("integrations")
-            .update({
-              status: "ERROR",
-              last_sync_at: completedAt,
-              last_error: errorMessage,
-              updated_at: completedAt,
-            })
-            .eq("id", integration.id)
-            .eq("dealership_id", integration.dealership_id);
+          if (syncLogFailureError) {
+            console.error(
+              `Failed to mark sync log ${log.id} as FAILED:`,
+              syncLogFailureError
+            );
+          }
+
+          const { data: failedIntegration, error: integrationFailureError } =
+            await supabase
+              .from("integrations")
+              .update({
+                status: "ERROR",
+                last_sync_at: completedAt,
+                last_error: errorMessage,
+                updated_at: completedAt,
+              })
+              .eq("id", integration.id)
+              .eq("dealership_id", integration.dealership_id)
+              .eq("status", "SYNCING")
+              .select("id")
+              .maybeSingle();
+
+          if (integrationFailureError) {
+            console.error(
+              `Failed to mark integration ${integration.id} as ERROR:`,
+              integrationFailureError
+            );
+          } else if (!failedIntegration) {
+            console.warn(
+              `Integration ${integration.id} was not changed to ERROR because it is no longer SYNCING.`
+            );
+          }
 
           results.push({
             integration_id: integration.id,

@@ -121,9 +121,7 @@ export async function GET(
       return NextResponse.json(
         {
           success: false,
-          error:
-            vehicleError.message ||
-            "Failed to load vehicle history.",
+          error: "Failed to load vehicle history.",
         },
         { status: 500 }
       );
@@ -174,9 +172,7 @@ export async function GET(
       return NextResponse.json(
         {
           success: false,
-          error:
-            eventsError.message ||
-            "Failed to load vehicle history.",
+          error: "Failed to load vehicle history.",
         },
         { status: 500 }
       );
@@ -229,10 +225,7 @@ export async function GET(
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Internal server error.",
+        error: "Internal server error.",
       },
       { status: 500 }
     );
@@ -516,9 +509,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error:
-            vehicleError.message ||
-            "Failed to find vehicle.",
+          error: "Failed to find vehicle.",
         },
         { status: 500 }
       );
@@ -588,15 +579,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error:
-            insertError.message ||
-            "Failed to save history record.",
-          details:
-            insertError.details || null,
-          hint:
-            insertError.hint || null,
-          code:
-            insertError.code || null,
+          error: "Failed to save history record.",
         },
         { status: 500 }
       );
@@ -632,10 +615,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Internal server error.",
+        error: "Internal server error.",
       },
       { status: 500 }
     );

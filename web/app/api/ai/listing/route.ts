@@ -7,7 +7,6 @@ import {
   getRateLimitKey,
 } from "@/lib/rateLimit";
 import { 
-  createSupabaseServerClient,
   getCurrentUserProfile 
 } from "@/lib/supabaseServer";
 import {
@@ -89,26 +88,28 @@ Before returning the JSON, silently verify:
 `;
 
 export async function POST(request: Request) {
-  // Temporary diagnostics to identify auth issue
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
-  console.log("[AI LISTING DIAGNOSTIC] authUserExists:", !!user);
-  console.log("[AI LISTING DIAGNOSTIC] authUserId:", user?.id || null);
-  console.log("[AI LISTING DIAGNOSTIC] authError:", !!authError);
-  if (authError) {
-    console.log("[AI LISTING DIAGNOSTIC] authErrorMessage:", authError.message);
+  const profile = await getCurrentUserProfile();
+
+  if (!profile?.id || !profile.dealership_id) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized",
+      },
+      { status: 401 }
+    );
+  }
+
+  if (profile.role !== "admin" && profile.role !== "manager") {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Only managers and admins can generate Marketplace listings.",
+      },
+      { status: 403 }
+    );
   }
   
-  console.log("[AI LISTING DIAGNOSTIC] Calling getCurrentUserProfile()...");
-  const profile = await getCurrentUserProfile();
-  
-  console.log("[AI LISTING DIAGNOSTIC] getCurrentUserProfile completed");
-  console.log("[AI LISTING DIAGNOSTIC] profileExists:", !!profile);
-  console.log("[AI LISTING DIAGNOSTIC] profileId:", profile?.id || null);
-  console.log("[AI LISTING DIAGNOSTIC] profileDealershipId:", profile?.dealership_id || null);
-  console.log("[AI LISTING DIAGNOSTIC] Known admin ID: 874cd102-0d6c-4fdc-a83a-98f8069c69a7");
-  console.log("[AI LISTING DIAGNOSTIC] Known manager ID: 1922b3cb-c981-45d0-962e-358f21c4099a");
 
   const rateLimitKey = getRateLimitKey(
     request,
@@ -155,21 +156,9 @@ export async function POST(request: Request) {
     );
   }
 
-  console.log("[AI LISTING DIAGNOSTIC] Calling requireSaasAccess()...");
   const saasAccess = await requireSaasAccess();
 
-  console.log("[AI LISTING DIAGNOSTIC] requireSaasAccess completed");
-  console.log("[AI LISTING DIAGNOSTIC] saasAccess.ok:", saasAccess.ok);
-
   if (!saasAccess.ok) {
-    console.log("[AI LISTING DIAGNOSTIC] Returning error status:", saasAccess.status, "reason:", saasAccess.error);
-  } else {
-    console.log("[AI LISTING DIAGNOSTIC] saasAccess.context.plan:", saasAccess.context.plan);
-    console.log("[AI LISTING DIAGNOSTIC] saasAccess.context.dealershipId:", saasAccess.context.dealershipId);
-  }
-
-  if (!saasAccess.ok) {
-    console.log("[AI LISTING DIAGNOSTIC] Returning error status:", saasAccess.status, "reason:", saasAccess.error);
     return NextResponse.json(
       { error: saasAccess.error },
       { status: saasAccess.status }
@@ -192,7 +181,7 @@ export async function POST(request: Request) {
   }
 
   const vehicle = body.vehicle;
-  const originalImages = (vehicle as any)?.images || [];
+  const originalImages = vehicle.images ?? [];
 
   let priceCad: number | null = null;
 
@@ -303,4 +292,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

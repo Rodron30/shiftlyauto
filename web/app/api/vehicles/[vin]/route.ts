@@ -8,8 +8,6 @@ import {
 import { decodeVin } from "@/lib/vinDecode";
 
 import {
-  getSaasLimit,
-  getSaasLimitError,
   requireSaasAccess,
 } from "@/lib/saas";
 
@@ -43,6 +41,11 @@ const VEHICLE_COLUMNS = `
   status,
   primary_image,
   images,
+  exterior_color,
+  interior_color,
+  has_clean_title,
+  condition,
+  source_url,
   created_by,
   created_at,
   updated_at,
@@ -160,150 +163,13 @@ export async function GET(
       );
     }
 
-    const decoded = await decodeVin(normalizedVin);
-
-    if (!decoded || (!decoded.make && !decoded.model)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Vehicle could not be decoded. Please verify the VIN and try again.",
-          vin: normalizedVin,
-        },
-        { status: 404 }
-      );
-    }
-
-    const saasAccess = await requireSaasAccess();
-
-    if (!saasAccess.ok) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: saasAccess.error,
-        },
-        { status: saasAccess.status }
-      );
-    }
-
-    const vehicleLimit = getSaasLimit(
-      saasAccess.context.plan,
-      "vehicles"
-    );
-
-    if (vehicleLimit !== null) {
-      const { count: activeVehicleCount, error: vehicleCountError } =
-        await supabase
-          .from("vehicles")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
-          .eq(
-            "dealership_id",
-            profile.dealership_id
-          )
-          .is("archived_at", null);
-
-      if (vehicleCountError) {
-        console.error(
-          "SaaS vehicle count error:",
-          vehicleCountError
-        );
-
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Failed to check vehicle plan limit.",
-          },
-          { status: 500 }
-        );
-      }
-
-      if (
-        (activeVehicleCount ?? 0) >= vehicleLimit
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: getSaasLimitError(
-              "Vehicle",
-              vehicleLimit
-            ),
-          },
-          { status: 403 }
-        );
-      }
-    }
-
-    const { data: inserted, error: insertError } =
-      await supabase
-        .from("vehicles")
-        .insert({
-          dealership_id: profile.dealership_id,
-          vin: normalizedVin,
-          year: decoded.year,
-          make: decoded.make,
-          model: decoded.model,
-          trim: decoded.trim,
-          body: decoded.body,
-          engine: decoded.engine,
-          drivetrain: decoded.drivetrain,
-          fuel: decoded.fuel,
-          currency: "CAD", // Force CAD for Canadian market
-          mileage_unit: "KM", // Force KM for Canadian market
-          created_by: profile.id,
-        })
-        .select(VEHICLE_COLUMNS)
-        .single();
-
-    if (insertError) {
-      console.error(
-        "Supabase vehicle insert error:",
-        {
-          message: insertError.message,
-          details: insertError.details,
-          hint: insertError.hint,
-          code: insertError.code,
-        }
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            insertError.message ||
-            "Failed to save vehicle.",
-          details: insertError.details || null,
-          hint: insertError.hint || null,
-          code: insertError.code || null,
-        },
-        { status: 500 }
-      );
-    }
-
-    if (!inserted) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Vehicle was decoded but could not be saved.",
-        },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json(
       {
-        success: true,
-        vehicle: inserted,
-        source: "decoded_and_saved",
-        checkedByName:
-          profile.name ||
-          profile.email ||
-          null,
+        success: false,
+        error: "Vehicle not found.",
+        vin: normalizedVin,
       },
-      { status: 200 }
+      { status: 404 }
     );
   } catch (error) {
     console.error(
@@ -327,8 +193,34 @@ export async function GET(
 /**
  * Helper function to build updates object from request body
  */
+type VehicleUpdateBody = {
+  year?: unknown;
+  make?: unknown;
+  model?: unknown;
+  trim?: unknown;
+  body?: unknown;
+  engine?: unknown;
+  drivetrain?: unknown;
+  transmission?: unknown;
+  fuel?: unknown;
+  price?: unknown;
+  mileage?: unknown;
+  description?: unknown;
+  status?: unknown;
+  primary_image?: unknown;
+  images?: unknown;
+  currency?: unknown;
+  mileage_unit?: unknown;
+  location?: unknown;
+  exterior_color?: unknown;
+  interior_color?: unknown;
+  has_clean_title?: unknown;
+  condition?: unknown;
+  source_url?: unknown;
+};
+
 function buildUpdates(
-  body: any,
+  body: VehicleUpdateBody,
   year: number | null,
   make: string | null,
   model: string | null,
@@ -344,7 +236,13 @@ function buildUpdates(
   primaryImage: string | null,
   images: string[] | null,
   currency: string | null,
-  mileageUnit: string | null
+  mileageUnit: string | null,
+  location: string | null,
+  exteriorColor: string | null,
+  interiorColor: string | null,
+  hasCleanTitle: boolean | null,
+  condition: string | null,
+  sourceUrl: string | null
 ): Record<string, unknown> {
   const updates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -359,6 +257,7 @@ function buildUpdates(
   if ("drivetrain" in body) {
     updates.drivetrain = drivetrain;
   }
+  if ("transmission" in body) updates.transmission = body.transmission == null || String(body.transmission).trim() === "" ? null : String(body.transmission).trim();
   if ("fuel" in body) updates.fuel = fuel;
   if ("price" in body) updates.price = price;
   if ("mileage" in body) updates.mileage = mileage;
@@ -378,6 +277,14 @@ function buildUpdates(
   // Use the converted values if provided
   if (currency) updates.currency = currency;
   if (mileageUnit) updates.mileage_unit = mileageUnit;
+
+  // Additional fields from DealerInspire scanner
+  if ("location" in body) updates.location = location;
+  if ("exterior_color" in body) updates.exterior_color = exteriorColor;
+  if ("interior_color" in body) updates.interior_color = interiorColor;
+  if ("has_clean_title" in body) updates.has_clean_title = hasCleanTitle;
+  if ("condition" in body) updates.condition = condition;
+  if ("source_url" in body) updates.source_url = sourceUrl;
 
   return updates;
 }
@@ -552,7 +459,40 @@ export async function PATCH(
         ? body.images
         : null;
 
-    console.log(`📦 Inventory save: ${images ? images.length : 0} images for VIN ${normalizedVin}`);
+    const location =
+      body.location == null ||
+      String(body.location).trim() === ""
+        ? null
+        : String(body.location).trim();
+
+    const exteriorColor =
+      body.exterior_color == null ||
+      String(body.exterior_color).trim() === ""
+        ? null
+        : String(body.exterior_color).trim();
+
+    const interiorColor =
+      body.interior_color == null ||
+      String(body.interior_color).trim() === ""
+        ? null
+        : String(body.interior_color).trim();
+
+    const hasCleanTitle =
+      body.has_clean_title == null
+        ? null
+        : Boolean(body.has_clean_title);
+
+    const condition =
+      body.condition == null ||
+      String(body.condition).trim() === ""
+        ? null
+        : String(body.condition).trim();
+
+    const sourceUrl =
+      body.source_url == null ||
+      String(body.source_url).trim() === ""
+        ? null
+        : String(body.source_url).trim();
 
     if (
       year !== null &&
@@ -619,7 +559,7 @@ export async function PATCH(
 
     // Allow 0 mileage for new vehicles
     if (mileage === 0) {
-      console.log("📏 Zero mileage detected (edit) - preserving 0 KM for new vehicle");
+      // Preserve 0 mileage for new vehicles
     }
 
     const allowedStatuses = [
@@ -690,76 +630,26 @@ export async function PATCH(
         );
       }
 
-      const vehicleLimit = getSaasLimit(
-        saasAccess.context.plan,
-        "vehicles"
-      );
-
-      if (vehicleLimit !== null) {
-        const { count: activeVehicleCount, error: vehicleCountError } =
-          await supabase
-            .from("vehicles")
-            .select("id", {
-              count: "exact",
-              head: true,
-            })
-            .eq(
-              "dealership_id",
-              profile.dealership_id
-            )
-            .is("archived_at", null);
-
-        if (vehicleCountError) {
-          console.error(
-            "SaaS vehicle count error:",
-            vehicleCountError
-          );
-
-          return NextResponse.json(
+      const { data: insertedRows, error: insertError } =
+        await supabase.rpc("insert_vehicles_atomic", {
+          p_vehicles: [
             {
-              success: false,
-              error: "Failed to check vehicle plan limit.",
+              vin: normalizedVin,
+              year: decoded.year,
+              make: decoded.make,
+              model: decoded.model,
+              trim: decoded.trim,
+              body: decoded.body,
+              engine: decoded.engine,
+              drivetrain: decoded.drivetrain,
+              fuel: decoded.fuel,
+              currency: "CAD",
+              mileage_unit: "KM",
             },
-            { status: 500 }
-          );
-        }
+          ],
+        });
 
-        if (
-          (activeVehicleCount ?? 0) >= vehicleLimit
-        ) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: getSaasLimitError(
-                "Vehicle",
-                vehicleLimit
-              ),
-            },
-            { status: 403 }
-          );
-        }
-      }
-
-      const { data: inserted, error: insertError } =
-        await supabase
-          .from("vehicles")
-          .insert({
-            dealership_id: profile.dealership_id,
-            vin: normalizedVin,
-            year: decoded.year,
-            make: decoded.make,
-            model: decoded.model,
-            trim: decoded.trim,
-            body: decoded.body,
-            engine: decoded.engine,
-            drivetrain: decoded.drivetrain,
-            fuel: decoded.fuel,
-            currency: "CAD", // Force CAD for Canadian market
-            mileage_unit: "KM", // Force KM for Canadian market
-            created_by: profile.id,
-          })
-          .select(VEHICLE_COLUMNS)
-          .single();
+      const inserted = insertedRows?.[0] ?? null;
 
       if (insertError) {
         console.error(
@@ -773,6 +663,31 @@ export async function PATCH(
         );
 
         // Handle race condition: if vehicle was created by another request, fetch it
+        if (
+          insertError.code === "23514" &&
+          insertError.message?.includes("Vehicle limit reached")
+        ) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: insertError.message,
+            },
+            { status: 403 }
+          );
+        }
+
+        if (insertError.code === "42501") {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                insertError.message ||
+                "Vehicle access denied.",
+            },
+            { status: 403 }
+          );
+        }
+
         if (insertError.code === "23505") {
           const { data: raceVehicle, error: raceError } = await supabase
             .from("vehicles")
@@ -785,7 +700,7 @@ export async function PATCH(
 
           if (!raceError && raceVehicle) {
             // Vehicle was created in race condition, proceed with update
-            const updates = buildUpdates(body, year, make, model, trim, vehicleBody, engine, drivetrain, fuel, price, mileage, description, status, primaryImage, images, currency, mileageUnit);
+            const updates = buildUpdates(body, year, make, model, trim, vehicleBody, engine, drivetrain, fuel, price, mileage, description, status, primaryImage, images, currency, mileageUnit, location, exteriorColor, interiorColor, hasCleanTitle, condition, sourceUrl);
             const { data: updated, error: updateError } = await supabase
               .from("vehicles")
               .update(updates)
@@ -842,7 +757,7 @@ export async function PATCH(
       }
 
       // Apply the updates to the newly created vehicle
-      const updates = buildUpdates(body, year, make, model, trim, vehicleBody, engine, drivetrain, fuel, price, mileage, description, status, primaryImage, images, currency, mileageUnit);
+      const updates = buildUpdates(body, year, make, model, trim, vehicleBody, engine, drivetrain, fuel, price, mileage, description, status, primaryImage, images, currency, mileageUnit, location, exteriorColor, interiorColor, hasCleanTitle, condition, sourceUrl);
       
       if (Object.keys(updates).length > 1) { // More than just updated_at
         const { data: updated, error: updateError } = await supabase
@@ -884,10 +799,18 @@ export async function PATCH(
     }
 
     // Vehicle exists, update it
-    const updates = buildUpdates(body, year, make, model, trim, vehicleBody, engine, drivetrain, fuel, price, mileage, description, status, primaryImage, images, currency, mileageUnit);
+    const updates = buildUpdates(body, year, make, model, trim, vehicleBody, engine, drivetrain, fuel, price, mileage, description, status, primaryImage, images, currency, mileageUnit, location, exteriorColor, interiorColor, hasCleanTitle, condition, sourceUrl);
     
-    // If no updates to apply, just return the existing vehicle
-    if (Object.keys(updates).length === 1) { // Only updated_at
+    // Restore archived vehicle before checking for an empty update.
+    if (vehicle.archived_at) {
+      updates.archived_at = null;
+      if (!("status" in body) || !status) {
+        updates.status = "AVAILABLE";
+      }
+    }
+
+    // If no updates to apply, just return the existing vehicle.
+    if (Object.keys(updates).length === 1) {
       return NextResponse.json(
         {
           success: true,
@@ -902,7 +825,6 @@ export async function PATCH(
       .update(updates)
       .eq("id", vehicle.id)
       .eq("dealership_id", profile.dealership_id)
-      .is("archived_at", null)
       .select(VEHICLE_COLUMNS)
       .single();
 
@@ -985,28 +907,28 @@ export async function DELETE(
       );
     }
 
-    const saasAccess = await requireSaasAccess();
-
-    if (!saasAccess.ok) {
+    if (
+      profile.role !== "admin" &&
+      profile.role !== "manager" &&
+      profile.role !== "salesperson"
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: saasAccess.error,
+          error: "You do not have permission to archive vehicles.",
         },
-        { status: saasAccess.status }
+        { status: 403 }
       );
     }
 
-    const supabase =
-      await createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
-    const { data: vehicle, error: lookupError } =
-      await supabase
-        .from("vehicles")
-        .select("id, vin, archived_at")
-        .eq("vin", normalizedVin)
-        .eq("dealership_id", profile.dealership_id)
-        .maybeSingle();
+    const { data: vehicle, error: lookupError } = await supabase
+      .from("vehicles")
+      .select("id, vin, archived_at")
+      .eq("vin", normalizedVin)
+      .eq("dealership_id", profile.dealership_id)
+      .maybeSingle();
 
     if (lookupError) {
       console.error(
@@ -1017,9 +939,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           success: false,
-          error:
-            lookupError.message ||
-            "Failed to find vehicle.",
+          error: "Failed to find vehicle.",
         },
         { status: 500 }
       );
@@ -1056,10 +976,8 @@ export async function DELETE(
       .eq("id", vehicle.id)
       .eq("dealership_id", profile.dealership_id)
       .is("archived_at", null)
-      .select(
-        "id, vin, archived_at, updated_at"
-      )
-      .single();
+      .select("id, vin, archived_at, updated_at")
+      .maybeSingle();
 
     if (error) {
       console.error(
@@ -1070,33 +988,20 @@ export async function DELETE(
       return NextResponse.json(
         {
           success: false,
-          error:
-            error.message ||
-            "Failed to archive vehicle.",
+          error: "Failed to archive vehicle.",
         },
         { status: 500 }
       );
     }
 
-    const { error: notificationError } = await supabase
-      .from("notifications")
-      .insert({
-        dealership_id: profile.dealership_id,
-        user_id: null,
-        type: "SUCCESS",
-        category: "VEHICLE",
-        title: "Vehicle Archived",
-        message: `${normalizedVin} was archived from inventory.`,
-        target_url: "/vehicles",
-        metadata: {
-          vehicle_id: vehicle.id,
-          vin: normalizedVin,
-          action: "archive",
+    if (!data) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Vehicle could not be archived.",
         },
-      });
-
-    if (notificationError) {
-      console.error("Vehicle archive notification insert error:", notificationError);
+        { status: 409 }
+      );
     }
 
     return NextResponse.json(
@@ -1116,18 +1021,9 @@ export async function DELETE(
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Internal server error.",
+        error: "Internal server error.",
       },
       { status: 500 }
     );
   }
 }
-
-
-
-
-
-

@@ -1,4 +1,4 @@
-﻿// Facebook Marketplace listing generator
+// Facebook Marketplace listing generator
 // Converts Shiftly vehicle data to Marketplace-ready listing format
 
 import type { MarketplaceListingData, MarketplaceListingGeneratorOptions } from './types';
@@ -147,22 +147,6 @@ export function generateMarketplaceListing(
   };
 
   // Diagnostic logging for data pipeline trace
-  console.log("========== MARKETPLACE GENERATOR OUTPUT ==========");
-  console.log("MARKETPLACE GENERATOR: make =", listing.make);
-  console.log("MARKETPLACE GENERATOR: model =", listing.model);
-  console.log("MARKETPLACE GENERATOR: year =", listing.year);
-  console.log("MARKETPLACE GENERATOR: body =", listing.body);
-  console.log("MARKETPLACE GENERATOR: exteriorColor =", listing.exteriorColor);
-  console.log("MARKETPLACE GENERATOR: interiorColor =", listing.interiorColor);
-  console.log("MARKETPLACE GENERATOR: hasCleanTitle =", listing.hasCleanTitle);
-  console.log("MARKETPLACE GENERATOR: condition =", listing.condition);
-  console.log("MARKETPLACE GENERATOR: mileage =", listing.mileage);
-  console.log("MARKETPLACE GENERATOR: fuel =", listing.fuel);
-  console.log("MARKETPLACE GENERATOR: transmission =", listing.transmission);
-  console.log("MARKETPLACE GENERATOR: location =", listing.location);
-  console.log("MARKETPLACE GENERATOR: photos.length =", listing.photos.length);
-  console.log("MARKETPLACE GENERATOR: vin =", listing.vin);
-  console.log("======================================================");
 
   return listing;
 }

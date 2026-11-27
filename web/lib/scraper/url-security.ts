@@ -5,7 +5,7 @@ function isPrivateOrReservedIp(ip: string): boolean {
   const normalized = ip.toLowerCase();
 
   if (net.isIPv4(normalized)) {
-    const [a, b, c, d] = normalized.split(".").map(Number);
+    const [a, b, c] = normalized.split(".").map(Number);
 
     return (
       // Unspecified / current host

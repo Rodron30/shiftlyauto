@@ -1,4 +1,4 @@
-﻿import { Header } from "@/components/bcautoloan/Header";
+import { Header } from "@/components/bcautoloan/Header";
 import { Footer } from "@/components/bcautoloan/Footer";
 import { FindVehicleHero } from "@/components/bcautoloan/FindVehicleHero";
 import { FindVehicleSteps } from "@/components/bcautoloan/FindVehicleSteps";

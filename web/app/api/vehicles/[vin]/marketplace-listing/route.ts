@@ -24,6 +24,13 @@ export async function GET(
       );
     }
 
+    if (userProfile.role !== 'admin' && userProfile.role !== 'manager') {
+      return NextResponse.json(
+        { error: 'Only managers and admins can generate Marketplace listings.' },
+        { status: 403 }
+      );
+    }
+
     // 2. SaaS access check
     const saasAccess = await requireSaasAccess();
     if (!saasAccess.ok) {
@@ -51,23 +58,6 @@ export async function GET(
     }
 
     // 4. Generate Marketplace listing data
-    console.log("========== MARKETPLACE LISTING API - INPUT VEHICLE ==========");
-    console.log("MARKETPLACE LISTING API: make =", vehicle.make);
-    console.log("MARKETPLACE LISTING API: model =", vehicle.model);
-    console.log("MARKETPLACE LISTING API: year =", vehicle.year);
-    console.log("MARKETPLACE LISTING API: body =", vehicle.body);
-    console.log("MARKETPLACE LISTING API: exterior_color =", vehicle.exterior_color);
-    console.log("MARKETPLACE LISTING API: interior_color =", vehicle.interior_color);
-    console.log("MARKETPLACE LISTING API: has_clean_title =", vehicle.has_clean_title);
-    console.log("MARKETPLACE LISTING API: condition =", vehicle.status);
-    console.log("MARKETPLACE LISTING API: mileage =", vehicle.mileage);
-    console.log("MARKETPLACE LISTING API: fuel =", vehicle.fuel);
-    console.log("MARKETPLACE LISTING API: transmission =", vehicle.transmission);
-    console.log("MARKETPLACE LISTING API: location =", vehicle.location);
-    console.log("MARKETPLACE LISTING API: images.length =", vehicle.images?.length || 0);
-    console.log("MARKETPLACE LISTING API: vin =", vehicle.vin);
-    console.log("============================================================");
-
     const listingData: MarketplaceListingData = generateMarketplaceListing(
       vehicle as ShiftlyVehicle,
       {
@@ -75,23 +65,6 @@ export async function GET(
         includeSourceUrl: false,
       }
     );
-
-    console.log("========== MARKETPLACE LISTING API - OUTPUT LISTING ==========");
-    console.log("MARKETPLACE LISTING API: make =", listingData.make);
-    console.log("MARKETPLACE LISTING API: model =", listingData.model);
-    console.log("MARKETPLACE LISTING API: year =", listingData.year);
-    console.log("MARKETPLACE LISTING API: body =", listingData.body);
-    console.log("MARKETPLACE LISTING API: exteriorColor =", listingData.exteriorColor);
-    console.log("MARKETPLACE LISTING API: interiorColor =", listingData.interiorColor);
-    console.log("MARKETPLACE LISTING API: hasCleanTitle =", listingData.hasCleanTitle);
-    console.log("MARKETPLACE LISTING API: condition =", listingData.condition);
-    console.log("MARKETPLACE LISTING API: mileage =", listingData.mileage);
-    console.log("MARKETPLACE LISTING API: fuel =", listingData.fuel);
-    console.log("MARKETPLACE LISTING API: transmission =", listingData.transmission);
-    console.log("MARKETPLACE LISTING API: location =", listingData.location);
-    console.log("MARKETPLACE LISTING API: photos.length =", listingData.photos.length);
-    console.log("MARKETPLACE LISTING API: vin =", listingData.vin);
-    console.log("============================================================");
 
     // 5. Return the listing data
     return NextResponse.json({

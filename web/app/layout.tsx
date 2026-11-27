@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -18,9 +19,27 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Shiftly Auto",
   description: "Vehicle Intelligence dashboard",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+  },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const requestHeaders = await headers();
+  const hostname = requestHeaders
+    .get("host")
+    ?.split(":")[0]
+    ?.toLowerCase();
+
+  const isBCAutoLoanDomain =
+    hostname === "bcautoloan.ca" ||
+    hostname === "www.bcautoloan.ca";
+
   return (
     <html
       lang="en"
@@ -28,10 +47,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <body className="min-h-full flex flex-col">
         <ToastProvider>
-          <AppShell>{children}</AppShell>
+          {isBCAutoLoanDomain ? (
+            children
+          ) : (
+            <AppShell>{children}</AppShell>
+          )}
         </ToastProvider>
       </body>
     </html>
   );
 }
-

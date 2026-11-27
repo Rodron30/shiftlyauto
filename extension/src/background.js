@@ -3,6 +3,80 @@
 console.log("Shiftly Auto service worker loaded");
 
 const tabVins = new Map();
+const TRICITY_DB_NAME = "shiftlyTriCityInventory";
+const TRICITY_DB_VERSION = 1;
+const TRICITY_STORE_NAME = "pendingInventory";
+const TRICITY_RECORD_KEY = "latest";
+
+function openTriCityDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(
+      TRICITY_DB_NAME,
+      TRICITY_DB_VERSION
+    );
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+
+      if (!db.objectStoreNames.contains(TRICITY_STORE_NAME)) {
+        db.createObjectStore(TRICITY_STORE_NAME);
+      }
+    };
+
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+
+    request.onerror = () => {
+      reject(
+        request.error ||
+        new Error("Failed to open Tri-City inventory database.")
+      );
+    };
+  });
+}
+
+
+async function storeTriCityFinalInventory(payload) {
+  const db = await openTriCityDatabase();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(
+      TRICITY_STORE_NAME,
+      "readwrite"
+    );
+
+    const store = transaction.objectStore(
+      TRICITY_STORE_NAME
+    );
+
+    store.put(
+      payload,
+      TRICITY_RECORD_KEY
+    );
+
+    transaction.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+
+    transaction.onerror = () => {
+      db.close();
+      reject(
+        transaction.error ||
+        new Error("Failed to store Tri-City inventory.")
+      );
+    };
+
+    transaction.onabort = () => {
+      db.close();
+      reject(
+        transaction.error ||
+        new Error("Tri-City inventory storage transaction aborted.")
+      );
+    };
+  });
+}
 
 /* -------------------------------------------------------
    URL HELPERS
@@ -251,7 +325,7 @@ async function scanTab(tabId) {
 
             if (facebookTitleMatch) {
               const candidateModel = clean(facebookTitleMatch[3])
-                .replace(/\s*[·•]\s*/g, " ")
+                .replace(/\s*[ï¿½ï¿½]\s*/g, " ")
                 .replace(/\s+/g, " ");
 
               const candidateMake = clean(facebookTitleMatch[2]);
@@ -1111,7 +1185,7 @@ async function handlePostToMarketplace(listing) {
     }
 
     // ============================================================
-    // FACEBOOK PHOTO DOWNLOAD — BACKGROUND CONTEXT
+    // FACEBOOK PHOTO DOWNLOAD ï¿½ BACKGROUND CONTEXT
     // ============================================================
 
     const imageUrls =
@@ -1230,12 +1304,15 @@ async function handlePostToMarketplace(listing) {
     );
 
     listing.downloadedImages = downloadedImages;
-    await chrome.storage.local.set({
-      facebookListing: listing,
-      shiftlyFacebookListing: listing
-    });
 
-    console.log("Shiftly: Marketplace listing saved to extension storage");
+    // Persist metadata only; keep Base64 photos in memory for the direct tab message.
+    const storedListing = { ...listing };
+    delete storedListing.downloadedImages;
+
+    // This flow sends the full listing directly to the Marketplace tab.
+    // Avoid a persistent storage write that may exceed Chrome's quota.
+
+    console.log("Shiftly: Marketplace listing metadata saved; image payload remains in memory");
 
     const marketplaceUrl =
       "https://www.facebook.com/marketplace/create/vehicle";
@@ -1478,6 +1555,200 @@ chrome.runtime.onMessageExternal.addListener(
 chrome.runtime.onMessage.addListener(
   (message, sender, sendResponse) => {
 
+    if (
+      message?.type ===
+      "SHIFTLY_TRICITY_INVENTORY_RESULT"
+    ) {
+      const payload =
+        message.payload;
+
+      const vehicles =
+        Array.isArray(payload?.vehicles)
+          ? payload.vehicles
+          : [];
+
+      const totalVehicles =
+        Number(payload?.totalVehicles);
+
+      const vehicleCount =
+        Number(payload?.vehicleCount);
+
+      const uniqueVehicleCount =
+        Number(payload?.uniqueVehicleCount);
+
+      const totalPages =
+        Number(payload?.totalPages);
+
+      const loadedPages =
+        Array.isArray(payload?.loadedPages)
+          ? payload.loadedPages
+          : [];
+
+      const failedPages =
+        Array.isArray(payload?.failedPages)
+          ? payload.failedPages
+          : [];
+
+      const validFinalPayload =
+        payload?.source === "tricitymits" &&
+        payload?.complete === true &&
+        payload?.incomplete !== true &&
+        payload?.allPagesLoaded === true &&
+        failedPages.length === 0 &&
+        Number.isInteger(totalVehicles) &&
+        totalVehicles > 0 &&
+        Number.isInteger(totalPages) &&
+        totalPages > 0 &&
+        vehicleCount === totalVehicles &&
+        uniqueVehicleCount === totalVehicles &&
+        vehicles.length === totalVehicles &&
+        loadedPages.length === totalPages;
+
+      if (!validFinalPayload) {
+        console.error(
+          "SHIFTLY TRICITY BACKGROUND: FINAL INVENTORY REJECTED",
+          {
+            totalVehicles,
+            vehicleCount,
+            uniqueVehicleCount,
+            vehicles: vehicles.length,
+            totalPages,
+            loadedPages: loadedPages.length,
+            failedPages,
+            complete:
+              payload?.complete ?? false,
+            incomplete:
+              payload?.incomplete ?? false,
+            allPagesLoaded:
+              payload?.allPagesLoaded ?? false,
+          }
+        );
+
+        sendResponse({
+          ok: false,
+          accepted: false,
+          error:
+            "Tri-City final inventory payload failed validation.",
+        });
+
+        return true;
+      }
+
+      const finalRecord = {
+        source: "tricitymits",
+        totalVehicles,
+        totalPages,
+        pageSize:
+          Number(payload?.pageSize) || null,
+        vehicleCount: totalVehicles,
+        uniqueVehicleCount: totalVehicles,
+        loadedPages,
+        failedPages: [],
+        allPagesLoaded: true,
+        complete: true,
+        incomplete: false,
+        vehicles,
+        capturedAt:
+          payload?.capturedAt ||
+          new Date().toISOString(),
+      };
+
+      storeTriCityFinalInventory(finalRecord)
+        .then(() => {
+          console.log(
+            "SHIFTLY TRICITY BACKGROUND: FINAL INVENTORY STORED",
+            {
+              vehicles: finalRecord.vehicles.length,
+              totalVehicles: finalRecord.totalVehicles,
+              totalPages: finalRecord.totalPages,
+            }
+          );
+
+          sendResponse({
+            ok: true,
+            accepted: true,
+            stored: true,
+            vehicles: totalVehicles,
+            totalPages,
+          });
+        })
+        .catch((error) => {
+          console.error(
+            "SHIFTLY TRICITY BACKGROUND: FINAL INVENTORY STORAGE FAILED",
+            error
+          );
+
+          sendResponse({
+            ok: false,
+            accepted: false,
+            stored: false,
+            error: error?.message || String(error),
+          });
+        });
+
+      return true;
+    }
+    if (message?.type === "SHIFTLY_GET_TRICITY_INVENTORY") {
+      openTriCityDatabase()
+        .then((db) => new Promise((resolve, reject) => {
+          const transaction = db.transaction(
+            TRICITY_STORE_NAME,
+            "readonly"
+          );
+          const request = transaction
+            .objectStore(TRICITY_STORE_NAME)
+            .get(TRICITY_RECORD_KEY);
+
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(
+            request.error || new Error("Failed to read saved Tri-City inventory.")
+          );
+          transaction.oncomplete = () => db.close();
+          transaction.onerror = () => {
+            db.close();
+            reject(transaction.error || new Error("Inventory read failed."));
+          };
+          transaction.onabort = () => {
+            db.close();
+            reject(transaction.error || new Error("Inventory read aborted."));
+          };
+        }))
+        .then((record) => {
+          if (
+            !record ||
+            record.source !== "tricitymits" ||
+            record.complete !== true ||
+            record.allPagesLoaded !== true ||
+            record.incomplete === true ||
+            !Array.isArray(record.vehicles) ||
+            record.vehicles.length !== Number(record.totalVehicles) ||
+            !Array.isArray(record.failedPages) ||
+            record.failedPages.length !== 0
+          ) {
+            sendResponse({ ok: true, found: false });
+            return;
+          }
+
+          sendResponse({
+            ok: true,
+            found: true,
+            totalVehicles: record.totalVehicles,
+            totalPages: record.totalPages,
+            capturedAt: record.capturedAt || null,
+          inventory: record
+          });
+        })
+        .catch((error) => {
+          console.error("SHIFTLY TRICITY INVENTORY READ FAILED:", error);
+          sendResponse({
+            ok: false,
+            found: false,
+            error: error?.message || String(error)
+          });
+        });
+
+      return true;
+    }
     if (message?.type === "SHIFTLY_SCAN_TAB") {
       const tabId = Number(message.tabId);
 

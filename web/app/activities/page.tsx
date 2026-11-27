@@ -1,6 +1,22 @@
-"use client";
+﻿"use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import {
+  BackIcon,
+  RefreshIcon,
+  CheckIcon,
+  XIcon,
+  SaveIcon,
+  ClockIcon,
+  UserIcon,
+  PlusIcon,
+  BellIcon,
+  FileTextIcon,
+  CalendarIcon,
+  ChevronDownIcon,
+} from "@/components/icons";
 
 type Customer = {
   id: string;
@@ -74,19 +90,40 @@ function formatDateTime(value: string) {
 function typeClass(type: string) {
   switch (type) {
     case "CALL":
-      return "bg-blue-50 text-blue-700 border-blue-200";
+      return "border border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]";
     case "SMS":
-      return "bg-green-50 text-green-700 border-green-200";
+      return "border border-[#FED7AA] bg-[#FFFBEB] text-[#92400E]";
     case "EMAIL":
-      return "bg-purple-50 text-purple-700 border-purple-200";
+      return "border border-[#E9D5FF] bg-[#FAF5FF] text-[#7C3AED]";
     case "MEETING":
-      return "bg-orange-50 text-orange-700 border-orange-200";
+      return "border border-[#FED7AA] bg-[#FFFBEB] text-[#92400E]";
     case "FOLLOW_UP":
-      return "bg-yellow-50 text-yellow-700 border-yellow-200";
+      return "border border-[#FED7AA] bg-[#FFFBEB] text-[#92400E]";
     case "STATUS_CHANGE":
-      return "bg-pink-50 text-pink-700 border-pink-200";
+      return "border border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]";
     default:
-      return "bg-gray-50 text-gray-700 border-gray-200";
+      return "border border-[#CFE2F5] bg-[#F5F9FD] text-[#475569]";
+  }
+}
+
+function typeIcon(type: string) {
+  switch (type) {
+    case "CALL":
+      return BellIcon;
+    case "SMS":
+      return FileTextIcon;
+    case "EMAIL":
+      return FileTextIcon;
+    case "MEETING":
+      return CalendarIcon;
+    case "NOTE":
+      return FileTextIcon;
+    case "FOLLOW_UP":
+      return ClockIcon;
+    case "STATUS_CHANGE":
+      return RefreshIcon;
+    default:
+      return FileTextIcon;
   }
 }
 
@@ -113,7 +150,7 @@ export default function ActivitiesPage() {
   const [description, setDescription] = useState("");
   const [activityAt, setActivityAt] = useState("");
 
-  async function loadActivities() {
+  const loadActivities = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -134,19 +171,14 @@ export default function ActivitiesPage() {
 
       params.set("limit", "200");
 
-      const response = await fetch(
-        `/api/activities?${params.toString()}`,
-        {
-          cache: "no-store",
-        }
-      );
+      const response = await fetch(`/api/activities?${params.toString()}`, {
+        cache: "no-store",
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data?.error || "Unable to load activities"
-        );
+        throw new Error(data?.error || "Unable to load activities");
       }
 
       setActivities(data.activities ?? []);
@@ -154,14 +186,12 @@ export default function ActivitiesPage() {
       console.error("Activity load error:", err);
 
       setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load activities"
+        err instanceof Error ? err.message : "Unable to load activities",
       );
     } finally {
       setLoading(false);
     }
-  }
+  }, [customerFilter, leadFilter, userFilter]);
 
   async function loadCustomers() {
     try {
@@ -172,9 +202,7 @@ export default function ActivitiesPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data?.error || "Unable to load customers"
-        );
+        throw new Error(data?.error || "Unable to load customers");
       }
 
       setCustomers(data.customers ?? []);
@@ -192,9 +220,7 @@ export default function ActivitiesPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data?.error || "Unable to load leads"
-        );
+        throw new Error(data?.error || "Unable to load leads");
       }
 
       setLeads(data.leads ?? []);
@@ -220,8 +246,8 @@ export default function ActivitiesPage() {
           (user: Salesperson) =>
             user.role === "salesperson" ||
             user.role === "manager" ||
-            user.role === "admin"
-        )
+            user.role === "admin",
+        ),
       );
     } catch (err) {
       console.error("Salesperson load error:", err);
@@ -229,14 +255,12 @@ export default function ActivitiesPage() {
   }
 
   useEffect(() => {
+    // These async loaders update state after their fetch completes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadCustomers();
     loadLeads();
     loadSalespeople();
   }, []);
-
-  useEffect(() => {
-    loadActivities();
-  }, [customerFilter, leadFilter, userFilter]);
 
   const visibleActivities = useMemo(() => {
     if (!typeFilter) {
@@ -244,12 +268,11 @@ export default function ActivitiesPage() {
     }
 
     return activities.filter(
-      (activity) => activity.activity_type === typeFilter
+      (activity) => activity.activity_type === typeFilter,
     );
   }, [activities, typeFilter]);
-
   const selectedCustomer = customers.find(
-    (customer) => customer.id === customerId
+    (customer) => customer.id === customerId,
   );
 
   const availableLeads = useMemo(() => {
@@ -257,24 +280,16 @@ export default function ActivitiesPage() {
       return leads;
     }
 
-    return leads.filter(
-      (lead) => lead.customer_id === customerId
-    );
+    return leads.filter((lead) => lead.customer_id === customerId);
   }, [leads, customerId]);
 
   function handleCustomerChange(value: string) {
     setCustomerId(value);
 
     if (leadId) {
-      const selectedLead = leads.find(
-        (lead) => lead.id === leadId
-      );
+      const selectedLead = leads.find((lead) => lead.id === leadId);
 
-      if (
-        selectedLead &&
-        value &&
-        selectedLead.customer_id !== value
-      ) {
+      if (selectedLead && value && selectedLead.customer_id !== value) {
         setLeadId("");
       }
     }
@@ -303,18 +318,14 @@ export default function ActivitiesPage() {
           customerId: customerId || null,
           leadId: leadId || null,
           description: description.trim(),
-          activityAt: activityAt
-            ? new Date(activityAt).toISOString()
-            : null,
+          activityAt: activityAt ? new Date(activityAt).toISOString() : null,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data?.error || "Unable to create activity"
-        );
+        throw new Error(data?.error || "Unable to create activity");
       }
 
       setSuccess("Activity recorded successfully.");
@@ -326,9 +337,7 @@ export default function ActivitiesPage() {
       console.error("Activity save error:", err);
 
       setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to create activity"
+        err instanceof Error ? err.message : "Unable to create activity",
       );
     } finally {
       setSaving(false);
@@ -336,89 +345,123 @@ export default function ActivitiesPage() {
   }
 
   return (
-    <div className="p-6 lg:p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-neutral-900">
-          Salesperson Activity
-        </h1>
+    <div className="mx-auto w-full max-w-[1400px] px-3 pb-6 sm:px-4 lg:px-5">
+      <div className="mb-5">
+        <Link
+          href="/"
+          className="group mb-3 inline-flex items-center gap-2 rounded-xl border border-[#DCE8F5] bg-white px-3.5 py-2 text-sm font-semibold text-[#475569] transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF] hover:text-[#1677FF]"
+        >
+          <BackIcon className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" />
+          <span>Back to Dashboard</span>
+        </Link>
 
-        <p className="mt-1 text-sm text-neutral-600">
-          Track calls, messages, emails, meetings, follow-ups,
-          notes, and lead status changes.
-        </p>
+        <div className="rounded-2xl border border-[#DCE8F5] bg-white p-5 sm:p-6">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+              <BellIcon className="h-4 w-4" />
+            </span>
+
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-[#102A56] sm:text-3xl">
+                Salesperson Activity
+              </h1>
+
+              <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[#64748B]">
+                Track calls, messages, emails, meetings, follow-ups, notes, and
+                lead status changes.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {error && (
-        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="flex items-center gap-2">
+            <XIcon className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
         </div>
       )}
 
       {success && (
-        <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {success}
+        <div className="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <div className="flex items-center gap-2">
+            <CheckIcon className="h-4 w-4 shrink-0" />
+            {success}
+          </div>
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-        <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-          <div className="mb-5">
-            <h2 className="text-lg font-semibold text-neutral-900">
-              Record Activity
-            </h2>
+      <div className="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <section className="rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5">
+          <div className="mb-4 flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+              <PlusIcon className="h-4 w-4" />
+            </span>
 
-            <p className="mt-1 text-sm text-neutral-600">
-              Add a new salesperson interaction.
-            </p>
+            <div>
+              <h2 className="text-base font-bold text-[#102A56]">
+                Record Activity
+              </h2>
+
+              <p className="text-xs text-[#64748B]">
+                Add a new salesperson interaction
+              </p>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-700">
+              <label className="block text-sm font-semibold text-[#334155]">
                 Activity Type
               </label>
 
-              <select
-                value={activityType}
-                onChange={(event) =>
-                  setActivityType(event.target.value)
-                }
-                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
-              >
-                {ACTIVITY_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {TYPE_LABELS[type]}
-                  </option>
-                ))}
-              </select>
+              <div className="relative mt-2">
+                <select
+                  value={activityType}
+                  onChange={(event) => setActivityType(event.target.value)}
+                  className="h-11 w-full appearance-none rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition-colors focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10"
+                >
+                  {ACTIVITY_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {TYPE_LABELS[type]}
+                    </option>
+                  ))}
+                </select>
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B]">
+                  <ChevronDownIcon className="h-4 w-4" />
+                </span>
+              </div>
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-700">
+              <label className="block text-sm font-semibold text-[#334155]">
                 Customer
               </label>
 
-              <select
-                value={customerId}
-                onChange={(event) =>
-                  handleCustomerChange(event.target.value)
-                }
-                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
-              >
-                <option value="">No customer selected</option>
+              <div className="relative mt-2">
+                <select
+                  value={customerId}
+                  onChange={(event) => handleCustomerChange(event.target.value)}
+                  className="h-11 w-full appearance-none rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition-colors focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10"
+                >
+                  <option value="">No customer selected</option>
 
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                    {customer.phone
-                      ? ` - ${customer.phone}`
-                      : ""}
-                  </option>
-                ))}
-              </select>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name}
+                      {customer.phone ? ` - ${customer.phone}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B]">
+                  <ChevronDownIcon className="h-4 w-4" />
+                </span>
+              </div>
 
               {selectedCustomer && (
-                <div className="mt-2 rounded-lg bg-neutral-50 p-3 text-xs text-neutral-600">
+                <div className="mt-2 rounded-xl border border-[#DCE8F5] bg-[#F8FBFF] p-3 text-xs text-[#64748B]">
                   {selectedCustomer.phone && (
                     <div>Phone: {selectedCustomer.phone}</div>
                   )}
@@ -431,16 +474,15 @@ export default function ActivitiesPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-700">
+              <label className="block text-sm font-semibold text-[#334155]">
                 Lead
-                </label>
+              </label>
 
+              <div className="relative mt-2">
                 <select
                   value={leadId}
-                  onChange={(event) =>
-                    setLeadId(event.target.value)
-                  }
-                  className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+                  onChange={(event) => setLeadId(event.target.value)}
+                  className="h-11 w-full appearance-none rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition-colors focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10"
                 >
                   <option value="">No lead selected</option>
 
@@ -450,80 +492,87 @@ export default function ActivitiesPage() {
                     </option>
                   ))}
                 </select>
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B]">
+                  <ChevronDownIcon className="h-4 w-4" />
+                </span>
               </div>
+            </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-neutral-700">
-                  Activity Date / Time
-                </label>
+            <div>
+              <label className="block text-sm font-semibold text-[#334155]">
+                Activity Date / Time
+              </label>
 
-                <input
-                  type="datetime-local"
-                  value={activityAt}
-                  onChange={(event) =>
-                    setActivityAt(event.target.value)
-                  }
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
-                />
-              </div>
+              <input
+                type="datetime-local"
+                value={activityAt}
+                onChange={(event) => setActivityAt(event.target.value)}
+                className="mt-2 h-11 w-full rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition-colors focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10"
+              />
+            </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-neutral-700">
-                  Description
-                </label>
+            <div>
+              <label className="block text-sm font-semibold text-[#334155]">
+                Description
+              </label>
 
-                <textarea
-                  value={description}
-                  onChange={(event) =>
-                    setDescription(event.target.value)
-                  }
-                  rows={5}
-                  placeholder="Describe the customer interaction..."
-                  className="w-full resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
-                />
-              </div>
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                rows={3}
+                placeholder="Describe the customer interaction..."
+                className="mt-2 w-full resize-none rounded-xl border border-[#DCE8F5] bg-white px-3.5 py-2.5 text-sm text-[#102A56] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10"
+              />
+            </div>
 
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
-              >
-                {saving ? "Saving..." : "Record Activity"}
-              </button>
-            </form>
-          </section>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#1677FF] bg-[#1677FF] px-4 text-sm font-semibold text-white transition-colors hover:border-[#0F67E8] hover:bg-[#0F67E8] disabled:cursor-not-allowed disabled:border-[#CBD5E1] disabled:bg-[#CBD5E1]"
+            >
+              <SaveIcon className="h-4 w-4" />
+              {saving ? "Saving..." : "Record Activity"}
+            </button>
+          </form>
+        </section>
 
-          <section className="min-w-0">
-            <div className="mb-5 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <section className="min-w-0">
+          <div className="mb-4 rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                  <ClockIcon className="h-4 w-4" />
+                </span>
+
                 <div>
-                  <h2 className="text-lg font-semibold text-neutral-900">
+                  <h2 className="text-base font-bold text-[#102A56]">
                     Activity History
                   </h2>
 
-                  <p className="text-sm text-neutral-600">
+                  <p className="text-xs text-[#64748B]">
                     {visibleActivities.length} activity
                     {visibleActivities.length === 1 ? "" : "ies"}
                   </p>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={loadActivities}
-                  disabled={loading}
-                  className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-                >
-                  Refresh
-                </button>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <button
+                type="button"
+                onClick={loadActivities}
+                disabled={loading}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-[#DCE8F5] bg-white px-3 text-xs font-semibold text-[#475569] transition-colors hover:border-[#BFD8F2] hover:bg-[#F8FBFF] disabled:opacity-50"
+              >
+                <RefreshIcon className="h-3.5 w-3.5" />
+                Refresh
+              </button>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="relative">
                 <select
                   value={customerFilter}
-                  onChange={(event) =>
-                    setCustomerFilter(event.target.value)
-                  }
-                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+                  onChange={(event) => setCustomerFilter(event.target.value)}
+                  className="h-11 w-full appearance-none rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition-colors focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10"
                 >
                   <option value="">All Customers</option>
 
@@ -533,13 +582,16 @@ export default function ActivitiesPage() {
                     </option>
                   ))}
                 </select>
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B]">
+                  <ChevronDownIcon className="h-4 w-4" />
+                </span>
+              </div>
 
+              <div className="relative">
                 <select
                   value={leadFilter}
-                  onChange={(event) =>
-                    setLeadFilter(event.target.value)
-                  }
-                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+                  onChange={(event) => setLeadFilter(event.target.value)}
+                  className="h-11 w-full appearance-none rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition-colors focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10"
                 >
                   <option value="">All Leads</option>
 
@@ -549,13 +601,16 @@ export default function ActivitiesPage() {
                     </option>
                   ))}
                 </select>
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B]">
+                  <ChevronDownIcon className="h-4 w-4" />
+                </span>
+              </div>
 
+              <div className="relative">
                 <select
                   value={userFilter}
-                  onChange={(event) =>
-                    setUserFilter(event.target.value)
-                  }
-                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+                  onChange={(event) => setUserFilter(event.target.value)}
+                  className="h-11 w-full appearance-none rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition-colors focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10"
                 >
                   <option value="">All Salespeople</option>
 
@@ -565,13 +620,16 @@ export default function ActivitiesPage() {
                     </option>
                   ))}
                 </select>
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B]">
+                  <ChevronDownIcon className="h-4 w-4" />
+                </span>
+              </div>
 
+              <div className="relative">
                 <select
                   value={typeFilter}
-                  onChange={(event) =>
-                    setTypeFilter(event.target.value)
-                  }
-                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+                  onChange={(event) => setTypeFilter(event.target.value)}
+                  className="h-11 w-full appearance-none rounded-xl border border-[#DCE8F5] bg-white px-3.5 text-sm text-[#102A56] outline-none transition-colors focus:border-[#1677FF] focus:ring-2 focus:ring-[#1677FF]/10"
                 >
                   <option value="">All Activity Types</option>
 
@@ -581,96 +639,119 @@ export default function ActivitiesPage() {
                     </option>
                   ))}
                 </select>
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B]">
+                  <ChevronDownIcon className="h-4 w-4" />
+                </span>
               </div>
             </div>
+          </div>
 
-            {loading ? (
-              <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500 shadow-sm">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                <RefreshIcon className="h-5 w-5 animate-spin" />
+              </span>
+              <p className="ml-3 text-sm font-medium text-[#64748B]">
                 Loading activity history...
-              </div>
-            ) : visibleActivities.length === 0 ? (
-              <div className="rounded-2xl border border-neutral-200 bg-white p-10 text-center shadow-sm">
-                <h3 className="font-semibold text-neutral-900">
-                  No activities found
-                </h3>
+              </p>
+            </div>
+          ) : visibleActivities.length === 0 ? (
+            <div className="rounded-2xl border border-[#DCE8F5] bg-white p-10 text-center">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                <ClockIcon className="h-5 w-5" />
+              </span>
 
-                <p className="mt-1 text-sm text-neutral-600">
-                  Record a customer interaction to start the
-                  activity history.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {visibleActivities.map((activity) => (
+              <h3 className="mt-4 text-base font-bold text-[#102A56]">
+                No activities found
+              </h3>
+
+              <p className="mx-auto mt-1 max-w-md text-sm text-[#64748B]">
+                Record a customer interaction to start the activity history.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {visibleActivities.map((activity) => {
+                const TypeIcon = typeIcon(activity.activity_type);
+
+                return (
                   <article
                     key={activity.id}
-                    className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm"
+                    className="rounded-2xl border border-[#DCE8F5] bg-white p-4 sm:p-5"
                   >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${typeClass(
-                              activity.activity_type
-                            )}`}
-                          >
-                            {TYPE_LABELS[
-                              activity.activity_type
-                            ] || activity.activity_type}
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DCE8F5] bg-[#F5F9FD] text-[#1677FF]">
+                            <TypeIcon className="h-4 w-4" />
                           </span>
 
-                          <span className="text-xs text-neutral-400">
-                            {formatDateTime(
-                              activity.activity_at
-                            )}
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${typeClass(
+                              activity.activity_type,
+                            )}`}
+                          >
+                            {TYPE_LABELS[activity.activity_type] ||
+                              activity.activity_type}
+                          </span>
+
+                          <span className="flex items-center gap-1.5 text-xs text-[#64748B]">
+                            <ClockIcon className="h-3.5 w-3.5" />
+                            {formatDateTime(activity.activity_at)}
                           </span>
                         </div>
 
-                        <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-neutral-800">
+                        <p className="mt-2.5 whitespace-pre-wrap text-sm leading-6 text-[#334155]">
                           {activity.description}
                         </p>
                       </div>
 
-                      <div className="shrink-0 text-left sm:text-right">
-                        <div className="text-sm font-medium text-neutral-900">
+                      <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-[#102A56]">
+                          <UserIcon className="h-3.5 w-3.5" />
                           {activity.user?.name ||
                             activity.user?.email ||
                             "Salesperson"}
                         </div>
 
-                        <div className="mt-1 text-xs capitalize text-neutral-500">
+                        <div className="text-xs capitalize text-[#64748B]">
                           {activity.user?.role || "salesperson"}
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2 border-t border-neutral-100 pt-4">
+                    <div className="mt-3 flex flex-wrap gap-2 border-t border-[#E7EEF6] pt-3">
                       {activity.customer && (
-                        <span className="rounded-lg bg-neutral-50 px-3 py-1.5 text-xs text-neutral-700">
+                        <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#DCE8F5] bg-[#F8FBFF] px-2.5 py-1.5 text-xs text-[#475569]">
+                          <UserIcon className="h-3.5 w-3.5" />
                           Customer: {activity.customer.name}
                         </span>
                       )}
 
                       {activity.lead && (
-                        <span className="rounded-lg bg-neutral-50 px-3 py-1.5 text-xs text-neutral-700">
+                        <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#DCE8F5] bg-[#F8FBFF] px-2.5 py-1.5 text-xs text-[#475569]">
+                          <UserIcon className="h-3.5 w-3.5" />
                           Lead: {activity.lead.customer_name}
                         </span>
                       )}
 
                       {activity.lead?.status && (
-                        <span className="rounded-lg bg-neutral-50 px-3 py-1.5 text-xs text-neutral-700">
+                        <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#DCE8F5] bg-[#F8FBFF] px-2.5 py-1.5 text-xs text-[#475569]">
+                          <RefreshIcon className="h-3.5 w-3.5" />
                           Status: {activity.lead.status}
                         </span>
                       )}
                     </div>
                   </article>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
+
 
 

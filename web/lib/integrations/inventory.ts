@@ -2,22 +2,23 @@ import type {
   Integration,
   IntegrationSyncResult,
 } from "./types";
-import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { createSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { crawlInventory } from "@/lib/scraper/inventory-crawler";
 import { transformBatchToShiftlyVehicles } from "@/lib/scraper/transformer";
 
 export async function syncInventory(
   integration: Integration
 ): Promise<IntegrationSyncResult> {
-  console.log(`📦 syncInventory function entered: Integration ID ${integration.id}`);
+  console.log(
+    `[Inventory Sync] Started for integration ${integration.id}`
+  );
 
   const config = integration.config ?? {};
+
   const inventoryUrl =
     typeof config.inventory_url === "string"
       ? config.inventory_url.trim()
       : "";
-
-  console.log(`🔗 Inventory URL from config: ${inventoryUrl}`);
 
   const maxVehicles =
     typeof config.max_vehicles === "number" &&
@@ -26,76 +27,128 @@ export async function syncInventory(
       ? Math.min(Math.floor(config.max_vehicles), 500)
       : 100;
 
-  console.log(`🔢 Max vehicles from config: ${maxVehicles}`);
+  const failedResult = (
+    errorMessage: string,
+    recordsFailed = 0
+  ): IntegrationSyncResult => ({
+    status: "FAILED",
+    recordsProcessed: 0,
+    recordsCreated: 0,
+    recordsUpdated: 0,
+    recordsFailed,
+    errorMessage,
+  });
 
   if (!inventoryUrl) {
-    console.log(`❌ BLOCKER: Inventory URL not configured`);
-    return {
-      status: "FAILED",
-      recordsProcessed: 0,
-      recordsCreated: 0,
-      recordsUpdated: 0,
-      recordsFailed: 0,
-      errorMessage: "Missing inventory_url in integration config.",
-    };
+    return failedResult(
+      "Missing inventory_url in integration config."
+    );
   }
 
   if (!integration.created_by) {
-    console.log(`❌ BLOCKER: Integration has no created_by user`);
-    return {
-      status: "FAILED",
-      recordsProcessed: 0,
-      recordsCreated: 0,
-      recordsUpdated: 0,
-      recordsFailed: 0,
-      errorMessage: "Integration has no created_by user.",
-    };
+    return failedResult(
+      "Integration has no created_by user."
+    );
   }
 
-  console.log(`🔄 Starting inventory sync for: ${inventoryUrl} with max ${maxVehicles} vehicles`);
+  try {
+    const parsedUrl = new URL(inventoryUrl);
 
-  const { vehicles: scrapedVehicles, errors: scrapeErrors } =
-    await crawlInventory(inventoryUrl, {
+    if (
+      parsedUrl.protocol !== "https:" &&
+      parsedUrl.protocol !== "http:"
+    ) {
+      return failedResult(
+        "Inventory URL must use HTTP or HTTPS."
+      );
+    }
+
+    if (parsedUrl.username || parsedUrl.password) {
+      return failedResult(
+        "Inventory URLs containing embedded credentials are not allowed."
+      );
+    }
+  } catch {
+    return failedResult("Invalid inventory_url.");
+  }
+
+  let scrapedVehicles;
+  let scrapeErrors;
+  let scrapeComplete = false;
+
+  try {
+    const result = await crawlInventory(inventoryUrl, {
       maxVehicles,
       delayMs: 1000,
     });
 
-  console.log(`📊 Crawler Results:`, {
-    scrapedVehicles: scrapedVehicles.length,
-    scrapeErrors: scrapeErrors.length,
-    errorDetails: scrapeErrors.map(e => e.error)
+    scrapedVehicles = result.vehicles;
+    scrapeErrors = result.errors;
+    scrapeComplete =
+      result.complete && scrapeErrors.length === 0;
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : String(error);
+
+    console.error("[Inventory Sync] Crawl failed:", message);
+
+    return failedResult(
+      `Inventory crawl failed: ${message}`,
+      1
+    );
+  }
+
+  console.log("[Inventory Sync] Crawl results:", {
+    vehicles: scrapedVehicles.length,
+    errors: scrapeErrors.length,
+    complete: scrapeComplete,
   });
 
   if (scrapedVehicles.length === 0) {
-    console.log(`❌ BLOCKER: No vehicles returned from crawler - discovery/scraper issue`);
-    return {
-      status: "FAILED",
-      recordsProcessed: 0,
-      recordsCreated: 0,
-      recordsUpdated: 0,
-      recordsFailed: scrapeErrors.length,
-      errorMessage:
-        scrapeErrors.length > 0
-          ? `Inventory crawl returned no vehicles. ${scrapeErrors.length} scrape error(s).`
-          : "Inventory crawl returned no vehicles.",
-    };
+    const details = scrapeErrors
+      .map((error) => error.error)
+      .filter(Boolean)
+      .join("; ");
+
+    return failedResult(
+      "Inventory crawl returned no vehicles. Existing inventory was left unchanged." +
+        (details ? ` Details: ${details}` : ""),
+      Math.max(scrapeErrors.length, 1)
+    );
   }
 
-  console.log(`✅ Crawler returned ${scrapedVehicles.length} vehicles, proceeding to transformation...`);
+  let transformedVehicles;
 
-  console.log(`🔄 Starting transformation of ${scrapedVehicles.length} vehicles...`);
+  try {
+    transformedVehicles =
+      await transformBatchToShiftlyVehicles(
+        scrapedVehicles,
+        integration.dealership_id,
+        integration.created_by
+      );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : String(error);
 
-  const transformedVehicles = await transformBatchToShiftlyVehicles(
-    scrapedVehicles,
-    integration.dealership_id,
-    integration.created_by
-  );
+    console.error(
+      "[Inventory Sync] Transformation failed:",
+      message
+    );
 
-  console.log(`✅ Transformation completed: ${transformedVehicles.length} vehicles transformed`);
+    return failedResult(
+      `Inventory transformation failed: ${message}`,
+      Math.max(scrapeErrors.length, 1)
+    );
+  }
 
-  const supabase = await createSupabaseServerClient();
+  if (transformedVehicles.length === 0) {
+    return failedResult(
+      "No vehicles could be transformed. Existing inventory was left unchanged.",
+      Math.max(scrapeErrors.length, 1)
+    );
+  }
 
-  console.log(`🗄️ Starting database operations for ${transformedVehicles.length} vehicles...`);
+  const supabase = createSupabaseAdminClient();
 
   let recordsCreated = 0;
   let recordsUpdated = 0;
@@ -104,31 +157,38 @@ export async function syncInventory(
   for (const vehicle of transformedVehicles) {
     const vin = vehicle.vin?.trim().toUpperCase();
 
-    console.log(`🚗 Processing vehicle: VIN ${vin}, images: ${vehicle.images?.length || 0}`);
-
-    // VIN is the inventory matching key.
-    // Vehicles without VIN are skipped rather than creating
-    // duplicate records on every scheduled sync.
     if (!vin) {
-      console.log(`⚠️ Skipping vehicle without VIN`);
+      console.warn(
+        "[Inventory Sync] Skipping vehicle without a VIN."
+      );
       recordsFailed += 1;
       continue;
     }
 
     try {
-      const { data: existingVehicle, error: lookupError } =
-        await supabase
-          .from("vehicles")
-          .select("id")
-          .eq("dealership_id", integration.dealership_id)
-          .eq("vin", vin)
-          .maybeSingle();
+      const {
+        data: existingVehicle,
+        error: lookupError,
+      } = await supabase
+        .from("vehicles")
+        .select("id, primary_image, images")
+        .eq("dealership_id", integration.dealership_id)
+        .eq("vin", vin)
+        .maybeSingle();
 
       if (lookupError) {
         throw lookupError;
       }
 
-      console.log(`🔍 Database lookup for VIN ${vin}: ${existingVehicle ? 'found' : 'not found'}`);
+      const incomingImages = Array.isArray(vehicle.images)
+        ? vehicle.images
+            .filter(
+              (image): image is string =>
+                typeof image === "string" &&
+                image.trim().length > 0
+            )
+            .map((image) => image.trim())
+        : [];
 
       const vehicleData = {
         dealership_id: integration.dealership_id,
@@ -143,25 +203,52 @@ export async function syncInventory(
         fuel: vehicle.fuel ?? null,
         transmission: vehicle.transmission ?? null,
         price: vehicle.price ?? null,
-        currency: vehicle.currency ?? null, // Keep null if source didn't provide currency
+        currency: vehicle.currency ?? null,
         mileage: vehicle.mileage ?? null,
-        mileage_unit: vehicle.mileage_unit ?? null, // Keep null if source didn't provide unit
+        mileage_unit: vehicle.mileage_unit ?? null,
         description: vehicle.description ?? null,
         location: vehicle.location ?? null,
         status: "AVAILABLE",
         primary_image: vehicle.primary_image ?? null,
-        images: vehicle.images ?? [], // Preserve complete image array
+        images: incomingImages,
         created_by: integration.created_by,
         updated_at: new Date().toISOString(),
       };
 
-      console.log(`🔗 Database save: VIN ${vin} - ${vehicleData.images.length} images being saved`);
-
       if (existingVehicle?.id) {
-        console.log(`🔄 Updating existing vehicle: VIN ${vin}`);
+        const existingImages = Array.isArray(
+          existingVehicle.images
+        )
+          ? existingVehicle.images
+              .filter(
+                (image): image is string =>
+                  typeof image === "string" &&
+                  image.trim().length > 0
+              )
+              .map((image) => image.trim())
+          : [];
+
+        const mergedImages = [
+          ...new Set([...existingImages, ...incomingImages]),
+        ];
+
+        const primaryImage =
+          typeof vehicle.primary_image === "string" &&
+          vehicle.primary_image.trim()
+            ? vehicle.primary_image.trim()
+            : typeof existingVehicle.primary_image ===
+                  "string" &&
+                existingVehicle.primary_image.trim()
+              ? existingVehicle.primary_image.trim()
+              : mergedImages[0] ?? null;
+
         const { error: updateError } = await supabase
           .from("vehicles")
-          .update(vehicleData)
+          .update({
+            ...vehicleData,
+            primary_image: primaryImage,
+            images: mergedImages,
+          })
           .eq("id", existingVehicle.id)
           .eq("dealership_id", integration.dealership_id);
 
@@ -170,9 +257,7 @@ export async function syncInventory(
         }
 
         recordsUpdated += 1;
-        console.log(`✅ Update successful: VIN ${vin}`);
       } else {
-        console.log(`➕ Creating new vehicle: VIN ${vin}`);
         const { error: insertError } = await supabase
           .from("vehicles")
           .insert(vehicleData);
@@ -182,41 +267,53 @@ export async function syncInventory(
         }
 
         recordsCreated += 1;
-        console.log(`✅ Create successful: VIN ${vin}`);
       }
     } catch (error) {
       recordsFailed += 1;
+
       console.error(
-        "❌ Vehicle sync error:",
-        vin,
+        `[Inventory Sync] Failed to save VIN ${vin}:`,
         error
       );
     }
   }
 
-  const recordsProcessed = transformedVehicles.length;
+  const successfulWrites = recordsCreated + recordsUpdated;
 
-  console.log(`📊 Final sync results:`, {
-    recordsProcessed,
-    recordsCreated,
-    recordsUpdated,
-    recordsFailed
-  });
+  const status: IntegrationSyncResult["status"] =
+    recordsFailed > 0
+      ? successfulWrites > 0
+        ? "PARTIAL"
+        : "FAILED"
+      : !scrapeComplete
+        ? "PARTIAL"
+        : "SUCCESS";
 
-  return {
-    status:
-      recordsFailed > 0
-        ? recordsCreated + recordsUpdated > 0
-          ? "PARTIAL"
-          : "FAILED"
-        : "SUCCESS",
-    recordsProcessed,
+  const errorMessages = [
+    !scrapeComplete
+      ? "Inventory crawl was incomplete; no vehicles were automatically marked SOLD."
+      : null,
+    scrapeErrors.length > 0
+      ? `${scrapeErrors.length} scraping error(s).`
+      : null,
+    recordsFailed > scrapeErrors.length
+      ? `${recordsFailed - scrapeErrors.length} vehicle save operation(s) failed.`
+      : null,
+  ].filter((message): message is string => Boolean(message));
+
+  const result: IntegrationSyncResult = {
+    status,
+    recordsProcessed: transformedVehicles.length,
     recordsCreated,
     recordsUpdated,
     recordsFailed,
     errorMessage:
-      recordsFailed > 0
-        ? `${recordsFailed} vehicle(s) failed during inventory sync.`
+      errorMessages.length > 0
+        ? errorMessages.join(" ")
         : undefined,
   };
+
+  console.log("[Inventory Sync] Final results:", result);
+
+  return result;
 }

@@ -106,7 +106,7 @@ export async function POST(request: Request) {
 
 
   let customerId = body.customerId ?? null;
-  let leadId = body.leadId ?? null;
+  const leadId = body.leadId ?? null;
 
   const { data: vehicle, error: vehicleError } = await supabase
     .from("vehicles")

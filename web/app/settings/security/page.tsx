@@ -643,7 +643,7 @@ async function handleDeleteAllDevices() {
                       </p>
                       <p className="mt-0.5 text-xs text-[#64748B]">
                         Last used:{" "}
-                        {new Date(device.last_used_at).toLocaleDateString()} â€¢
+                        {new Date(device.last_used_at).toLocaleDateString()} •
                         Expires:{" "}
                         {new Date(device.expires_at).toLocaleDateString()}
                       </p>

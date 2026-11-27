@@ -25,6 +25,13 @@ export async function POST(
       );
     }
 
+    if (userProfile.role !== 'admin' && userProfile.role !== 'manager') {
+      return NextResponse.json(
+        { error: 'Only managers and admins can sync vehicles to Meta.' },
+        { status: 403 }
+      );
+    }
+
     // 2. SaaS access check
     const saasAccess = await requireSaasAccess();
     if (!saasAccess.ok) {
@@ -146,14 +153,12 @@ export async function POST(
         message: 'Vehicle synced to Meta catalog successfully',
         vehicle_id: vehicle.id,
         meta_vehicle_id: syncResult.meta_vehicle_id,
-        details: syncResult.details,
       });
     } else {
       return NextResponse.json(
         {
           success: false,
-          error: syncResult.error,
-          details: syncResult.details,
+          error: 'Meta sync failed. Please check the Meta integration settings or sync logs.',
         },
         { status: 500 }
       );
@@ -164,7 +169,6 @@ export async function POST(
       {
         success: false,
         error: 'An unexpected error occurred during Meta sync',
-        details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     );
