@@ -28,7 +28,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   ]);
 }
 
-function sendExtensionMessage(message: Record<string, unknown>): Promise<unknown> {
+function sendExtensionMessage(message: { type: string; [key: string]: unknown }): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const runtime = window.chrome?.runtime;
     if (!runtime || !EXTENSION_ID) {

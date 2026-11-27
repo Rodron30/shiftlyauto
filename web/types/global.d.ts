@@ -6,6 +6,11 @@ declare global {
     listing: unknown;
   }
 
+  interface ShiftlyExtensionMessage {
+    type: string;
+    [key: string]: unknown;
+  }
+
   interface ShiftlyExtensionResponse {
     success?: boolean;
     error?: string;
@@ -16,7 +21,7 @@ declare global {
       runtime: {
         sendMessage: (
           extensionId: string,
-          message: ShiftlyMarketplaceListingMessage,
+          message: ShiftlyExtensionMessage,
           callback?: (response: ShiftlyExtensionResponse) => void
         ) => void;
         lastError?: { message: string };

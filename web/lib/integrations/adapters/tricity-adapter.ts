@@ -1,6 +1,6 @@
 import { VehiclePreview, ScanResult } from '../vehicle-types';
 import { createScanRecord } from '../scan-records';
-import { fetchAllTriCityInventory } from '@/lib/scraper/tricity-inventory-fetcher';
+import { fetchAllTriCityInventory, type TriCityCollectedInventory } from '@/lib/scraper/tricity-inventory-fetcher';
 import { TriCityHttpFeedTransport } from '@/lib/scraper/tricity-http-feed';
 import { validateScrapeUrl } from '@/lib/scraper/url-security';
 
